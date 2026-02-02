@@ -1,4 +1,4 @@
-# healthfy
+# Vital Metrics
 
 A new Flutter project.
 
