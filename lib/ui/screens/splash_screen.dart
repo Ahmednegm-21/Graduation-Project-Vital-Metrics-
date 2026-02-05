@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:healthfy/ui/screens/sign_in_screen.dart';
 import 'dart:async';
+
+import 'package:vital_metrics/ui/screens/sign_in_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

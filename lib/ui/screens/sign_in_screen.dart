@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:healthfy/logic/auth/auth_cubit.dart';
-import 'package:healthfy/logic/auth/auth_state.dart';
+import 'package:vital_metrics/logic/auth/auth_cubit.dart';
+import 'package:vital_metrics/logic/auth/auth_state.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/social_auth_button.dart';
@@ -31,8 +31,11 @@ class _SignInScreenState extends State<SignInScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             Future.delayed(const Duration(milliseconds: 800), () {
-              // TODO: Navigate to HomeScreen
-              // Navigator.pushReplacementNamed(context, '/home');
+              // الانتقال لصفحة الجنس بعد تسجيل الدخول الناجح
+              Navigator.pushReplacementNamed(
+                context,
+                '/onboarding-gender',
+              );
             });
           }
         },
