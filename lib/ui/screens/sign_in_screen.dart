@@ -31,8 +31,11 @@ class _SignInScreenState extends State<SignInScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             Future.delayed(const Duration(milliseconds: 800), () {
-              // TODO: Navigate to HomeScreen
-              // Navigator.pushReplacementNamed(context, '/home');
+              // الانتقال لصفحة الجنس بعد تسجيل الدخول الناجح
+              Navigator.pushReplacementNamed(
+                context,
+                '/onboarding-gender',
+              );
             });
           }
         },
