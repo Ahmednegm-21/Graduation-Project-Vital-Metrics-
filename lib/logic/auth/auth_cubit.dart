@@ -1,32 +1,37 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '/data/models/user_model.dart';
+import '../../data/repositories/auth_repository.dart';
+import '../../data/exceptions/api_exception.dart';
 import 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
-  AuthCubit() : super(AuthInitial());
+  final AuthRepository _authRepository;
 
-  // Email validation
+  AuthCubit({AuthRepository? authRepository})
+      : _authRepository = authRepository ?? AuthRepository(),
+        super(AuthInitial());
+
+  /// Email validation
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     return emailRegex.hasMatch(email);
   }
 
-  // Password validation (minimum 6 characters)
+  /// Password validation
   bool _isValidPassword(String password) {
     return password.length >= 6;
   }
 
-  // Name validation
+  /// Name validation
   bool _isValidName(String name) {
     return name.trim().isNotEmpty && name.length >= 2;
   }
 
-  // Sign In method
+  /// Sign In
   Future<void> signIn({
     required String email,
     required String password,
   }) async {
-    // Validate inputs
+    // Local validation
     String? emailError;
     String? passwordError;
 
@@ -42,7 +47,6 @@ class AuthCubit extends Cubit<AuthState> {
       passwordError = 'Password must be at least 6 characters';
     }
 
-    // If there are validation errors
     if (emailError != null || passwordError != null) {
       emit(AuthValidationError(
         emailError: emailError,
@@ -51,34 +55,43 @@ class AuthCubit extends Cubit<AuthState> {
       return;
     }
 
-    // Show loading
+    // Call API
     emit(AuthLoading());
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Mock success - create fake user
     try {
-      final user = UserModel(
-        id: 'mock_id_${DateTime.now().millisecondsSinceEpoch}',
-        name: 'User Name',
+      final user = await _authRepository.signIn(
         email: email,
-        createdAt: DateTime.now(),
+        password: password,
       );
 
       emit(AuthSuccess(user));
+    } on ValidationException catch (e) {
+      final errors = e.errors ?? {};
+      
+      emit(AuthValidationError(
+        emailError: errors['email']?.toString(),
+        passwordError: errors['password']?.toString(),
+      ));
+    } on UnauthorizedException catch (e) {
+      emit(AuthError(e.message));
+    } on NetworkException catch (e) {
+      emit(AuthError(e.message));
+    } on TimeoutException catch (e) {
+      emit(AuthError(e.message));
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
     } catch (e) {
-      emit(AuthError('Sign in failed. Please try again.'));
+      emit(AuthError('An unexpected error occurred. Please try again.'));
     }
   }
 
-  // Sign Up method
+  /// Sign Up
   Future<void> signUp({
     required String name,
     required String email,
     required String password,
   }) async {
-    // Validate inputs
+    // Local validation
     String? nameError;
     String? emailError;
     String? passwordError;
@@ -101,7 +114,6 @@ class AuthCubit extends Cubit<AuthState> {
       passwordError = 'Password must be at least 6 characters';
     }
 
-    // If there are validation errors
     if (nameError != null || emailError != null || passwordError != null) {
       emit(AuthValidationError(
         nameError: nameError,
@@ -111,59 +123,87 @@ class AuthCubit extends Cubit<AuthState> {
       return;
     }
 
-    // Show loading
+    // Call API
     emit(AuthLoading());
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Mock success - create user
     try {
-      final user = UserModel(
-        id: 'mock_id_${DateTime.now().millisecondsSinceEpoch}',
+      final user = await _authRepository.signUp(
         name: name,
         email: email,
-        createdAt: DateTime.now(),
+        password: password,
       );
 
       emit(AuthSuccess(user));
+    } on ValidationException catch (e) {
+      final errors = e.errors ?? {};
+      
+      emit(AuthValidationError(
+        nameError: errors['name']?.toString(),
+        emailError: errors['email']?.toString(),
+        passwordError: errors['password']?.toString(),
+      ));
+    } on NetworkException catch (e) {
+      emit(AuthError(e.message));
+    } on TimeoutException catch (e) {
+      emit(AuthError(e.message));
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
     } catch (e) {
-      emit(AuthError('Sign up failed. Please try again.'));
+      emit(AuthError('An unexpected error occurred. Please try again.'));
     }
   }
 
-  // Sign in with Google
+  /// Sign in with Google
   Future<void> signInWithGoogle() async {
     emit(AuthLoading());
     await Future.delayed(const Duration(seconds: 1));
-    
-    final user = UserModel(
-      id: 'google_id',
-      name: 'Google User',
-      email: 'user@google.com',
-      createdAt: DateTime.now(),
-    );
-    
-    emit(AuthSuccess(user));
+    emit(AuthError('Google Sign-In is not implemented yet.'));
   }
 
-  // Sign in with Facebook
+  /// Sign in with Facebook
   Future<void> signInWithFacebook() async {
     emit(AuthLoading());
     await Future.delayed(const Duration(seconds: 1));
-    
-    final user = UserModel(
-      id: 'facebook_id',
-      name: 'Facebook User',
-      email: 'user@facebook.com',
-      createdAt: DateTime.now(),
-    );
-    
-    emit(AuthSuccess(user));
+    emit(AuthError('Facebook Sign-In is not implemented yet.'));
   }
 
-  // Reset to initial state
+  /// Sign Out
+  Future<void> signOut() async {
+    try {
+      emit(AuthLoading());
+      await _authRepository.signOut();
+      emit(AuthInitial());
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
+    } catch (e) {
+      emit(AuthError('Failed to sign out. Please try again.'));
+    }
+  }
+
+  /// Check Auth Status (for auto-login)
+  Future<void> checkAuthStatus() async {
+    try {
+      final isLoggedIn = await _authRepository.isLoggedIn();
+      
+      if (isLoggedIn) {
+        final user = await _authRepository.getUserProfile();
+        emit(AuthSuccess(user));
+      } else {
+        emit(AuthInitial());
+      }
+    } catch (e) {
+      emit(AuthInitial());
+    }
+  }
+
+  /// Reset to initial state
   void reset() {
     emit(AuthInitial());
+  }
+
+  @override
+  Future<void> close() {
+    _authRepository.dispose();
+    return super.close();
   }
 }
