@@ -7,7 +7,6 @@
 // import 'package:healthfy/ui/screens/sign_up_screen.dart';
 // import 'ui/screens/splash_screen.dart';
 
-
 // void main() =>
 //     runApp(DevicePreview(enabled: true, builder: (context) => MyApp()));
 
@@ -45,9 +44,6 @@
 //   }
 // }
 
-
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:device_preview/device_preview.dart';
@@ -57,16 +53,13 @@ import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 // Screens
 import 'package:vital_metrics/ui/screens/sign_in_screen.dart';
 import 'package:vital_metrics/ui/screens/sign_up_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_gender.dart';
 import 'ui/screens/splash_screen.dart';
 // Routes
 // import 'routes/app_routes.dart';
 
-void main() => runApp(
-      DevicePreview(
-        enabled: true,
-        builder: (context) => const MyApp(),
-      ),
-    );
+void main() =>
+    runApp(DevicePreview(enabled: true, builder: (context) => const MyApp()));
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -100,6 +93,7 @@ class MyApp extends StatelessWidget {
             routes: {
               '/signin': (context) => const SignInScreen(),
               '/signup': (context) => const SignUpScreen(),
+              '/onboarding-gender': (context) => const OnboardingGender(),
               // TODO: Add other routes when teammate pushes
               // '/home': (context) => const HomeScreen(),
               // '/activity': (context) => const ActivityScreen(),
