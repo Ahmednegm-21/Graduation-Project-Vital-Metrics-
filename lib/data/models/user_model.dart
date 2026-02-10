@@ -13,7 +13,7 @@ class UserModel {
     this.createdAt,
   });
 
-  // Convert from JSON (Firebase/API)
+  // Convert from JSON
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String?,
@@ -37,7 +37,7 @@ class UserModel {
     };
   }
 
-  // Copy with method (useful for updates)
+  // Copy with method
   UserModel copyWith({
     String? id,
     String? name,

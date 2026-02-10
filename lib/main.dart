@@ -49,7 +49,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
-
 // Screens
 import 'package:vital_metrics/ui/screens/sign_in_screen.dart';
 import 'package:vital_metrics/ui/screens/sign_up_screen.dart';
@@ -74,7 +73,6 @@ class MyApp extends StatelessWidget {
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (context) => AuthCubit()),
-            // TODO: Add other Cubits/Blocs here when teammate pushes
             // BlocProvider(create: (context) => DashboardBloc()),
             // BlocProvider(create: (context) => ActivityBloc()),
             // BlocProvider(create: (context) => SleepBloc()),

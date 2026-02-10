@@ -11,10 +11,20 @@ abstract class AuthState extends Equatable {
 // Initial state
 class AuthInitial extends AuthState {}
 
-// Loading state (during sign in/sign up)
+// Loading state
 class AuthLoading extends AuthState {}
 
-// Success state (user logged in)
+// Success state with validation
+class AuthSuccessWithValidation extends AuthState {
+  final UserModel user;
+
+  const AuthSuccessWithValidation(this.user);
+
+  @override
+  List<Object?> get props => [user];
+}
+
+// Success state
 class AuthSuccess extends AuthState {
   final UserModel user;
 
@@ -24,7 +34,7 @@ class AuthSuccess extends AuthState {
   List<Object?> get props => [user];
 }
 
-// Error state (validation or auth errors)
+// Error state
 class AuthError extends AuthState {
   final String message;
 
