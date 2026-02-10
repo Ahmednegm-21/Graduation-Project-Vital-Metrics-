@@ -64,7 +64,7 @@ class OnboardingThankYou extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
 
-              // Thank you image
+              
               SizedBox(
                 height: imageH,
                 child: Image.asset(
@@ -80,7 +80,7 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 1),
 
-              // Title
+              
               const Text(
                 'Thank you for\ntrusting us!',
                 textAlign: TextAlign.center,
@@ -93,7 +93,7 @@ class OnboardingThankYou extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Description
+              
               Text(
                 'Your privacy and security matter to us.\n'
                 'We promise to always keep your personal information\n'
@@ -108,7 +108,7 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 3),
 
-              // Continue Button
+              
               SizedBox(
                 width: double.infinity,
                 height: 56,
