@@ -53,7 +53,7 @@ import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 // Screens
 import 'package:vital_metrics/ui/screens/sign_in_screen.dart';
 import 'package:vital_metrics/ui/screens/sign_up_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_gender.dart';
+import 'package:vital_metrics/ui/screens/onboarding_gender_screen.dart';
 import 'ui/screens/splash_screen.dart';
 // Routes
 // import 'routes/app_routes.dart';

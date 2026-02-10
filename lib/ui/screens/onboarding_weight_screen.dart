@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'onboarding_age.dart';
+import 'onboarding_age_screen.dart';
 import 'package:vital_metrics/logic/onboarding/weight_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/weight_state.dart';
 
