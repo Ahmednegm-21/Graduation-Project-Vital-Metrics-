@@ -1,39 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback onPressed;
   final bool isLoading;
+  final bool enabled;
   final Color? backgroundColor;
   final Color? textColor;
+  final double? width;
+  final double? height;
 
   const CustomButton({
     super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
+    this.enabled = true,
     this.backgroundColor,
     this.textColor,
+    this.width,
+    this.height,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isButtonEnabled = enabled && !isLoading;
+
     return SizedBox(
-      width: double.infinity,
-      height: 56,
+      width: width ?? double.infinity,
+      height: height ?? 56.h,
       child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isButtonEnabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? const Color(0xFF0066CC),
+          backgroundColor: isButtonEnabled
+              ? (backgroundColor ?? const Color(0xFF005EBD))
+              : Colors.grey.shade700,
+          disabledBackgroundColor: Colors.grey.shade700,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r),
           ),
+          elevation: isButtonEnabled ? 3 : 0,
+          shadowColor: Colors.black26,
         ),
         child: isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
+            ? SizedBox(
+                height: 24.h,
+                width: 24.w,
+                child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
@@ -42,7 +56,7 @@ class CustomButton extends StatelessWidget {
                 text,
                 style: TextStyle(
                   color: textColor ?? Colors.white,
-                  fontSize: 20,
+                  fontSize: 16.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),

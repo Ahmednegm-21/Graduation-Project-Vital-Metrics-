@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
-import '../widgets/custom_text_field.dart';
+import '../widgets/custom_auth/custom_text_field.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/social_auth_button.dart';
+import '../widgets/custom_auth/social_auth_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -31,11 +32,7 @@ class _SignInScreenState extends State<SignInScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             Future.delayed(const Duration(milliseconds: 800), () {
-              // الانتقال لصفحة الجنس بعد تسجيل الدخول الناجح
-              Navigator.pushReplacementNamed(
-                context,
-                '/onboarding-gender',
-              );
+              context.go('/gender');
             });
           }
         },
@@ -149,7 +146,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             GestureDetector(
                               onTap: () {
                                 // Navigate to sign up
-                                Navigator.pushNamed(context, '/signup');
+                                context.push('/signup');
                               },
                               child: const Text(
                                 'Sign up',
@@ -167,12 +164,12 @@ class _SignInScreenState extends State<SignInScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SocialAuthButton(
-                              imagePath: 'facebook',
-                              onPressed: () {
-                                context.read<AuthCubit>().signInWithFacebook();
-                              },
-                            ),
+                            // SocialAuthButton(
+                            //   imagePath: 'facebook',
+                            //   onPressed: () {
+                            //     context.read<AuthCubit>().signInWithFacebook();
+                            //   },
+                            // ),
                             const SizedBox(width: 20),
                             SocialAuthButton(
                               imagePath: 'google',
