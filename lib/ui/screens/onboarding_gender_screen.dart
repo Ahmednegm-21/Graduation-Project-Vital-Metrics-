@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/onboarding/gender_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/gender_state.dart';
-import 'onboarding_height_screen.dart';
+import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 
 class OnboardingGender extends StatefulWidget {
   const OnboardingGender({super.key});
@@ -95,9 +96,14 @@ class _OnboardingGenderState extends State<OnboardingGender>
                   GestureDetector(
                     onHorizontalDragEnd: (details) {
                       if (details.primaryVelocity == null) return;
-                      details.primaryVelocity! < 0
-                          ? cubit.selectGender('female')
-                          : cubit.selectGender('male');
+                      
+                      if (details.primaryVelocity! < 0) {
+                        cubit.selectGender('female');
+                        context.read<OnboardingCubitAllData>().setGender('female');
+                      } else {
+                        cubit.selectGender('male');
+                        context.read<OnboardingCubitAllData>().setGender('male');
+                      }
                     },
                     child: Stack(
                       alignment: Alignment.centerLeft,
@@ -146,7 +152,10 @@ class _OnboardingGenderState extends State<OnboardingGender>
                             children: [
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => cubit.selectGender('male'),
+                                  onTap: () {
+                                    cubit.selectGender('male');
+                                    context.read<OnboardingCubitAllData>().setGender('male');
+                                  },
                                   child: const Center(
                                     child: Text(
                                       'Male',
@@ -159,7 +168,10 @@ class _OnboardingGenderState extends State<OnboardingGender>
                               ),
                               Expanded(
                                 child: InkWell(
-                                  onTap: () => cubit.selectGender('female'),
+                                  onTap: () {
+                                    cubit.selectGender('female');
+                                    context.read<OnboardingCubitAllData>().setGender('female');
+                                  },
                                   child: const Center(
                                     child: Text(
                                       'Female',
@@ -179,7 +191,6 @@ class _OnboardingGenderState extends State<OnboardingGender>
 
                   const SizedBox(height: 20),
 
-                  
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 260),
@@ -199,7 +210,6 @@ class _OnboardingGenderState extends State<OnboardingGender>
                     ),
                   ),
 
-                  
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: SizedBox(
@@ -209,14 +219,10 @@ class _OnboardingGenderState extends State<OnboardingGender>
                         onPressed: state.selectedGender == null
                             ? null
                             : () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => Onboarding2(
-                                      gender: state.selectedGender!,
-                                    ),
-                                  ),
-                                );
+                                context
+                                    .read<OnboardingCubitAllData>()
+                                    .setGender(state.selectedGender!);
+                                context.push('/height');
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: state.accent,

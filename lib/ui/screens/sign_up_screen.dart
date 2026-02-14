@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
-import '../widgets/custom_text_field.dart';
+import '../widgets/custom_auth/custom_text_field.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/social_auth_button.dart';
+import '../widgets/custom_auth/social_auth_button.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -33,8 +34,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             Future.delayed(const Duration(milliseconds: 800), () {
-              // TODO: Navigate to HomeScreen
-              // Navigator.pushReplacementNamed(context, '/home');
+              // ignore: use_build_context_synchronously
+              context.go('/gender');
             });
           }
         },
@@ -149,12 +150,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SocialAuthButton(
-                          imagePath: 'facebook',
-                          onPressed: () {
-                            context.read<AuthCubit>().signInWithFacebook();
-                          },
-                        ),
+                        // SocialAuthButton(
+                        //   imagePath: 'facebook',
+                        //   onPressed: () {
+                        //     context.read<AuthCubit>().signInWithFacebook();
+                        //   },
+                        // ),
                         const SizedBox(width: 20),
                         SocialAuthButton(
                           imagePath: 'google',

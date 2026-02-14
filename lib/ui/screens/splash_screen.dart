@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:async';
-
-import 'package:vital_metrics/ui/screens/sign_in_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -56,10 +55,8 @@ class _SplashScreenState extends State<SplashScreen>
     });
 
     Timer(const Duration(seconds: 4), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const SignInScreen()),
-      );
+      // context.push('/signin');
+      context.push('/gender');
     });
   }
 
@@ -102,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: FadeTransition(
                 opacity: _textOpacity,
                 child: Image.asset(
-                  'assets/images/app_name.png',
+                  'assets/images/vital_metrics_logo.png',
                   width: 240,
                 ),
               ),

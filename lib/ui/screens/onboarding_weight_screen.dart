@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'onboarding_age_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/weight_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/weight_state.dart';
 
 class OnboardingWeight extends StatelessWidget {
-  final String gender;
-  final int? height;
-
-  const OnboardingWeight({super.key, required this.gender, this.height});
+  const OnboardingWeight({super.key});
 
   static const Color primaryBlue = Color(0xFF005EBD);
   static const Color femalePink = Color(0xFFFF7EB9);
 
   @override
   Widget build(BuildContext context) {
+    //Take from gender OnboardingCubitAllData
+    final gender = context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
+    
     final bool isMale = gender.toLowerCase() == 'male';
     final Color accent = isMale ? primaryBlue : femalePink;
     final imagePath = isMale
@@ -41,7 +42,7 @@ class OnboardingWeight extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios, size: 20),
                     color: accent,
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => context.pop(),
                   ),
                   Expanded(
                     child: Padding(
@@ -271,16 +272,12 @@ class OnboardingWeight extends StatelessWidget {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => OnboardingAge(
-                              gender: gender,
-                              height: height?.toDouble() ?? 0.0,
-                              weight: state.weight,
-                            ),
-                          ),
-                        ),
+                        onPressed: () {
+                          context.read<OnboardingCubitAllData>().setWeight(
+                            state.weight,
+                          );
+                          context.push('/age');
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           shape: RoundedRectangleBorder(

@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
-import 'goal_selection_screen.dart'; 
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 
 class OnboardingThankYou extends StatelessWidget {
-  final String gender;
-  final double height;
-  final double weight;
-  final int age;
-
-  const OnboardingThankYou({
-    super.key,
-    required this.gender,
-    required this.height,
-    required this.weight,
-    required this.age,
-  });
+  const OnboardingThankYou({super.key});
 
   static const Color primaryBlue = Color(0xFF005EBD);
-  static const Color femalePink = Color(0xFFFF7EB9); 
+  static const Color femalePink = Color(0xFFFF7EB9);
 
   @override
   Widget build(BuildContext context) {
+    //Take from gender OnboardingCubitAllData
+    final gender = context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
+    
     final mq = MediaQuery.of(context);
     final imageH = mq.size.height * 0.28;
 
@@ -38,7 +32,7 @@ class OnboardingThankYou extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.arrow_back_ios, size: 20),
               color: accent,
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => context.pop(),
             ),
             Expanded(
               child: Padding(
@@ -64,7 +58,6 @@ class OnboardingThankYou extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
 
-              
               SizedBox(
                 height: imageH,
                 child: Image.asset(
@@ -80,7 +73,6 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 1),
 
-              
               const Text(
                 'Thank you for\ntrusting us!',
                 textAlign: TextAlign.center,
@@ -93,7 +85,6 @@ class OnboardingThankYou extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              
               Text(
                 'Your privacy and security matter to us.\n'
                 'We promise to always keep your personal information\n'
@@ -108,23 +99,13 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 3),
 
-              
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => GoalSelectionScreen(
-                          gender: gender,
-                          height: height,
-                          weight: weight,
-                          age: age,
-                        ),
-                      ),
-                    );
+                    context.read<OnboardingCubitAllData>().saveOnboardingData();
+                    context.push('/goal-selection');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accent,
