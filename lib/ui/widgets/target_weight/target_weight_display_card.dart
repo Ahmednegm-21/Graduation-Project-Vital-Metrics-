@@ -17,7 +17,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 24.w),
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
@@ -31,16 +31,17 @@ class TargetWeightDisplayCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Label
           Text(
             'Target Weight',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 14.sp,
+              fontSize: 13.sp,
             ),
           ),
           SizedBox(height: 8.h),
           
-          // Animated Weight Display
+          // Animated weight value
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, animation) {
@@ -59,7 +60,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
                   targetWeight.toStringAsFixed(0),
                   style: TextStyle(
                     color: const Color(0xFF005EBD),
-                    fontSize: 56.sp,
+                    fontSize: 48.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -68,7 +69,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
                   'kg',
                   style: TextStyle(
                     color: Colors.grey.shade500,
-                    fontSize: 24.sp,
+                    fontSize: 20.sp,
                   ),
                 ),
               ],
@@ -77,11 +78,11 @@ class TargetWeightDisplayCard extends StatelessWidget {
           
           SizedBox(height: 12.h),
           
-          // Difference indicator
+          // Difference badge
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 8.h,
+              horizontal: 14.w,
+              vertical: 7.h,
             ),
             decoration: BoxDecoration(
               color: isLose
@@ -94,7 +95,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
               children: [
                 Icon(
                   isLose ? Icons.arrow_downward : Icons.arrow_upward,
-                  size: 16.sp,
+                  size: 15.sp,
                   color: isLose ? Colors.green : Colors.blue,
                 ),
                 SizedBox(width: 6.w),
@@ -102,7 +103,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
                   '${difference.toStringAsFixed(0)} kg ${isLose ? 'to lose' : 'to gain'}',
                   style: TextStyle(
                     color: isLose ? Colors.green : Colors.blue,
-                    fontSize: 13.sp,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

@@ -19,14 +19,14 @@ class SpeedSliderSection extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         children: [
-          // Speed icons
+          // Speed indicator icons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: speeds.map((speed) {
               final isSelected = speed == selectedSpeed;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                padding: EdgeInsets.all(8.w),
+                padding: EdgeInsets.all(7.w),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF005EBD).withOpacity(0.1)
@@ -38,28 +38,29 @@ class SpeedSliderSection extends StatelessWidget {
                   color: isSelected
                       ? const Color(0xFF005EBD)
                       : Colors.grey.shade400,
-                  size: isSelected ? 28.sp : 22.sp,
+                  size: isSelected ? 26.sp : 20.sp,
                 ),
               );
             }).toList(),
           ),
 
-          SizedBox(height: 16.h),
+          SizedBox(height: 14.h),
 
+          // Slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: const Color(0xFF005EBD),
               inactiveTrackColor: Colors.grey.shade300,
               thumbColor: Colors.white,
               thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: 14.r,
+                enabledThumbRadius: 12.r,
                 elevation: 4,
               ),
               overlayColor: const Color(0xFF005EBD).withOpacity(0.2),
               overlayShape: RoundSliderOverlayShape(
-                overlayRadius: 24.r,
+                overlayRadius: 22.r,
               ),
-              trackHeight: 6.h,
+              trackHeight: 5.h,
               activeTickMarkColor: Colors.transparent,
               inactiveTickMarkColor: Colors.transparent,
             ),
@@ -74,7 +75,7 @@ class SpeedSliderSection extends StatelessWidget {
 
           SizedBox(height: 8.h),
 
-          // Speed labels
+          // Speed value labels
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: speeds.map((speed) {
@@ -85,7 +86,7 @@ class SpeedSliderSection extends StatelessWidget {
                   color: isSelected
                       ? const Color(0xFF005EBD)
                       : Colors.grey.shade500,
-                  fontSize: isSelected ? 12.sp : 11.sp,
+                  fontSize: isSelected ? 11.sp : 10.sp,
                   fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),

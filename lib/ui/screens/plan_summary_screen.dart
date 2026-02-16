@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
-import 'package:vital_metrics/ui/widgets/custom_button.dart';
+import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/plan_summary/summary_header.dart';
 import 'package:vital_metrics/ui/widgets/plan_summary/summary_stats_cards.dart';
 import 'package:vital_metrics/ui/widgets/plan_summary/summary_journey_card.dart';

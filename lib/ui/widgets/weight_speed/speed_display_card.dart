@@ -11,12 +11,14 @@ class SpeedDisplayCard extends StatelessWidget {
     required this.isLose,
   });
 
+  // Get speed category label
   String _getSpeedLabel(double speed) {
     if (speed <= 0.5) return 'Slow & Steady';
     if (speed <= 1.0) return 'Moderate';
     return 'Fast Track';
   }
 
+  // Get speed category color
   Color _getSpeedColor(double speed) {
     if (speed <= 0.5) return Colors.green;
     if (speed <= 1.0) return Colors.orange;
@@ -27,7 +29,7 @@ class SpeedDisplayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 24.w),
-      padding: EdgeInsets.all(24.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -37,7 +39,7 @@ class SpeedDisplayCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: const Color(0xFF005EBD).withOpacity(0.2),
           width: 1.5,
@@ -45,18 +47,19 @@ class SpeedDisplayCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Label text
           Text(
             isLose ? 'Loss weight per week' : 'Gain weight per week',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 14.sp,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w500,
             ),
           ),
 
           SizedBox(height: 12.h),
 
-          // Selected Speed Value with Animation
+          // Animated speed value
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, animation) {
@@ -75,7 +78,7 @@ class SpeedDisplayCard extends StatelessWidget {
                   selectedSpeed.toStringAsFixed(2),
                   style: TextStyle(
                     color: const Color(0xFF005EBD),
-                    fontSize: 48.sp,
+                    fontSize: 42.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -84,7 +87,7 @@ class SpeedDisplayCard extends StatelessWidget {
                   'kg',
                   style: TextStyle(
                     color: Colors.grey.shade600,
-                    fontSize: 24.sp,
+                    fontSize: 20.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -94,11 +97,11 @@ class SpeedDisplayCard extends StatelessWidget {
 
           SizedBox(height: 8.h),
 
-          // Speed Label 
+          // Speed category badge
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 6.h,
+              horizontal: 14.w,
+              vertical: 5.h,
             ),
             decoration: BoxDecoration(
               color: _getSpeedColor(selectedSpeed).withOpacity(0.1),
@@ -111,7 +114,7 @@ class SpeedDisplayCard extends StatelessWidget {
               _getSpeedLabel(selectedSpeed),
               style: TextStyle(
                 color: _getSpeedColor(selectedSpeed),
-                fontSize: 12.sp,
+                fontSize: 11.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),

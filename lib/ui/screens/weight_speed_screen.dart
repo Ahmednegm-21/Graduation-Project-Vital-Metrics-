@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
-import 'package:vital_metrics/ui/widgets/custom_button.dart';
+import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/weight_speed/speed_header.dart';
 import 'package:vital_metrics/ui/widgets/weight_speed/speed_display_card.dart';
 import 'package:vital_metrics/ui/widgets/weight_speed/speed_slider_section.dart';
@@ -24,6 +24,7 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if goal is weight loss
     final isLose = context
             .read<OnboardingCubitAllData>()
             .currentData
@@ -40,9 +41,9 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              // Back Button
+              // Back button
               Padding(
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
@@ -50,26 +51,27 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                     icon: Icon(
                       Icons.arrow_back_ios,
                       color: Colors.black,
-                      size: 24.sp,
+                      size: 22.sp,
                     ),
                   ),
                 ),
               ),
 
+              // Scrollable content
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: 24.h),
+                  padding: EdgeInsets.only(bottom: 20.h),
                   child: Column(
                     children: [
-                      // Header
+                      // Title section
                       FadeInDown(
                         duration: const Duration(milliseconds: 600),
                         child: SpeedHeader(),
                       ),
 
-                      SizedBox(height: 30.h),
+                      SizedBox(height: 24.h),
 
-                      // Display Card
+                      // Speed display card
                       FadeInUp(
                         duration: const Duration(milliseconds: 600),
                         delay: const Duration(milliseconds: 200),
@@ -79,9 +81,9 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                         ),
                       ),
 
-                      SizedBox(height: 30.h),
+                      SizedBox(height: 24.h),
 
-                      // Slider Section
+                      // Speed slider
                       FadeInUp(
                         duration: const Duration(milliseconds: 600),
                         delay: const Duration(milliseconds: 400),
@@ -96,23 +98,23 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                         ),
                       ),
 
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 16.h),
 
-                      // Info Card
+                      // Info message
                       SpeedInfoCard(),
 
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 16.h),
                     ],
                   ),
                 ),
               ),
 
-              // Next Button
+              // Next button
               FadeInUp(
                 duration: const Duration(milliseconds: 600),
                 delay: const Duration(milliseconds: 600),
                 child: Container(
-                  padding: EdgeInsets.all(24.w),
+                  padding: EdgeInsets.all(20.w),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [
@@ -126,12 +128,14 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                   child: CustomButton(
                     text: 'Next',
                     onPressed: () {
+                      // Save speed and navigate
                       context
                           .read<OnboardingCubitAllData>()
                           .setWeightPerWeek(_selectedSpeed);
                       context.go('/target-weight');
                     },
                     backgroundColor: const Color(0xFF005EBD),
+                    height: 50.h,
                   ),
                 ),
               ),

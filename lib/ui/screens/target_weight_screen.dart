@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
-import 'package:vital_metrics/ui/widgets/custom_button.dart';
+import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_header.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_icon_section.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_display_card.dart';
@@ -22,9 +22,11 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get current weight from cubit
     final currentWeight =
         context.read<OnboardingCubitAllData>().currentData.weight ?? 70.0;
 
+    // Check if goal is weight loss
     final isLose = context
             .read<OnboardingCubitAllData>()
             .currentData
@@ -34,12 +36,15 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
             .contains('lose') ==
         true;
 
+    // Calculate min/max weight range
     final double minWeight = isLose ? currentWeight - 50 : currentWeight;
     final double maxWeight = isLose ? currentWeight : currentWeight + 50;
 
+    // Ensure target weight is within range
     if (_targetWeight < minWeight) _targetWeight = minWeight;
     if (_targetWeight > maxWeight) _targetWeight = maxWeight;
 
+    // Calculate weight difference
     final difference = (_targetWeight - currentWeight).abs();
 
     return Scaffold(
@@ -47,9 +52,9 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Back Button
+            // Back button
             Padding(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
@@ -57,35 +62,36 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                   icon: Icon(
                     Icons.arrow_back_ios,
                     color: Colors.black,
-                    size: 24.sp,
+                    size: 22.sp,
                   ),
                 ),
               ),
             ),
 
+            // Scrollable content
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: 24.h),
+                padding: EdgeInsets.only(bottom: 20.h),
                 child: Column(
                   children: [
-                    // Header
+                    // Title section
                     FadeInDown(
                       duration: const Duration(milliseconds: 600),
                       child: TargetWeightHeader(),
                     ),
 
-                    SizedBox(height: 30.h),
+                    SizedBox(height: 24.h),
 
-                    // Icon Section
+                    // Goal icon section
                     FadeInUp(
                       duration: const Duration(milliseconds: 600),
                       delay: const Duration(milliseconds: 200),
                       child: TargetWeightIconSection(isLose: isLose),
                     ),
 
-                    SizedBox(height: 30.h),
+                    SizedBox(height: 24.h),
 
-                    // Display Card
+                    // Weight display card
                     FadeInUp(
                       duration: const Duration(milliseconds: 600),
                       delay: const Duration(milliseconds: 300),
@@ -96,9 +102,9 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 30.h),
+                    SizedBox(height: 24.h),
 
-                    // Slider Section
+                    // Weight slider
                     FadeInUp(
                       duration: const Duration(milliseconds: 600),
                       delay: const Duration(milliseconds: 400),
@@ -114,18 +120,18 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 16.h),
                   ],
                 ),
               ),
             ),
 
-            // Next Button
+            // Next button
             FadeInUp(
               duration: const Duration(milliseconds: 600),
               delay: const Duration(milliseconds: 600),
               child: Container(
-                padding: EdgeInsets.all(24.w),
+                padding: EdgeInsets.all(20.w),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -139,12 +145,14 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                 child: CustomButton(
                   text: 'Next',
                   onPressed: () {
+                    // Save target weight and navigate
                     context
                         .read<OnboardingCubitAllData>()
                         .setTargetWeight(_targetWeight);
                     context.go('/plan-summary');
                   },
                   backgroundColor: const Color(0xFF005EBD),
+                  height: 50.h,
                 ),
               ),
             ),

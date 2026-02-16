@@ -13,7 +13,7 @@ class TargetWeightIconSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 180.h,
+      height: 150.h, // Smaller
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -24,7 +24,7 @@ class TargetWeightIconSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: const Color(0xFF005EBD).withOpacity(0.2),
           width: 1.5,
@@ -33,17 +33,20 @@ class TargetWeightIconSection extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Goal icon
           Icon(
             isLose ? Icons.trending_down : Icons.trending_up,
-            size: 60.sp,
+            size: 50.sp,
             color: const Color(0xFF005EBD),
           ),
           SizedBox(height: 8.h),
+          
+          // Goal label
           Text(
             isLose ? 'Weight Loss Goal' : 'Weight Gain Goal',
             style: TextStyle(
               color: const Color(0xFF005EBD),
-              fontSize: 14.sp,
+              fontSize: 13.sp,
               fontWeight: FontWeight.w600,
             ),
           ),

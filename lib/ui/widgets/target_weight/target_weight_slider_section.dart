@@ -21,20 +21,21 @@ class TargetWeightSliderSection extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         children: [
+          // Slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: const Color(0xFF005EBD),
               inactiveTrackColor: Colors.grey.shade300,
               thumbColor: Colors.white,
               thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: 14.r,
+                enabledThumbRadius: 12.r,
                 elevation: 4,
               ),
               overlayColor: const Color(0xFF005EBD).withOpacity(0.2),
               overlayShape: RoundSliderOverlayShape(
-                overlayRadius: 24.r,
+                overlayRadius: 22.r,
               ),
-              trackHeight: 6.h,
+              trackHeight: 5.h,
             ),
             child: Slider(
               value: targetWeight,
@@ -46,9 +47,11 @@ class TargetWeightSliderSection extends StatelessWidget {
 
           SizedBox(height: 8.h),
 
+          // Min/Max labels
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Minimum weight
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -56,7 +59,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                     '${minWeight.toStringAsFixed(0)} kg',
                     style: TextStyle(
                       color: Colors.grey.shade700,
-                      fontSize: 13.sp,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -64,11 +67,13 @@ class TargetWeightSliderSection extends StatelessWidget {
                     'Minimum',
                     style: TextStyle(
                       color: Colors.grey.shade500,
-                      fontSize: 11.sp,
+                      fontSize: 10.sp,
                     ),
                   ),
                 ],
               ),
+              
+              // Maximum weight
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -76,7 +81,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                     '${maxWeight.toStringAsFixed(0)} kg',
                     style: TextStyle(
                       color: Colors.grey.shade700,
-                      fontSize: 13.sp,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -84,7 +89,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                     'Maximum',
                     style: TextStyle(
                       color: Colors.grey.shade500,
-                      fontSize: 11.sp,
+                      fontSize: 10.sp,
                     ),
                   ),
                 ],

@@ -11,22 +11,25 @@ class TargetWeightHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Main title
           Text(
             'What is your\ntarget Weight?',
             style: TextStyle(
               color: Colors.black,
-              fontSize: 28.sp,
+              fontSize: 24.sp,
               fontWeight: FontWeight.bold,
               height: 1.2,
             ),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 8.h),
+          
+          // Subtitle
           Text(
             'Set a realistic goal',
             style: TextStyle(
               color: Colors.grey.shade500,
-              fontSize: 14.sp,
+              fontSize: 13.sp,
             ),
           ),
         ],

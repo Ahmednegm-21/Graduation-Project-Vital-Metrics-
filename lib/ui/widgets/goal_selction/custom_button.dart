@@ -29,24 +29,24 @@ class CustomButton extends StatelessWidget {
 
     return SizedBox(
       width: width ?? double.infinity,
-      height: height ?? 56.h,
+      height: height ?? 50.h,
       child: ElevatedButton(
         onPressed: isButtonEnabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: isButtonEnabled
               ? (backgroundColor ?? const Color(0xFF005EBD))
-              : Colors.grey.shade700,
-          disabledBackgroundColor: Colors.grey.shade700,
+              : Colors.grey.shade400,
+          disabledBackgroundColor: Colors.grey.shade400,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
           ),
-          elevation: isButtonEnabled ? 3 : 0,
+          elevation: isButtonEnabled ? 2 : 0,
           shadowColor: Colors.black26,
         ),
         child: isLoading
             ? SizedBox(
-                height: 24.h,
-                width: 24.w,
+                height: 22.h,
+                width: 22.w,
                 child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -56,7 +56,7 @@ class CustomButton extends StatelessWidget {
                 text,
                 style: TextStyle(
                   color: textColor ?? Colors.white,
-                  fontSize: 16.sp,
+                  fontSize: 15.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),

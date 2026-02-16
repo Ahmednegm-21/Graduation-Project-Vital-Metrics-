@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
 import '../widgets/custom_auth/custom_text_field.dart';
-import '../widgets/custom_button.dart';
+import '../widgets/goal_selction/custom_button.dart';
 import '../widgets/custom_auth/social_auth_button.dart';
 
 class SignUpScreen extends StatefulWidget {
