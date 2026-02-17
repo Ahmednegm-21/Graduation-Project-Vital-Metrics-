@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vital_metrics/core/themes/app_theme.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/user-goal/user_goal_dart_cubit.dart';
@@ -30,8 +31,8 @@ class MyApp extends StatelessWidget {
             routerConfig: AppRouter.router,
             locale: DevicePreview.locale(context),
             builder: DevicePreview.appBuilder,
-            theme: ThemeData.light(),
-            darkTheme: ThemeData.dark(),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
             debugShowCheckedModeBanner: false,
           ),
         );

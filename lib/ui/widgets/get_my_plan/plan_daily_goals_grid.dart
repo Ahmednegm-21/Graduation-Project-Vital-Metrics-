@@ -91,10 +91,10 @@ class PlanDailyGoalsGrid extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(30.r),
         border: Border.all(
           color: iconColor.withOpacity(0.2),
           width: 1.5,

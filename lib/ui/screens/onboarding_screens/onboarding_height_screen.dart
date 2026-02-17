@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_assets.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/constants/onboarding_config.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/height_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/height_state.dart';
 
-class Onboardingheight extends StatelessWidget {
-  const Onboardingheight({super.key});
-
-  static const Color primaryBlue = Color(0xFF005EBD);
-  static const Color femalePink = Color(0xFFFF7EB9);
+class OnboardingHeight extends StatelessWidget {
+  const OnboardingHeight({super.key});
 
   @override
   Widget build(BuildContext context) {
-    //Take from gender OnboardingCubitAllData
-    final gender = context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
-    
+    // Get gender from OnboardingCubitAllData
+    final gender =
+        context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
+
     final bool isMale = gender.toLowerCase() == 'male';
-    final Color accent = isMale ? primaryBlue : femalePink;
-    final imagePath = isMale
-        ? 'assets/images/male.png'
-        : 'assets/images/female.png';
+    final Color accent = AppColors.getGenderColor(gender);
+    final imagePath = AppAssets.getGenderImage(gender);
 
     final TextEditingController heightController = TextEditingController();
 
@@ -31,28 +33,37 @@ class Onboardingheight extends StatelessWidget {
           heightController.text = state.height.toInt().toString();
 
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
+
+            // AppBar with back button and progress
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white,
               elevation: 0,
               automaticallyImplyLeading: false,
               titleSpacing: 0,
               title: Row(
                 children: [
+                  // Back button
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 20),
+                    icon: Icon(
+                      Icons.arrow_back_ios,
+                      size: AppConstants.iconS.sp,
+                    ),
                     color: accent,
-                    onPressed: () => context.pop()
+                    onPressed: () => context.pop(),
                   ),
+
+                  // Progress bar
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 18.0),
+                      padding: EdgeInsets.only(right: AppConstants.paddingL.w),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(AppConstants.radiusM.r),
                         child: LinearProgressIndicator(
-                          value: 0.4,
-                          minHeight: 4,
-                          backgroundColor: Colors.grey[200],
+                          value: OnboardingConfig.getProgressValue('height'),
+                          minHeight: 4.h,
+                          backgroundColor: AppColors.greyLight,
                           valueColor: AlwaysStoppedAnimation(accent),
                         ),
                       ),
@@ -61,81 +72,78 @@ class Onboardingheight extends StatelessWidget {
                 ],
               ),
             ),
+
             body: SafeArea(
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18.0),
-                    child: Center(
-                      child: Text(
-                        'What is your height?',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  SizedBox(height: AppConstants.spaceS.h),
+
+                  // Title
+                  Text(
+                    'What is your height?',
+                    style: AppTextStyles.h3,
                   ),
-                  const SizedBox(height: 6),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18.0),
-                    child: Center(
-                      child: Text(
-                        'Choose or write your current height',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ),
+
+                  SizedBox(height: AppConstants.spaceS.h),
+
+                  // Subtitle
+                  Text(
+                    'Choose or write your current height',
+                    style: AppTextStyles.subtitle2,
                   ),
-                  const SizedBox(height: 10),
+
+                  SizedBox(height: AppConstants.spaceM.h),
 
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18.0,
-                          vertical: 8,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppConstants.paddingL.w,
+                          vertical: AppConstants.spaceS.h,
                         ),
                         child: Column(
                           children: [
+                            // Preview image
                             SizedBox(
-                              width: MediaQuery.of(context).size.width * 0.92,
-                              height: MediaQuery.of(context).size.height * 0.44,
+                              width: OnboardingConfig.previewWidthRatio.sw,
+                              height: OnboardingConfig.previewHeightRatioOther.sh,
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
+                                  // Rotated background
                                   Transform.rotate(
                                     angle: -0.06,
                                     child: Container(
-                                      width:
-                                          MediaQuery.of(context).size.width *
-                                          0.83,
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.39,
+                                      width: 0.83.sw,
+                                      height: 0.39.sh,
                                       decoration: BoxDecoration(
                                         color: accent,
-                                        borderRadius: BorderRadius.circular(18),
+                                        borderRadius: BorderRadius.circular(
+                                            AppConstants.radiusL.r),
                                       ),
                                     ),
                                   ),
+
+                                  // Image
                                   Container(
-                                    width:
-                                        MediaQuery.of(context).size.width *
-                                        0.83,
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        0.41,
+                                    width: 0.83.sw,
+                                    height: 0.41.sh,
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(
+                                          AppConstants.radiusL.r),
                                     ),
                                     child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
+                                      padding: EdgeInsets.all(AppConstants.paddingM.w),
                                       child: Image.asset(
                                         imagePath,
                                         fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          isMale ? Icons.man : Icons.woman,
+                                          size: AppConstants.iconXL * 3,
+                                          color: accent,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -143,108 +151,126 @@ class Onboardingheight extends StatelessWidget {
                               ),
                             ),
 
-                            const SizedBox(height: 16),
+                            SizedBox(height: AppConstants.spaceL.h),
 
+                            // Height controls
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                // Decrease button
                                 IconButton(
                                   icon: const Icon(Icons.remove_circle_outline),
                                   color: accent,
+                                  iconSize: AppConstants.iconM.sp,
                                   onPressed: () {
                                     double newHeight = (state.height - 1).clamp(
-                                      120,
-                                      220,
+                                      OnboardingConfig.heightConfig['min']!,
+                                      OnboardingConfig.heightConfig['max']!,
                                     );
-                                    context.read<HeightCubit>().updateHeight(
-                                      newHeight,
-                                    );
+                                    context
+                                        .read<HeightCubit>()
+                                        .updateHeight(newHeight);
                                   },
                                 ),
+
+                                // Text input
                                 Container(
-                                  width: 100,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                  width: 100.w,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppConstants.paddingM.w,
+                                    vertical: AppConstants.spaceS.h,
                                   ),
                                   decoration: BoxDecoration(
                                     color: accent.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(
+                                        AppConstants.radiusM.r),
                                   ),
                                   child: TextField(
                                     controller: heightController,
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
+                                    style: AppTextStyles.bodyMedium,
                                     decoration: const InputDecoration(
                                       border: InputBorder.none,
                                     ),
                                     onSubmitted: (value) {
                                       double? v = double.tryParse(value);
-                                      if (v != null && v >= 120 && v <= 220) {
+                                      if (v != null &&
+                                          v >= OnboardingConfig.heightConfig['min']! &&
+                                          v <= OnboardingConfig.heightConfig['max']!) {
                                         context
                                             .read<HeightCubit>()
                                             .updateHeight(v);
                                       } else {
-                                        heightController.text = state.height
-                                            .toInt()
-                                            .toString();
+                                        heightController.text =
+                                            state.height.toInt().toString();
                                       }
                                     },
                                   ),
                                 ),
+
+                                // Increase button
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline),
                                   color: accent,
+                                  iconSize: AppConstants.iconM.sp,
                                   onPressed: () {
                                     double newHeight = (state.height + 1).clamp(
-                                      120,
-                                      220,
+                                      OnboardingConfig.heightConfig['min']!,
+                                      OnboardingConfig.heightConfig['max']!,
                                     );
-                                    context.read<HeightCubit>().updateHeight(
-                                      newHeight,
-                                    );
+                                    context
+                                        .read<HeightCubit>()
+                                        .updateHeight(newHeight);
                                   },
                                 ),
-                                const SizedBox(width: 8),
+
+                                SizedBox(width: AppConstants.spaceS.w),
+
+                                // Unit label
                                 Text(
                                   'cm',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
+                                  style: AppTextStyles.value.copyWith(
+                                    fontSize: 28.sp,
                                     color: accent,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 12),
+                            SizedBox(height: AppConstants.spaceM.h),
 
+                            // Slider with labels
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6.0,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppConstants.spaceS.w,
                               ),
                               child: Column(
                                 children: [
+                                  // Min/Max labels
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
-                                    children: const [
+                                    children: [
                                       Text(
-                                        '120 cm',
-                                        style: TextStyle(color: Colors.grey),
+                                        '${OnboardingConfig.heightConfig['min']!.toInt()} cm',
+                                        style: AppTextStyles.caption,
                                       ),
                                       Text(
-                                        '220 cm',
-                                        style: TextStyle(color: Colors.grey),
+                                        '${OnboardingConfig.heightConfig['max']!.toInt()} cm',
+                                        style: AppTextStyles.caption,
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 6),
+
+                                  SizedBox(height: AppConstants.spaceS.h),
+
+                                  // Slider
                                   Slider(
                                     value: state.height,
-                                    min: 120,
-                                    max: 220,
-                                    divisions: 100,
+                                    min: OnboardingConfig.heightConfig['min']!,
+                                    max: OnboardingConfig.heightConfig['max']!,
+                                    divisions: OnboardingConfig.heightDivisions,
                                     activeColor: accent,
                                     inactiveColor: accent.withOpacity(0.3),
                                     onChanged: (v) => context
@@ -254,41 +280,40 @@ class Onboardingheight extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+
+                            SizedBox(height: AppConstants.spaceM.h),
                           ],
                         ),
                       ),
                     ),
                   ),
 
+                  // Next button
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18.0,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppConstants.paddingL.w,
+                      vertical: AppConstants.spaceM.h,
                     ),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: AppConstants.buttonHeightL.h,
                       child: ElevatedButton(
                         onPressed: () {
-                          context.read<OnboardingCubitAllData>().setHeight(
-                            state.height,
-                          );
+                          context
+                              .read<OnboardingCubitAllData>()
+                              .setHeight(state.height);
                           context.push('/weight');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius:
+                                BorderRadius.circular(AppConstants.radiusM.r),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Next',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: AppTextStyles.button,
                         ),
                       ),
                     ),

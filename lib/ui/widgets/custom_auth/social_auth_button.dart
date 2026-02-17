@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/constants/app_assets.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SocialAuthButton extends StatelessWidget {
   final String imagePath;
@@ -15,14 +19,13 @@ class SocialAuthButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        // width: 60,
-        // height: 60,
-        decoration: BoxDecoration(
-          // color: Colors.white,
+        width: AppConstants.socialButtonSize.w,
+        height: AppConstants.socialButtonSize.h,
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(AppConstants.socialButtonPadding.w),
           child: _buildIcon(),
         ),
       ),
@@ -32,23 +35,35 @@ class SocialAuthButton extends StatelessWidget {
   Widget _buildIcon() {
     if (imagePath.contains('google')) {
       return Image.asset(
-        'assets/images/google_logo.png',
-        width: 50,
-        height: 50,
+        AppAssets.googleLogo,
+        width: AppConstants.socialIconSizeGoogle.w,
+        height: AppConstants.socialIconSizeGoogle.h,
         errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.g_mobiledata, color: Colors.red, size: 32);
+          return Icon(
+            Icons.g_mobiledata,
+            color: AppColors.error,
+            size: AppConstants.iconXL,
+          );
         },
       );
     } else if (imagePath.contains('facebook')) {
       return Image.asset(
-        'assets/images/face_book_logo.png',
-        width: 70,
-        height: 70,
+        AppAssets.facebookLogo,
+        width: AppConstants.socialIconSizeFacebook.w,
+        height: AppConstants.socialIconSizeFacebook.h,
         errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.facebook, color: Color(0xFF1877F2), size: 50);
+          return Icon(
+            Icons.facebook,
+            color: const Color(0xFF1877F2),
+            size: AppConstants.iconXL + 10.sp,
+          );
         },
       );
     }
-    return const Icon(Icons.login, color: Colors.grey, size: 32);
+    return Icon(
+      Icons.login,
+      color: AppColors.grey,
+      size: AppConstants.iconL,
+    );
   }
 }

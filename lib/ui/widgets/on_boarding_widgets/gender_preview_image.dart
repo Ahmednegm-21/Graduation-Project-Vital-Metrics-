@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:vital_metrics/core/constants/app_assets.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+
 class GenderPreview extends StatelessWidget {
   final String? gender;
   final double width;
@@ -14,7 +17,7 @@ class GenderPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
+      duration: Duration(milliseconds: AppConstants.animationNormal),
       child: gender == null
           ? const SizedBox()
           : SizedBox(
@@ -22,10 +25,15 @@ class GenderPreview extends StatelessWidget {
               width: width,
               height: height,
               child: Image.asset(
-                gender == 'male'
-                    ? 'assets/images/male.png'
-                    : 'assets/images/female.png',
+                AppAssets.getGenderImage(gender!),
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    gender == 'male' ? Icons.man : Icons.woman,
+                    size: 160,
+                    color: Colors.grey,
+                  );
+                },
               ),
             ),
     );

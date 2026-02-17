@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:vital_metrics/ui/screens/get_my_plan_screen.dart';
 import '../ui/screens/splash_screen.dart';
-import '../ui/screens/sign_in_screen.dart';
-import '../ui/screens/sign_up_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_gender_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_height_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_weight_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_age_screen.dart';
-import 'package:vital_metrics/ui/screens/onboarding_thankyou_screen.dart';
-import '../ui/screens/goal_selection_screen.dart';
-import 'package:vital_metrics/ui/screens/weight_speed_screen.dart';
-import 'package:vital_metrics/ui/screens/target_weight_screen.dart';
-import 'package:vital_metrics/ui/screens/plan_summary_screen.dart';
+import '../ui/screens/auth_screens/sign_in_screen.dart';
+import '../ui/screens/auth_screens/sign_up_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_screens/onboarding_gender_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_screens/onboarding_height_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_screens/onboarding_weight_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_screens/onboarding_age_screen.dart';
+import 'package:vital_metrics/ui/screens/onboarding_screens/onboarding_thankyou_screen.dart';
+import '../ui/screens/user_target_screens/goal_selection_screen.dart';
+import 'package:vital_metrics/ui/screens/user_target_screens/weight_speed_screen.dart';
+import 'package:vital_metrics/ui/screens/user_target_screens/target_weight_screen.dart';
+import 'package:vital_metrics/ui/screens/user_target_screens/plan_summary_screen.dart';
+import 'package:vital_metrics/ui/screens/user_target_screens/get_my_plan_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -50,7 +50,7 @@ class AppRouter {
       GoRoute(
         path: '/height',
         name: 'height',
-        builder: (context, state) => const Onboardingheight(),
+        builder: (context, state) => const OnboardingHeight(),
       ),
 
       GoRoute(

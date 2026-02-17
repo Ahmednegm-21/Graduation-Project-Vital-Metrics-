@@ -4,9 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
-import '../../data/models/user_goal.dart';
-import '../widgets/goal_selction/goal_card.dart';
-import '../widgets/goal_selction/custom_button.dart';
+import '../../../data/models/user_goal.dart';
+import '../../widgets/goal_selction/goal_card.dart';
+import '../../widgets/goal_selction/custom_button.dart';
 
 class GoalSelectionScreen extends StatelessWidget {
   const GoalSelectionScreen({super.key});

@@ -1,48 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/constants/app_assets.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 
 class OnboardingThankYou extends StatelessWidget {
   const OnboardingThankYou({super.key});
 
-  static const Color primaryBlue = Color(0xFF005EBD);
-  static const Color femalePink = Color(0xFFFF7EB9);
-
   @override
   Widget build(BuildContext context) {
-    //Take from gender OnboardingCubitAllData
-    final gender = context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
-    
-    final mq = MediaQuery.of(context);
-    final imageH = mq.size.height * 0.28;
+    // Get gender from OnboardingCubitAllData
+    final gender =
+        context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
 
-    final bool isMale = gender.toLowerCase() == 'male';
-    final Color accent = isMale ? primaryBlue : femalePink;
+    final Color accent = AppColors.getGenderColor(gender);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
+
+      // AppBar with back button and complete progress
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Row(
           children: [
+            // Back button
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 20),
+              icon: Icon(
+                Icons.arrow_back_ios,
+                size: AppConstants.iconS.sp,
+              ),
               color: accent,
               onPressed: () => context.pop(),
             ),
+
+            // Progress bar (100% complete)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(right: 18.0),
+                padding: EdgeInsets.only(right: AppConstants.paddingL.w),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM.r),
                   child: LinearProgressIndicator(
                     value: 1.0,
-                    minHeight: 4,
-                    backgroundColor: Colors.grey[200],
+                    minHeight: 4.h,
+                    backgroundColor: AppColors.greyLight,
                     valueColor: AlwaysStoppedAnimation(accent),
                   ),
                 ),
@@ -51,21 +58,23 @@ class OnboardingThankYou extends StatelessWidget {
           ],
         ),
       ),
+
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL.w),
           child: Column(
             children: [
               const Spacer(flex: 2),
 
+              // Thank you image
               SizedBox(
-                height: imageH,
+                height: 0.28.sh,
                 child: Image.asset(
-                  'assets/images/thanks.png',
+                  AppAssets.thanksImage,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Icon(
                     Icons.verified_user,
-                    size: imageH * 0.7,
+                    size: 0.28.sh * 0.7,
                     color: accent,
                   ),
                 ),
@@ -73,58 +82,55 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 1),
 
-              const Text(
+              // Thank you title
+              Text(
                 'Thank you for\ntrusting us!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  height: 1.2,
-                ),
+                style: AppTextStyles.h2,
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: AppConstants.spaceL.h),
 
+              // Privacy message
               Text(
                 'Your privacy and security matter to us.\n'
                 'We promise to always keep your personal information\n'
                 'private and secure.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
+                style: AppTextStyles.bodySmall.copyWith(
                   height: 1.5,
                 ),
               ),
 
               const Spacer(flex: 3),
 
+              // Continue button
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: AppConstants.buttonHeightL.h,
                 child: ElevatedButton(
                   onPressed: () {
-                    context.read<OnboardingCubitAllData>().saveOnboardingData();
+                    // Save data and navigate to goal selection
+                    context
+                        .read<OnboardingCubitAllData>()
+                        .saveOnboardingData();
                     context.push('/goal-selection');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                          BorderRadius.circular(AppConstants.radiusM.r),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Continue',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+                    style: AppTextStyles.button,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: AppConstants.paddingXXL.h),
             ],
           ),
         ),

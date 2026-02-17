@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
+
 class PrimaryButton extends StatelessWidget {
   final String text;
   final bool enabled;
@@ -17,22 +22,19 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: AppConstants.buttonHeightL,
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
+          disabledBackgroundColor: AppColors.grey,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppConstants.radiusM),
           ),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: AppTextStyles.button.copyWith(fontSize: 18.sp),
         ),
       ),
     );

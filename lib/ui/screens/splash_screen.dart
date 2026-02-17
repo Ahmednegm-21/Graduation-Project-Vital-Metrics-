@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,9 +26,11 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // ===== Logo Animation =====
-    _logoController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    // Logo animation
+    _logoController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: AppConstants.splashLogoDuration),
+    );
 
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _logoController, curve: Curves.easeInOut),
@@ -37,9 +42,11 @@ class _SplashScreenState extends State<SplashScreen>
 
     _logoController.forward();
 
-    // ===== Text Animation =====
-    _textController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    // Text animation
+    _textController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: AppConstants.splashTextDuration),
+    );
 
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _textController, curve: Curves.easeIn),
@@ -50,14 +57,17 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _textController, curve: Curves.easeOut),
     );
 
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      _textController.forward();
-    });
+    // Delay text animation
+    Future.delayed(
+      Duration(milliseconds: AppConstants.splashTextDelay),
+      () => _textController.forward(),
+    );
 
-    Timer(const Duration(seconds: 4), () {
-      // context.push('/signin');
-      context.push('/gender');
-    });
+    // Navigate after delay
+    Timer(
+      Duration(milliseconds: AppConstants.splashNavigationDelay),
+      () => context.push('/gender'),
+    );
   }
 
   @override
@@ -70,12 +80,12 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF090432),
+      backgroundColor: AppColors.splashBackground,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ===== Logo =====
+            // Logo animation
             AnimatedBuilder(
               animation: _logoController,
               builder: (context, child) {
@@ -85,22 +95,23 @@ class _SplashScreenState extends State<SplashScreen>
                     scale: _logoScale.value,
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 250,
+                      width: AppConstants.splashLogoWidth.w,
                     ),
                   ),
                 );
               },
             ),
-              const SizedBox(height: 25),
+            
+            SizedBox(height: AppConstants.spaceXXL),
 
-            // ===== Text =====
+            // Text animation
             SlideTransition(
               position: _textSlide,
               child: FadeTransition(
                 opacity: _textOpacity,
                 child: Image.asset(
                   'assets/images/vital_metrics_logo.png',
-                  width: 240,
+                  width: AppConstants.splashTextWidth.w,
                 ),
               ),
             ),
