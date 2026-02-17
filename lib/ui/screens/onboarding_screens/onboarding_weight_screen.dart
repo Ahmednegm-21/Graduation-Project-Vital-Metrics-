@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_assets.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/constants/onboarding_config.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/weight_cubit.dart';
 import 'package:vital_metrics/logic/onboarding/weight_state.dart';
@@ -8,19 +14,15 @@ import 'package:vital_metrics/logic/onboarding/weight_state.dart';
 class OnboardingWeight extends StatelessWidget {
   const OnboardingWeight({super.key});
 
-  static const Color primaryBlue = Color(0xFF005EBD);
-  static const Color femalePink = Color(0xFFFF7EB9);
-
   @override
   Widget build(BuildContext context) {
-    //Take from gender OnboardingCubitAllData
-    final gender = context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
-    
+    // Get gender from OnboardingCubitAllData
+    final gender =
+        context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
+
     final bool isMale = gender.toLowerCase() == 'male';
-    final Color accent = isMale ? primaryBlue : femalePink;
-    final imagePath = isMale
-        ? 'assets/images/male.png'
-        : 'assets/images/female.png';
+    final Color accent = AppColors.getGenderColor(gender);
+    final imagePath = AppAssets.getGenderImage(gender);
 
     final TextEditingController weightController = TextEditingController();
 
@@ -31,28 +33,37 @@ class OnboardingWeight extends StatelessWidget {
           weightController.text = state.weight.toInt().toString();
 
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
+
+            // AppBar with back button and progress
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white,
               elevation: 0,
               automaticallyImplyLeading: false,
               titleSpacing: 0,
               title: Row(
                 children: [
+                  // Back button
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 20),
+                    icon: Icon(
+                      Icons.arrow_back_ios,
+                      size: AppConstants.iconS.sp,
+                    ),
                     color: accent,
                     onPressed: () => context.pop(),
                   ),
+
+                  // Progress bar
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 18.0),
+                      padding: EdgeInsets.only(right: AppConstants.paddingL.w),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(AppConstants.radiusM.r),
                         child: LinearProgressIndicator(
-                          value: 0.6,
-                          minHeight: 4,
-                          backgroundColor: Colors.grey[200],
+                          value: OnboardingConfig.getProgressValue('weight'),
+                          minHeight: 4.h,
+                          backgroundColor: AppColors.greyLight,
                           valueColor: AlwaysStoppedAnimation(accent),
                         ),
                       ),
@@ -61,82 +72,78 @@ class OnboardingWeight extends StatelessWidget {
                 ],
               ),
             ),
+
             body: SafeArea(
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18.0),
-                    child: Center(
-                      child: Text(
-                        'What is your weight?',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  SizedBox(height: AppConstants.spaceS.h),
+
+                  // Title
+                  Text(
+                    'What is your weight?',
+                    style: AppTextStyles.h3,
                   ),
-                  const SizedBox(height: 6),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18.0),
-                    child: Center(
-                      child: Text(
-                        'Choose or write your current weight',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ),
+
+                  SizedBox(height: AppConstants.spaceS.h),
+
+                  // Subtitle
+                  Text(
+                    'Choose or write your current weight',
+                    style: AppTextStyles.subtitle2,
                   ),
-                  const SizedBox(height: 10),
+
+                  SizedBox(height: AppConstants.spaceM.h),
 
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18.0,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppConstants.paddingL.w,
+                          vertical: AppConstants.spaceS.h,
                         ),
                         child: Column(
                           children: [
+                            // Preview image
                             SizedBox(
-                              width: MediaQuery.of(context).size.width * 0.92,
-                              height: MediaQuery.of(context).size.height * 0.46,
+                              width: OnboardingConfig.previewWidthRatio.sw,
+                              height: 0.46.sh,
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
+                                  // Rotated background
                                   Transform.rotate(
                                     angle: -0.05,
                                     child: Container(
-                                      width:
-                                          MediaQuery.of(context).size.width *
-                                          0.9,
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.88 *
-                                          0.5,
+                                      width: 0.9.sw,
+                                      height: 0.88.sh * 0.5,
                                       decoration: BoxDecoration(
                                         color: accent,
-                                        borderRadius: BorderRadius.circular(18),
+                                        borderRadius: BorderRadius.circular(
+                                            AppConstants.radiusL.r),
                                       ),
                                     ),
                                   ),
+
+                                  // Image
                                   Container(
-                                    width:
-                                        MediaQuery.of(context).size.width * 0.9,
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        0.94 *
-                                        0.5,
+                                    width: 0.9.sw,
+                                    height: 0.94.sh * 0.5,
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(
+                                          AppConstants.radiusL.r),
                                     ),
                                     child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
+                                      padding: EdgeInsets.all(AppConstants.paddingM.w),
                                       child: Image.asset(
                                         imagePath,
                                         fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          isMale ? Icons.man : Icons.woman,
+                                          size: AppConstants.iconXL * 3,
+                                          color: accent,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -144,108 +151,126 @@ class OnboardingWeight extends StatelessWidget {
                               ),
                             ),
 
-                            const SizedBox(height: 16),
+                            SizedBox(height: AppConstants.spaceL.h),
 
+                            // Weight controls
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                // Decrease button
                                 IconButton(
                                   icon: const Icon(Icons.remove_circle_outline),
                                   color: accent,
+                                  iconSize: AppConstants.iconM.sp,
                                   onPressed: () {
                                     double newWeight = (state.weight - 1).clamp(
-                                      30,
-                                      150,
+                                      OnboardingConfig.weightConfig['min']!,
+                                      OnboardingConfig.weightConfig['max']!,
                                     );
-                                    context.read<WeightCubit>().updateWeight(
-                                      newWeight,
-                                    );
+                                    context
+                                        .read<WeightCubit>()
+                                        .updateWeight(newWeight);
                                   },
                                 ),
+
+                                // Text input
                                 Container(
-                                  width: 100,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                  width: 100.w,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppConstants.paddingM.w,
+                                    vertical: AppConstants.spaceS.h,
                                   ),
                                   decoration: BoxDecoration(
                                     color: accent.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(
+                                        AppConstants.radiusM.r),
                                   ),
                                   child: TextField(
                                     controller: weightController,
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
+                                    style: AppTextStyles.bodyMedium,
                                     decoration: const InputDecoration(
                                       border: InputBorder.none,
                                     ),
                                     onSubmitted: (value) {
                                       double? v = double.tryParse(value);
-                                      if (v != null && v >= 30 && v <= 150) {
+                                      if (v != null &&
+                                          v >= OnboardingConfig.weightConfig['min']! &&
+                                          v <= OnboardingConfig.weightConfig['max']!) {
                                         context
                                             .read<WeightCubit>()
                                             .updateWeight(v);
                                       } else {
-                                        weightController.text = state.weight
-                                            .toInt()
-                                            .toString();
+                                        weightController.text =
+                                            state.weight.toInt().toString();
                                       }
                                     },
                                   ),
                                 ),
+
+                                // Increase button
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline),
                                   color: accent,
+                                  iconSize: AppConstants.iconM.sp,
                                   onPressed: () {
                                     double newWeight = (state.weight + 1).clamp(
-                                      30,
-                                      150,
+                                      OnboardingConfig.weightConfig['min']!,
+                                      OnboardingConfig.weightConfig['max']!,
                                     );
-                                    context.read<WeightCubit>().updateWeight(
-                                      newWeight,
-                                    );
+                                    context
+                                        .read<WeightCubit>()
+                                        .updateWeight(newWeight);
                                   },
                                 ),
-                                const SizedBox(width: 8),
+
+                                SizedBox(width: AppConstants.spaceS.w),
+
+                                // Unit label
                                 Text(
                                   'kg',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
+                                  style: AppTextStyles.value.copyWith(
+                                    fontSize: 28.sp,
                                     color: accent,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 12),
+                            SizedBox(height: AppConstants.spaceM.h),
 
+                            // Slider with labels
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6.0,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: AppConstants.spaceS.w,
                               ),
                               child: Column(
                                 children: [
+                                  // Min/Max labels
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
-                                    children: const [
+                                    children: [
                                       Text(
-                                        '30 kg',
-                                        style: TextStyle(color: Colors.grey),
+                                        '${OnboardingConfig.weightConfig['min']!.toInt()} kg',
+                                        style: AppTextStyles.caption,
                                       ),
                                       Text(
-                                        '150 kg',
-                                        style: TextStyle(color: Colors.grey),
+                                        '${OnboardingConfig.weightConfig['max']!.toInt()} kg',
+                                        style: AppTextStyles.caption,
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 6),
+
+                                  SizedBox(height: AppConstants.spaceS.h),
+
+                                  // Slider
                                   Slider(
                                     value: state.weight,
-                                    min: 30,
-                                    max: 150,
-                                    divisions: 120,
+                                    min: OnboardingConfig.weightConfig['min']!,
+                                    max: OnboardingConfig.weightConfig['max']!,
+                                    divisions: OnboardingConfig.weightDivisions,
                                     activeColor: accent,
                                     inactiveColor: accent.withOpacity(0.3),
                                     onChanged: (v) => context
@@ -256,41 +281,39 @@ class OnboardingWeight extends StatelessWidget {
                               ),
                             ),
 
-                            const SizedBox(height: 12),
+                            SizedBox(height: AppConstants.spaceM.h),
                           ],
                         ),
                       ),
                     ),
                   ),
 
+                  // Next button
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18.0,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppConstants.paddingL.w,
+                      vertical: AppConstants.spaceM.h,
                     ),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: AppConstants.buttonHeightL.h,
                       child: ElevatedButton(
                         onPressed: () {
-                          context.read<OnboardingCubitAllData>().setWeight(
-                            state.weight,
-                          );
+                          context
+                              .read<OnboardingCubitAllData>()
+                              .setWeight(state.weight);
                           context.push('/age');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius:
+                                BorderRadius.circular(AppConstants.radiusM.r),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Next',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: AppTextStyles.button,
                         ),
                       ),
                     ),

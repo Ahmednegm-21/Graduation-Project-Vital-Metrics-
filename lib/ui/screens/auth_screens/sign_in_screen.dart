@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
-import '../widgets/custom_auth/custom_text_field.dart';
-import '../widgets/goal_selction/custom_button.dart';
-import '../widgets/custom_auth/social_auth_button.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
+import '../../widgets/custom_auth/custom_text_field.dart';
+import '../../widgets/custom_auth/social_auth_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -31,12 +35,14 @@ class _SignInScreenState extends State<SignInScreen> {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
-            Future.delayed(const Duration(milliseconds: 800), () {
-              context.go('/gender');
-            });
+            Future.delayed(
+              Duration(milliseconds: AppConstants.authNavigationDelay),
+              () => context.go('/gender'),
+            );
           }
         },
         builder: (context, state) {
+          // Extract errors
           String? emailError;
           String? passwordError;
           bool isSuccess = false;
@@ -52,16 +58,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
           return Container(
             height: MediaQuery.of(context).size.height,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xff041374), Color(0xFF01010E)],
-              ),
-            ),
+            decoration: AppDecorations.authGradientBackground,
             child: SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(AppConstants.paddingXXL),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: MediaQuery.of(context).size.height -
@@ -76,29 +76,22 @@ class _SignInScreenState extends State<SignInScreen> {
                         const Spacer(),
 
                         // Title
-                        const Text(
+                        Text(
                           'Sign in',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: AppTextStyles.authTitle,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: AppConstants.spaceS),
 
                         // Subtitle
-                        const Text(
+                        Text(
                           'Enter your email and password',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 18,
-                          ),
+                          style: AppTextStyles.authSubtitle,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 40),
+                        SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Email Field
+                        // Email field
                         CustomTextField(
                           controller: _emailController,
                           hintText: 'Email',
@@ -107,9 +100,9 @@ class _SignInScreenState extends State<SignInScreen> {
                           errorText: emailError,
                           isSuccess: isSuccess,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: AppConstants.spaceL),
 
-                        // Password Field
+                        // Password field
                         CustomTextField(
                           controller: _passwordController,
                           hintText: 'Password',
@@ -118,9 +111,9 @@ class _SignInScreenState extends State<SignInScreen> {
                           errorText: passwordError,
                           isSuccess: isSuccess,
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: AppConstants.spaceXXL),
 
-                        // Sign In Button
+                        // Sign in button
                         CustomButton(
                           text: 'Sign in',
                           onPressed: () {
@@ -131,46 +124,32 @@ class _SignInScreenState extends State<SignInScreen> {
                           },
                           isLoading: isLoading,
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: AppConstants.spaceXXL),
 
                         // Don't have account
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
+                            Text(
                               'Dont have an account?  ',
-                              style: TextStyle(
-                                color: Colors.white70,
-                              ),
+                              style: AppTextStyles.authText,
                             ),
                             GestureDetector(
-                              onTap: () {
-                                // Navigate to sign up
-                                context.push('/signup');
-                              },
-                              child: const Text(
+                              onTap: () => context.push('/signup'),
+                              child: Text(
                                 'Sign up',
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: AppTextStyles.authLink,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 40),
+                        SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Social Auth Buttons
+                        // Social auth buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // SocialAuthButton(
-                            //   imagePath: 'facebook',
-                            //   onPressed: () {
-                            //     context.read<AuthCubit>().signInWithFacebook();
-                            //   },
-                            // ),
-                            const SizedBox(width: 20),
+                            SizedBox(width: AppConstants.spaceXL),
                             SocialAuthButton(
                               imagePath: 'google',
                               onPressed: () {
