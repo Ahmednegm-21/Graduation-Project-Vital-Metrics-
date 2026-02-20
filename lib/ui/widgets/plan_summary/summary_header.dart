@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SummaryHeader extends StatelessWidget {
   final bool isLose;
@@ -19,56 +21,56 @@ class SummaryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Success Icon
+        // Success icon
         Container(
-          padding: EdgeInsets.all(16.w),
+          padding: EdgeInsets.all(AppConstants.paddingL),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: AppColors.success.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
             Icons.check_circle_outline,
             size: 48.sp,
-            color: Colors.green,
+            color: AppColors.success,
           ),
         ),
 
-        SizedBox(height: 16.h),
+        SizedBox(height: AppConstants.spaceL),
 
         // Achievable text
         Text(
           "It's totally achievable!",
           style: TextStyle(
-            color: Colors.grey.shade600,
+            color: AppColors.greyDark,
             fontSize: 16.sp,
             fontWeight: FontWeight.w500,
           ),
         ),
 
-        SizedBox(height: 12.h),
+        SizedBox(height: AppConstants.paddingM),
 
         // Summary text
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
           child: RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
               style: TextStyle(
                 fontSize: 26.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: AppColors.black,
                 height: 1.3,
               ),
               children: [
                 TextSpan(text: isLose ? 'Lose ' : 'Gain '),
                 TextSpan(
                   text: '${weightDiff.toStringAsFixed(0)} kg',
-                  style: const TextStyle(color: Color(0xFF005EBD)),
+                  style: TextStyle(color: AppColors.primary),
                 ),
                 const TextSpan(text: ' by '),
                 TextSpan(
                   text: formatDate(targetDate),
-                  style: const TextStyle(color: Color(0xFF005EBD)),
+                  style: TextStyle(color: AppColors.primary),
                 ),
               ],
             ),

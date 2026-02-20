@@ -29,6 +29,7 @@ class AppConstants {
   static double get buttonHeightS => 32.h;
   static double get buttonHeightM => 38.h;
   static double get buttonHeightL => 42.h;
+  static double get buttonHeightXL => 48.h;
 
   // Spacing
   static double get spaceXS => 4.h;

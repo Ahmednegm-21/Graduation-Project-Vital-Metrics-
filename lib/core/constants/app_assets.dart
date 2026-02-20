@@ -1,4 +1,3 @@
-/// App asset paths
 class AppAssets {
   AppAssets._();
 

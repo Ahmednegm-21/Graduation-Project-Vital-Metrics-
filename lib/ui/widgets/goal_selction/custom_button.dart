@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -29,33 +31,33 @@ class CustomButton extends StatelessWidget {
 
     return SizedBox(
       width: width ?? double.infinity,
-      height: height ?? 50.h,
+      height: height ?? AppConstants.buttonHeightM,
       child: ElevatedButton(
         onPressed: isButtonEnabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: isButtonEnabled
-              ? (backgroundColor ?? const Color(0xFF005EBD))
-              : Colors.grey.shade400,
-          disabledBackgroundColor: Colors.grey.shade400,
+              ? (backgroundColor ?? AppColors.primary)
+              : AppColors.grey.withOpacity(0.4),
+          disabledBackgroundColor: AppColors.grey.withOpacity(0.4),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(AppConstants.radiusM),
           ),
           elevation: isButtonEnabled ? 2 : 0,
-          shadowColor: Colors.black26,
+          shadowColor: AppColors.shadowLight,
         ),
         child: isLoading
             ? SizedBox(
                 height: 22.h,
                 width: 22.w,
-                child: const CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                 ),
               )
             : Text(
                 text,
                 style: TextStyle(
-                  color: textColor ?? Colors.white,
+                  color: textColor ?? AppColors.white,
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w600,
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SummaryStatsCards extends StatelessWidget {
   final int weeksToGoal;
@@ -14,9 +16,10 @@ class SummaryStatsCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       child: Row(
         children: [
+          // Duration card
           Expanded(
             child: _buildStatCard(
               icon: Icons.calendar_today,
@@ -25,13 +28,15 @@ class SummaryStatsCards extends StatelessWidget {
               color: Colors.purple,
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: AppConstants.paddingM),
+          
+          // Weekly rate card
           Expanded(
             child: _buildStatCard(
               icon: Icons.speed,
               label: 'Weekly Rate',
               value: '${weeklyRate.toStringAsFixed(2)} kg',
-              color: Colors.orange,
+              color: AppColors.moderate,
             ),
           ),
         ],
@@ -46,16 +51,16 @@ class SummaryStatsCards extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(AppConstants.paddingL),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24.sp),
-          SizedBox(height: 8.h),
+          Icon(icon, color: color, size: AppConstants.iconM),
+          SizedBox(height: AppConstants.spaceS),
           Text(
             value,
             style: TextStyle(
@@ -64,11 +69,11 @@ class SummaryStatsCards extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: AppConstants.spaceXS),
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color: AppColors.greyDark,
               fontSize: 11.sp,
             ),
           ),

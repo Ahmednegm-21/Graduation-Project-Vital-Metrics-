@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
@@ -37,20 +40,23 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
     return BlocListener<OnboardingCubitAllData, OnboardingState>(
       listener: (context, state) {},
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
               // Back button
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppConstants.paddingL,
+                  vertical: AppConstants.paddingM,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => context.go('/goal-selection'),
                     icon: Icon(
                       Icons.arrow_back_ios,
-                      color: Colors.black,
+                      color: AppColors.black,
                       size: 22.sp,
                     ),
                   ),
@@ -60,33 +66,33 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
               // Scrollable content
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: 20.h),
+                  padding: EdgeInsets.only(bottom: AppConstants.spaceXL),
                   child: Column(
                     children: [
                       // Title section
                       FadeInDown(
-                        duration: const Duration(milliseconds: 600),
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
                         child: SpeedHeader(),
                       ),
 
-                      SizedBox(height: 24.h),
+                      SizedBox(height: AppConstants.spaceXXL),
 
                       // Speed display card
                       FadeInUp(
-                        duration: const Duration(milliseconds: 600),
-                        delay: const Duration(milliseconds: 200),
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        delay: Duration(milliseconds: AppConstants.animationFast),
                         child: SpeedDisplayCard(
                           selectedSpeed: _selectedSpeed,
                           isLose: isLose,
                         ),
                       ),
 
-                      SizedBox(height: 24.h),
+                      SizedBox(height: AppConstants.spaceXXL),
 
                       // Speed slider
                       FadeInUp(
-                        duration: const Duration(milliseconds: 600),
-                        delay: const Duration(milliseconds: 400),
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        delay: Duration(milliseconds: 400),
                         child: SpeedSliderSection(
                           selectedSpeed: _selectedSpeed,
                           speeds: _speeds,
@@ -98,12 +104,12 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                         ),
                       ),
 
-                      SizedBox(height: 16.h),
+                      SizedBox(height: AppConstants.spaceL),
 
                       // Info message
                       SpeedInfoCard(),
 
-                      SizedBox(height: 16.h),
+                      SizedBox(height: AppConstants.spaceL),
                     ],
                   ),
                 ),
@@ -111,20 +117,11 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
 
               // Next button
               FadeInUp(
-                duration: const Duration(milliseconds: 600),
-                delay: const Duration(milliseconds: 600),
+                duration: Duration(milliseconds: AppConstants.animationSlow),
+                delay: Duration(milliseconds: AppConstants.animationSlow),
                 child: Container(
-                  padding: EdgeInsets.all(20.w),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
+                  padding: EdgeInsets.all(AppConstants.paddingXL),
+                  decoration: AppDecorations.buttonContainer,
                   child: CustomButton(
                     text: 'Next',
                     onPressed: () {
@@ -134,8 +131,8 @@ class _WeightSpeedScreenState extends State<WeightSpeedScreen> {
                           .setWeightPerWeek(_selectedSpeed);
                       context.go('/target-weight');
                     },
-                    backgroundColor: const Color(0xFF005EBD),
-                    height: 50.h,
+                    backgroundColor: AppColors.primary,
+                    height: AppConstants.buttonHeightXL,
                   ),
                 ),
               ),
