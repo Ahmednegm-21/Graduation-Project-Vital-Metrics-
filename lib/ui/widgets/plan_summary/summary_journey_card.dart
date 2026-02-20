@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SummaryJourneyCard extends StatelessWidget {
   final double currentWeight;
@@ -20,61 +22,61 @@ class SummaryJourneyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24.w),
-      padding: EdgeInsets.all(20.w),
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+      padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF005EBD).withOpacity(0.1),
-            const Color(0xFF005EBD).withOpacity(0.05),
-          ],
+          colors: AppColors.primaryGradient,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
         border: Border.all(
-          color: const Color(0xFF005EBD).withOpacity(0.2),
+          color: AppColors.primaryBorder,
         ),
       ),
       child: Column(
         children: [
+          // Title
           Text(
             'Your Journey',
             style: TextStyle(
-              color: const Color(0xFF005EBD),
+              color: AppColors.primary,
               fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: AppConstants.spaceXL),
+          
+          // Journey visualization
           Row(
             children: [
-              // Current Weight
+              // Current weight point
               _buildWeightPoint(
                 weight: currentWeight,
                 label: 'Today',
                 isStart: true,
               ),
 
-              // Progress Line
+              // Progress line
               Expanded(
                 child: Column(
                   children: [
                     Container(
                       height: 4.h,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [
-                            Color(0xFF005EBD),
-                            Color(0xFF00A3FF),
+                            AppColors.primary,
+                            AppColors.secondaryLight,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(2.r),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: AppConstants.spaceS),
                     Text(
                       '${weightDiff.toStringAsFixed(0)} kg',
                       style: TextStyle(
-                        color: const Color(0xFF005EBD),
+                        color: AppColors.primary,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w600,
                       ),
@@ -83,7 +85,7 @@ class SummaryJourneyCard extends StatelessWidget {
                 ),
               ),
 
-              // Target Weight
+              // Target weight point
               _buildWeightPoint(
                 weight: targetWeight,
                 label: formatDate(targetDate),
@@ -103,38 +105,43 @@ class SummaryJourneyCard extends StatelessWidget {
   }) {
     return Column(
       children: [
+        // Icon container
         Container(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(AppConstants.paddingM),
           decoration: BoxDecoration(
-            color: isStart ? Colors.grey.shade200 : const Color(0xFF005EBD),
+            color: isStart ? AppColors.greyLight : AppColors.primary,
             shape: BoxShape.circle,
             border: Border.all(
-              color: isStart ? Colors.grey.shade400 : const Color(0xFF005EBD),
+              color: isStart ? AppColors.grey : AppColors.primary,
               width: 2,
             ),
           ),
           child: Icon(
             isStart ? Icons.play_arrow : Icons.flag,
-            color: isStart ? Colors.grey.shade700 : Colors.white,
+            color: isStart ? AppColors.greyDark : AppColors.white,
             size: 20.sp,
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: AppConstants.spaceS),
+        
+        // Weight value
         Text(
           '${weight.toStringAsFixed(0)} kg',
           style: TextStyle(
-            color: Colors.black,
+            color: AppColors.black,
             fontSize: 16.sp,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 4.h),
+        SizedBox(height: AppConstants.spaceXS),
+        
+        // Label
         SizedBox(
           width: 70.w,
           child: Text(
             label,
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color: AppColors.greyDark,
               fontSize: 10.sp,
             ),
             textAlign: TextAlign.center,

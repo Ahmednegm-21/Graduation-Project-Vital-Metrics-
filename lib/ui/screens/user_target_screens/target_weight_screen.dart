@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_header.dart';
@@ -48,20 +51,23 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
     final difference = (_targetWeight - currentWeight).abs();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Back button
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingL,
+                vertical: AppConstants.paddingM,
+              ),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
                   onPressed: () => context.go('/weight-speed'),
                   icon: Icon(
                     Icons.arrow_back_ios,
-                    color: Colors.black,
+                    color: AppColors.black,
                     size: 22.sp,
                   ),
                 ),
@@ -71,30 +77,30 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
             // Scrollable content
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: 20.h),
+                padding: EdgeInsets.only(bottom: AppConstants.spaceXL),
                 child: Column(
                   children: [
                     // Title section
                     FadeInDown(
-                      duration: const Duration(milliseconds: 600),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
                       child: TargetWeightHeader(),
                     ),
 
-                    SizedBox(height: 24.h),
+                    SizedBox(height: AppConstants.spaceXXL),
 
                     // Goal icon section
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 200),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: AppConstants.animationFast),
                       child: TargetWeightIconSection(isLose: isLose),
                     ),
 
-                    SizedBox(height: 24.h),
+                    SizedBox(height: AppConstants.spaceXXL),
 
                     // Weight display card
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 300),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: AppConstants.animationNormal),
                       child: TargetWeightDisplayCard(
                         targetWeight: _targetWeight,
                         difference: difference,
@@ -102,12 +108,12 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 24.h),
+                    SizedBox(height: AppConstants.spaceXXL),
 
                     // Weight slider
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 400),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: 400),
                       child: TargetWeightSliderSection(
                         targetWeight: _targetWeight,
                         minWeight: minWeight,
@@ -120,7 +126,7 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 16.h),
+                    SizedBox(height: AppConstants.spaceL),
                   ],
                 ),
               ),
@@ -128,20 +134,11 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
             // Next button
             FadeInUp(
-              duration: const Duration(milliseconds: 600),
-              delay: const Duration(milliseconds: 600),
+              duration: Duration(milliseconds: AppConstants.animationSlow),
+              delay: Duration(milliseconds: AppConstants.animationSlow),
               child: Container(
-                padding: EdgeInsets.all(20.w),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
+                padding: EdgeInsets.all(AppConstants.paddingXL),
+                decoration: AppDecorations.buttonContainer,
                 child: CustomButton(
                   text: 'Next',
                   onPressed: () {
@@ -151,8 +148,8 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                         .setTargetWeight(_targetWeight);
                     context.go('/plan-summary');
                   },
-                  backgroundColor: const Color(0xFF005EBD),
-                  height: 50.h,
+                  backgroundColor: AppColors.primary,
+                  height: AppConstants.buttonHeightXL,
                 ),
               ),
             ),

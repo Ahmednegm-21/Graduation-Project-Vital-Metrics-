@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import '../../../data/models/user_goal.dart';
@@ -14,7 +17,7 @@ class GoalSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: BlocConsumer<OnboardingCubitAllData, OnboardingState>(
           listener: (context, state) {
@@ -26,7 +29,7 @@ class GoalSelectionScreen extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppColors.error,
                 ),
               );
             }
@@ -34,21 +37,25 @@ class GoalSelectionScreen extends StatelessWidget {
           builder: (context, state) {
             final isLoading = state is OnboardingLoading;
 
-            // Get selected goal from OnboardingCubitAllData
+            // Get selected goal
             final selectedGoal =
                 context.read<OnboardingCubitAllData>().currentData.goal;
 
             return Column(
               children: [
+                // Back button
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppConstants.paddingL,
+                    vertical: AppConstants.paddingM,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
                         onPressed: () => context.pop(),
                         icon: Icon(
                           Icons.arrow_back_ios,
-                          color: Colors.black,
+                          color: AppColors.black,
                           size: 22.sp,
                         ),
                       ),
@@ -56,13 +63,13 @@ class GoalSelectionScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Title 
+                // Title
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
                   child: Text(
                     'What is your main goal?',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: AppColors.black,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.bold,
                       height: 1.1,
@@ -71,12 +78,12 @@ class GoalSelectionScreen extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 16.h),
+                SizedBox(height: AppConstants.spaceL),
 
-                // Goal Cards
+                // Goal cards list
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
                     child: Column(
                       children: UserGoal.allGoals.map((goal) {
                         return GoalCard(
@@ -93,19 +100,10 @@ class GoalSelectionScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Continue Button
+                // Continue button
                 Container(
                   padding: EdgeInsets.all(15.w),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
+                  decoration: AppDecorations.buttonContainer,
                   child: CustomButton(
                     text: 'Continue',
                     enabled: selectedGoal != null,

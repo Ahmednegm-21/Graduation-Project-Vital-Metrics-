@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SpeedSliderSection extends StatelessWidget {
   final double selectedSpeed;
@@ -16,7 +18,7 @@ class SpeedSliderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       child: Column(
         children: [
           // Speed indicator icons
@@ -25,19 +27,19 @@ class SpeedSliderSection extends StatelessWidget {
             children: speeds.map((speed) {
               final isSelected = speed == selectedSpeed;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+                duration: Duration(milliseconds: AppConstants.animationNormal),
                 padding: EdgeInsets.all(7.w),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF005EBD).withOpacity(0.1)
+                      ? AppColors.primary.withOpacity(0.1)
                       : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.directions_run,
                   color: isSelected
-                      ? const Color(0xFF005EBD)
-                      : Colors.grey.shade400,
+                      ? AppColors.primary
+                      : AppColors.greyLight,
                   size: isSelected ? 26.sp : 20.sp,
                 ),
               );
@@ -49,14 +51,14 @@ class SpeedSliderSection extends StatelessWidget {
           // Slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF005EBD),
-              inactiveTrackColor: Colors.grey.shade300,
-              thumbColor: Colors.white,
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: AppColors.greyLight,
+              thumbColor: AppColors.white,
               thumbShape: RoundSliderThumbShape(
                 enabledThumbRadius: 12.r,
                 elevation: 4,
               ),
-              overlayColor: const Color(0xFF005EBD).withOpacity(0.2),
+              overlayColor: AppColors.primary.withOpacity(0.2),
               overlayShape: RoundSliderOverlayShape(
                 overlayRadius: 22.r,
               ),
@@ -73,7 +75,7 @@ class SpeedSliderSection extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: 8.h),
+          SizedBox(height: AppConstants.spaceS),
 
           // Speed value labels
           Row(
@@ -84,8 +86,8 @@ class SpeedSliderSection extends StatelessWidget {
                 '${speed}kg',
                 style: TextStyle(
                   color: isSelected
-                      ? const Color(0xFF005EBD)
-                      : Colors.grey.shade500,
+                      ? AppColors.primary
+                      : AppColors.grey,
                   fontSize: isSelected ? 11.sp : 10.sp,
                   fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.normal,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class TargetWeightDisplayCard extends StatelessWidget {
   final double targetWeight;
@@ -16,14 +18,14 @@ class TargetWeightDisplayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24.w),
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: AppColors.shadowLight,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -35,15 +37,15 @@ class TargetWeightDisplayCard extends StatelessWidget {
           Text(
             'Target Weight',
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color: AppColors.greyDark,
               fontSize: 13.sp,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: AppConstants.spaceS),
           
           // Animated weight value
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: Duration(milliseconds: AppConstants.animationNormal),
             transitionBuilder: (child, animation) {
               return ScaleTransition(
                 scale: animation,
@@ -59,16 +61,16 @@ class TargetWeightDisplayCard extends StatelessWidget {
                 Text(
                   targetWeight.toStringAsFixed(0),
                   style: TextStyle(
-                    color: const Color(0xFF005EBD),
+                    color: AppColors.primary,
                     fontSize: 48.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: AppConstants.spaceS),
                 Text(
                   'kg',
                   style: TextStyle(
-                    color: Colors.grey.shade500,
+                    color: AppColors.grey,
                     fontSize: 20.sp,
                   ),
                 ),
@@ -76,7 +78,7 @@ class TargetWeightDisplayCard extends StatelessWidget {
             ),
           ),
           
-          SizedBox(height: 12.h),
+          SizedBox(height: AppConstants.paddingM),
           
           // Difference badge
           Container(
@@ -86,9 +88,9 @@ class TargetWeightDisplayCard extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: isLose
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20.r),
+                  ? AppColors.success.withOpacity(0.1)
+                  : AppColors.info.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppConstants.radiusXL),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -96,13 +98,13 @@ class TargetWeightDisplayCard extends StatelessWidget {
                 Icon(
                   isLose ? Icons.arrow_downward : Icons.arrow_upward,
                   size: 15.sp,
-                  color: isLose ? Colors.green : Colors.blue,
+                  color: isLose ? AppColors.success : AppColors.info,
                 ),
                 SizedBox(width: 6.w),
                 Text(
                   '${difference.toStringAsFixed(0)} kg ${isLose ? 'to lose' : 'to gain'}',
                   style: TextStyle(
-                    color: isLose ? Colors.green : Colors.blue,
+                    color: isLose ? AppColors.success : AppColors.info,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
                   ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import '../../../data/models/user_goal.dart';
 
 class GoalCard extends StatelessWidget {
@@ -21,17 +23,17 @@ class GoalCard extends StatelessWidget {
       child: Container(
         margin: EdgeInsets.only(bottom: 14.h),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.r),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
           border: Border.all(
-            color: isSelected ? const Color(0xFF005EBD) : Colors.grey.shade300,
+            color: isSelected ? AppColors.primary : AppColors.greyLight,
             width: isSelected ? 2.5.w : 1.5.w,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? const Color(0xFF005EBD).withOpacity(0.2)
-                  : Colors.black.withOpacity(0.05),
+                  ? AppColors.primary.withOpacity(0.2)
+                  : AppColors.shadowLight,
               blurRadius: isSelected ? 12 : 6,
               spreadRadius: isSelected ? 1 : 0,
               offset: const Offset(0, 3),
@@ -40,20 +42,24 @@ class GoalCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Image Container
+            // Image container
             ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppConstants.radiusL),
+              ),
               child: Container(
                 height: 160.h,
                 width: double.infinity,
                 child: Stack(
                   children: [
+                    // Goal image
                     Image.asset(
                       goal.imagePath,
                       fit: BoxFit.fill,
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (context, error, stackTrace) {
+                        // Fallback gradient if image fails
                         return Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -61,12 +67,12 @@ class GoalCard extends StatelessWidget {
                               end: Alignment.bottomRight,
                               colors: goal.type == GoalType.gainWeight
                                   ? [
-                                      const Color(0xFFFFE0B2),
-                                      const Color(0xFFFFCC80),
+                                      AppColors.weightGainLight,
+                                      AppColors.weightGain,
                                     ]
                                   : [
-                                      const Color(0xFFB3E5FC),
-                                      const Color(0xFF81D4FA),
+                                      AppColors.weightLossLight,
+                                      AppColors.weightLoss,
                                     ],
                             ),
                           ),
@@ -76,14 +82,14 @@ class GoalCard extends StatelessWidget {
                                   ? Icons.fitness_center
                                   : Icons.directions_run,
                               size: 60.sp,
-                              color: Colors.white.withOpacity(0.5),
+                              color: AppColors.white.withOpacity(0.5),
                             ),
                           ),
                         );
                       },
                     ),
 
-                    // Title Overlay
+                    // Title overlay
                     Positioned(
                       bottom: 0,
                       left: 0,
@@ -99,7 +105,7 @@ class GoalCard extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.7),
+                              AppColors.black.withOpacity(0.7),
                             ],
                           ),
                         ),
@@ -109,18 +115,18 @@ class GoalCard extends StatelessWidget {
                             Text(
                               goal.title,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            SizedBox(height: 3.h),
+                            SizedBox(height: AppConstants.spaceXS),
                             Text(
                               goal.type == GoalType.gainWeight
                                   ? 'Increase Body Weight'
                                   : 'Burn Fat and tone down',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: AppColors.white.withOpacity(0.9),
                                 fontSize: 11.sp,
                               ),
                             ),
@@ -133,30 +139,33 @@ class GoalCard extends StatelessWidget {
               ),
             ),
 
-            // Description
+            // Description section
             Container(
-              padding: EdgeInsets.all(12.w),
+              padding: EdgeInsets.all(AppConstants.paddingM),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(16.r)),
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(AppConstants.radiusL),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Info icon
                   Container(
                     margin: EdgeInsets.only(top: 2.h, right: 8.w),
                     padding: EdgeInsets.all(4.w),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF005EBD).withOpacity(0.1),
+                      color: AppColors.primary.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.info_outline,
-                      color: const Color(0xFF005EBD),
-                      size: 16.sp,
+                      color: AppColors.primary,
+                      size: AppConstants.iconXS,
                     ),
                   ),
+                  
                   // Description text
                   Expanded(
                     child: Column(
@@ -170,11 +179,11 @@ class GoalCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: 3.h),
+                        SizedBox(height: AppConstants.spaceXS),
                         Text(
                           goal.description,
                           style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color: AppColors.greyDark,
                             fontSize: 11.sp,
                             height: 1.4,
                           ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class TargetWeightIconSection extends StatelessWidget {
   final bool isLose;
@@ -13,20 +15,17 @@ class TargetWeightIconSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 150.h, // Smaller
-      margin: EdgeInsets.symmetric(horizontal: 24.w),
+      height: 150.h,
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF005EBD).withOpacity(0.1),
-            const Color(0xFF005EBD).withOpacity(0.05),
-          ],
+          colors: AppColors.primaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
         border: Border.all(
-          color: const Color(0xFF005EBD).withOpacity(0.2),
+          color: AppColors.primaryBorder,
           width: 1.5,
         ),
       ),
@@ -37,15 +36,15 @@ class TargetWeightIconSection extends StatelessWidget {
           Icon(
             isLose ? Icons.trending_down : Icons.trending_up,
             size: 50.sp,
-            color: const Color(0xFF005EBD),
+            color: AppColors.primary,
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: AppConstants.spaceS),
           
           // Goal label
           Text(
             isLose ? 'Weight Loss Goal' : 'Weight Gain Goal',
             style: TextStyle(
-              color: const Color(0xFF005EBD),
+              color: AppColors.primary,
               fontSize: 13.sp,
               fontWeight: FontWeight.w600,
             ),

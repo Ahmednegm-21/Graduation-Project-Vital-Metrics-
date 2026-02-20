@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class TargetWeightSliderSection extends StatelessWidget {
   final double targetWeight;
@@ -18,20 +20,20 @@ class TargetWeightSliderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       child: Column(
         children: [
           // Slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF005EBD),
-              inactiveTrackColor: Colors.grey.shade300,
-              thumbColor: Colors.white,
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: AppColors.greyLight,
+              thumbColor: AppColors.white,
               thumbShape: RoundSliderThumbShape(
                 enabledThumbRadius: 12.r,
                 elevation: 4,
               ),
-              overlayColor: const Color(0xFF005EBD).withOpacity(0.2),
+              overlayColor: AppColors.primary.withOpacity(0.2),
               overlayShape: RoundSliderOverlayShape(
                 overlayRadius: 22.r,
               ),
@@ -45,7 +47,7 @@ class TargetWeightSliderSection extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: 8.h),
+          SizedBox(height: AppConstants.spaceS),
 
           // Min/Max labels
           Row(
@@ -58,7 +60,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                   Text(
                     '${minWeight.toStringAsFixed(0)} kg',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: AppColors.greyDark,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                     ),
@@ -66,7 +68,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                   Text(
                     'Minimum',
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: AppColors.grey,
                       fontSize: 10.sp,
                     ),
                   ),
@@ -80,7 +82,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                   Text(
                     '${maxWeight.toStringAsFixed(0)} kg',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: AppColors.greyDark,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
                     ),
@@ -88,7 +90,7 @@ class TargetWeightSliderSection extends StatelessWidget {
                   Text(
                     'Maximum',
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: AppColors.grey,
                       fontSize: 10.sp,
                     ),
                   ),

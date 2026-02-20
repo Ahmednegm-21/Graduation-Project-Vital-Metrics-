@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/get_my_plan/plan_hero_section.dart';
@@ -13,25 +16,16 @@ import 'package:vital_metrics/ui/widgets/get_my_plan/plan_success_rate_card.dart
 class GetMyPlanScreen extends StatelessWidget {
   const GetMyPlanScreen({super.key});
 
+  // Format date helper
   String _formatDate(DateTime date) {
     final months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  // Calculate BMR
+  // Calculate BMR using Mifflin-St Jeor equation
   double _calculateBMR({
     required String gender,
     required double weight,
@@ -45,34 +39,35 @@ class GetMyPlanScreen extends StatelessWidget {
     }
   }
 
-  // Calculate Daily Calories
+  // Calculate daily calories
   int _calculateDailyCalories({
     required double bmr,
     required String goalType,
     required double weightPerWeek,
   }) {
-    final tdee = bmr * 1.55;
+    final tdee = bmr * AppConstants.activityMultiplier;
 
     if (goalType.contains('lose')) {
-      final deficit = weightPerWeek * 1100;
+      final deficit = weightPerWeek * AppConstants.caloriesPerKg;
       return (tdee - deficit).round();
     } else if (goalType.contains('gain')) {
-      final surplus = weightPerWeek * 1100;
+      final surplus = weightPerWeek * AppConstants.caloriesPerKg;
       return (tdee + surplus).round();
     } else {
       return tdee.round();
     }
   }
 
-  // Calculate Water Intake
+  // Calculate water intake
   int _calculateWaterIntake(double weight) {
-    return (weight * 33).round();
+    return (weight * AppConstants.waterPerKg).round();
   }
 
   @override
   Widget build(BuildContext context) {
     final data = context.read<OnboardingCubitAllData>().currentData;
 
+    // Extract data
     final gender = data.gender ?? 'male';
     final currentWeight = data.weight ?? 70.0;
     final targetWeight = data.targetWeight ?? 70.0;
@@ -82,6 +77,7 @@ class GetMyPlanScreen extends StatelessWidget {
     final goalType = data.goal?.type.toString() ?? 'maintain';
     final weightPerWeek = data.weightPerWeek ?? 0.5;
 
+    // Calculate metrics
     final bmr = _calculateBMR(
       gender: gender,
       weight: currentWeight,
@@ -97,12 +93,14 @@ class GetMyPlanScreen extends StatelessWidget {
 
     final waterIntake = _calculateWaterIntake(currentWeight);
 
+    // Determine workout frequency
     final workoutFrequency = goalType.contains('lose')
         ? 5
         : goalType.contains('gain')
             ? 4
             : 3;
 
+    // Goal label
     final goalLabel = goalType.contains('lose')
         ? 'Lose Weight'
         : goalType.contains('gain')
@@ -112,16 +110,18 @@ class GetMyPlanScreen extends StatelessWidget {
     final weightDiff = (targetWeight - currentWeight).abs();
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
         child: Column(
           children: [
+            // Scrollable content
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   children: [
+                    // Hero section
                     FadeInDown(
-                      duration: const Duration(milliseconds: 600),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
                       child: PlanHeroSection(
                         gender: gender,
                         targetDate: targetDate,
@@ -129,12 +129,12 @@ class GetMyPlanScreen extends StatelessWidget {
                       ),
                     ),
 
-                    SizedBox(height: 20.h),
+                    SizedBox(height: AppConstants.spaceXL),
 
-                    // Progress Card
+                    // Progress card
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 200),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: AppConstants.animationFast),
                       child: PlanProgressCard(
                         currentWeight: currentWeight,
                         targetWeight: targetWeight,
@@ -143,21 +143,21 @@ class GetMyPlanScreen extends StatelessWidget {
                       ),
                     ),
 
-                    SizedBox(height: 20.h),
+                    SizedBox(height: AppConstants.spaceXL),
 
-                    // Success Rate Card
+                    // Success rate card
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 300),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: AppConstants.animationNormal),
                       child: PlanSuccessRateCard(),
                     ),
 
-                    SizedBox(height: 20.h),
+                    SizedBox(height: AppConstants.spaceXL),
 
-                    // Daily Goals
+                    // Daily goals grid
                     FadeInUp(
-                      duration: const Duration(milliseconds: 600),
-                      delay: const Duration(milliseconds: 400),
+                      duration: Duration(milliseconds: AppConstants.animationSlow),
+                      delay: Duration(milliseconds: 400),
                       child: PlanDailyGoalsGrid(
                         goalLabel: goalLabel,
                         dailyCalories: dailyCalories,
@@ -172,28 +172,20 @@ class GetMyPlanScreen extends StatelessWidget {
               ),
             ),
 
-            // Get My Plan Button
+            // Get plan button
             FadeInUp(
-              duration: const Duration(milliseconds: 600),
-              delay: const Duration(milliseconds: 500),
+              duration: Duration(milliseconds: AppConstants.animationSlow),
+              delay: Duration(milliseconds: 500),
               child: Container(
-                padding: EdgeInsets.all(24.w),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
+                padding: EdgeInsets.all(AppConstants.paddingXXL),
+                decoration: AppDecorations.buttonContainer,
                 child: CustomButton(
                   text: 'Get Your Plan',
                   onPressed: () {
                     context.go('/home');
                   },
-                  backgroundColor: const Color(0xFF005EBD),
+                  backgroundColor: AppColors.primary,
+                  height: AppConstants.buttonHeightXL,
                 ),
               ),
             ),

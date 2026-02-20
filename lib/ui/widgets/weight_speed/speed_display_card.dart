@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class SpeedDisplayCard extends StatelessWidget {
   final double selectedSpeed;
@@ -20,28 +22,25 @@ class SpeedDisplayCard extends StatelessWidget {
 
   // Get speed category color
   Color _getSpeedColor(double speed) {
-    if (speed <= 0.5) return Colors.green;
-    if (speed <= 1.0) return Colors.orange;
-    return Colors.red;
+    if (speed <= 0.5) return AppColors.slow;
+    if (speed <= 1.0) return AppColors.moderate;
+    return AppColors.fast;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24.w),
-      padding: EdgeInsets.all(20.w),
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+      padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF005EBD).withOpacity(0.1),
-            const Color(0xFF005EBD).withOpacity(0.05),
-          ],
+          colors: AppColors.primaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
         border: Border.all(
-          color: const Color(0xFF005EBD).withOpacity(0.2),
+          color: AppColors.primaryBorder,
           width: 1.5,
         ),
       ),
@@ -51,17 +50,17 @@ class SpeedDisplayCard extends StatelessWidget {
           Text(
             isLose ? 'Loss weight per week' : 'Gain weight per week',
             style: TextStyle(
-              color: Colors.grey.shade600,
+              color: AppColors.greyDark,
               fontSize: 13.sp,
               fontWeight: FontWeight.w500,
             ),
           ),
 
-          SizedBox(height: 12.h),
+          SizedBox(height: AppConstants.paddingM),
 
           // Animated speed value
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: Duration(milliseconds: AppConstants.animationNormal),
             transitionBuilder: (child, animation) {
               return ScaleTransition(
                 scale: animation,
@@ -77,16 +76,16 @@ class SpeedDisplayCard extends StatelessWidget {
                 Text(
                   selectedSpeed.toStringAsFixed(2),
                   style: TextStyle(
-                    color: const Color(0xFF005EBD),
+                    color: AppColors.primary,
                     fontSize: 42.sp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: AppConstants.spaceS),
                 Text(
                   'kg',
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: AppColors.greyDark,
                     fontSize: 20.sp,
                     fontWeight: FontWeight.w500,
                   ),
@@ -95,7 +94,7 @@ class SpeedDisplayCard extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: 8.h),
+          SizedBox(height: AppConstants.spaceS),
 
           // Speed category badge
           Container(
@@ -105,7 +104,7 @@ class SpeedDisplayCard extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: _getSpeedColor(selectedSpeed).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20.r),
+              borderRadius: BorderRadius.circular(AppConstants.radiusXL),
               border: Border.all(
                 color: _getSpeedColor(selectedSpeed).withOpacity(0.3),
               ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class PlanDailyGoalsGrid extends StatelessWidget {
   final String goalLabel;
@@ -18,30 +20,33 @@ class PlanDailyGoalsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Section title
           Text(
             'Your Daily Targets',
             style: TextStyle(
-              color: Colors.black,
+              color: AppColors.black,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: AppConstants.spaceL),
+          
+          // Goals grid
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            crossAxisSpacing: 12.w,
-            mainAxisSpacing: 12.h,
+            crossAxisSpacing: AppConstants.paddingM,
+            mainAxisSpacing: AppConstants.paddingM,
             childAspectRatio: 0.95,
             children: [
               _buildGoalCard(
                 icon: Icons.track_changes,
-                iconColor: Colors.red,
+                iconColor: AppColors.fast,
                 label: 'Goal',
                 value: goalLabel,
                 unit: '',
@@ -49,7 +54,7 @@ class PlanDailyGoalsGrid extends StatelessWidget {
               ),
               _buildGoalCard(
                 icon: Icons.local_fire_department,
-                iconColor: Colors.orange,
+                iconColor: AppColors.moderate,
                 label: 'Calories',
                 value: '$dailyCalories',
                 unit: 'kcal',
@@ -65,7 +70,7 @@ class PlanDailyGoalsGrid extends StatelessWidget {
               ),
               _buildGoalCard(
                 icon: Icons.water_drop,
-                iconColor: Colors.blue,
+                iconColor: AppColors.info,
                 label: 'Water',
                 value: '$waterIntake',
                 unit: 'ml',
@@ -94,7 +99,7 @@ class PlanDailyGoalsGrid extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        borderRadius: BorderRadius.circular(30.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusRound),
         border: Border.all(
           color: iconColor.withOpacity(0.2),
           width: 1.5,
@@ -104,11 +109,12 @@ class PlanDailyGoalsGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Icon
           Container(
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.all(AppConstants.spaceS),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
             ),
             child: Icon(
               icon,
@@ -116,6 +122,8 @@ class PlanDailyGoalsGrid extends StatelessWidget {
               size: 22.sp,
             ),
           ),
+          
+          // Label and value
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -123,7 +131,7 @@ class PlanDailyGoalsGrid extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.grey.shade700,
+                  color: AppColors.greyDark,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                 ),
@@ -132,8 +140,8 @@ class PlanDailyGoalsGrid extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 15.sp, //
+                  color: AppColors.black,
+                  fontSize: 15.sp,
                   fontWeight: FontWeight.bold,
                   height: 1.2,
                 ),
@@ -144,7 +152,7 @@ class PlanDailyGoalsGrid extends StatelessWidget {
                 Text(
                   unit,
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: AppColors.greyDark,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
                     height: 1.2,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class PlanSuccessRateCard extends StatelessWidget {
   const PlanSuccessRateCard({super.key});
@@ -7,8 +9,8 @@ class PlanSuccessRateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24.w),
-      padding: EdgeInsets.all(20.w),
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+      padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -16,7 +18,7 @@ class PlanSuccessRateCard extends StatelessWidget {
             Colors.orange.shade50,
           ],
         ),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         border: Border.all(
           color: Colors.orange.shade200,
           width: 1.5,
@@ -24,19 +26,22 @@ class PlanSuccessRateCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Verified icon
           Container(
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.all(AppConstants.paddingM),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.verified,
-              color: Colors.orange,
+              color: AppColors.moderate,
               size: 32.sp,
             ),
           ),
-          SizedBox(width: 16.w),
+          SizedBox(width: AppConstants.paddingL),
+          
+          // Text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,7 +54,7 @@ class PlanSuccessRateCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: AppConstants.spaceXS),
                 Text(
                   'Users achieve their goals with this plan',
                   style: TextStyle(
