@@ -101,4 +101,42 @@ class AppConstants {
   static const double socialIconSizeGoogle = 50;
   static const double socialIconSizeFacebook = 70;
   static const double socialButtonPadding = 12;
+
+  // ── SharedPreferences Keys ────────────────────────────────────────────────
+  static const String keyUsername    = 'username';
+  static const String keyEmail       = 'email';
+  static const String keyAvatarPath  = 'avatar_path';
+  static const String keyDarkMode    = 'dark_mode';
+
+  // Personal Info keys
+  static const String keyGender      = 'pi_gender';
+  static const String keyWeight      = 'pi_weight';
+  static const String keyHeight      = 'pi_height';
+  static const String keyYearOfBirth = 'pi_year';
+
+  // Water keys
+  static const String keyWaterConsumed   = 'water_consumed';
+  static const String keyWaterGoal       = 'water_goal';
+  static const String keyWaterDrinkAmt   = 'water_drink_amount';
+  static const String keyWaterUnit       = 'water_unit';
+  static const String keyWaterLastDate   = 'water_last_date';
+
+  // ── Default Values ─────────────────────────────────────────────────────────
+  static const int    defaultCalorieBudget = 3245;
+  static const double defaultWaterGoalMl   = 3208;
+  static const double defaultDrinkAmountMl = 250;
+  static const double defaultWeight        = 70.0;
+  static const double defaultHeight        = 170.0;
+  static const int    defaultYearOfBirth   = 2000;
+
+  // ── Macro Goals (grams) ───────────────────────────────────────────────────
+  static const int defaultProteinGoal = 245;
+  static const int defaultCarbsGoal   = 345;
+  static const int defaultFatGoal     = 145;
+
+  // ── BMI Thresholds ────────────────────────────────────────────────────────
+  static const double bmiUnderweight = 18.5;
+  static const double bmiNormal      = 25.0;
+  static const double bmiOverweight  = 30.0;
+
 }

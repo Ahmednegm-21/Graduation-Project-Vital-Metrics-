@@ -1,3 +1,5 @@
+// lib/router/app_router.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../ui/screens/splash_screen.dart';
@@ -13,93 +15,102 @@ import 'package:vital_metrics/ui/screens/user_target_screens/weight_speed_screen
 import 'package:vital_metrics/ui/screens/user_target_screens/target_weight_screen.dart';
 import 'package:vital_metrics/ui/screens/user_target_screens/plan_summary_screen.dart';
 import 'package:vital_metrics/ui/screens/user_target_screens/get_my_plan_screen.dart';
+import '../ui/screens/home_associated_screens/main_shell.dart';
+import '../ui/screens/home_associated_screens/settings_screen.dart';
+import '../ui/screens/home_associated_screens/recipes_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
     routes: [
-      // Splash Screen
       GoRoute(
         path: '/',
         name: 'splash',
         builder: (context, state) => const SplashScreen(),
       ),
-
-      // Sign In Screen
       GoRoute(
         path: '/signin',
         name: 'signin',
         builder: (context, state) => const SignInScreen(),
       ),
-
-      // Sign Up Screen
       GoRoute(
         path: '/signup',
         name: 'signup',
         builder: (context, state) => const SignUpScreen(),
       ),
-
-      // Onboarding Flow
       GoRoute(
         path: '/gender',
         name: 'gender',
         builder: (context, state) => const OnboardingGender(),
       ),
-
       GoRoute(
         path: '/height',
         name: 'height',
         builder: (context, state) => const OnboardingHeight(),
       ),
-
       GoRoute(
         path: '/weight',
         name: 'weight',
         builder: (context, state) => const OnboardingWeight(),
       ),
-
       GoRoute(
         path: '/age',
         name: 'age',
         builder: (context, state) => const OnboardingAge(),
       ),
-
       GoRoute(
         path: '/thank-you',
         name: 'thank-you',
         builder: (context, state) => const OnboardingThankYou(),
       ),
-
       GoRoute(
         path: '/goal-selection',
         name: 'goal-selection',
         builder: (context, state) => const GoalSelectionScreen(),
       ),
-
       GoRoute(
         path: '/weight-speed',
         name: 'weight-speed',
         builder: (context, state) => const WeightSpeedScreen(),
       ),
-
       GoRoute(
         path: '/target-weight',
         name: 'target-weight',
         builder: (context, state) => const TargetWeightScreen(),
       ),
-
       GoRoute(
         path: '/plan-summary',
         name: 'plan-summary',
         builder: (context, state) => const PlanSummaryScreen(),
       ),
-
       GoRoute(
-  path: '/get-my-plan',
-  name: 'get-my-plan',
-  builder: (context, state) => const GetMyPlanScreen(),
-),
+        path: '/get-my-plan',
+        name: 'get-my-plan',
+        builder: (context, state) => const GetMyPlanScreen(),
+      ),
+      GoRoute(
+        path: '/home',
+        name: 'home',
+        builder: (context, state) => const MainShell(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+
+      // ✅ Recipes — يقبل mealType كـ query parameter اختياري
+      // للتنقل من صفحة الهوم: context.push('/recipes?mealType=breakfast')
+      // للتنقل من الـ bottom nav بدون فلتر: context.push('/recipes')
+      GoRoute(
+        path: '/recipes',
+        name: 'recipes',
+        builder: (context, state) {
+          final mealType = state.uri.queryParameters['mealType'];
+          return RecipesScreen(mealType: mealType);
+        },
+      ),
     ],
 
     errorBuilder: (context, state) =>
