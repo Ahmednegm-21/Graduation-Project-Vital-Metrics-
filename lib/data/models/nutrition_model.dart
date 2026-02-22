@@ -1,5 +1,3 @@
-// lib/core/models/nutrition_model.dart
-
 class NutritionData {
   int calories;
   int caloriesGoal;

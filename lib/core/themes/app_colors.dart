@@ -53,7 +53,7 @@ class AppColors {
   // ── Status ────────────────────────────────────────────────────────────────
   static const Color success  = Color(0xFF4CAF50);
   static const Color error    = Color(0xFFF44336);
-  static const Color warning  = Color(0xFFFF9107);
+  static const Color warning  = Color(0xFFFFC107);
   static const Color info     = Color(0xFF2196F3);
   static const Color linkBlue = Colors.blue;
 
@@ -80,8 +80,8 @@ class AppColors {
   static const Color darkText    = Colors.white;
   static const Color darkSubText = Color(0x8AFFFFFF); // white54
 
-  // ── Gradients ─────────────────────────────────────────────────────────────
-  static List<Color> get primaryGradientList => [
+  // ── Gradients (List<Color>) ───────────────────────────────────────────────
+  static List<Color> get primaryGradient => [
         primary.withOpacity(0.1),
         primary.withOpacity(0.05),
       ];
@@ -96,7 +96,8 @@ class AppColors {
         authGradientBottom,
       ];
 
-  static const LinearGradient primaryGradient = LinearGradient(
+  // ── Full Gradient Objects ─────────────────────────────────────────────────
+  static const LinearGradient primaryGradientFull = LinearGradient(
     colors: [primary, accent],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
