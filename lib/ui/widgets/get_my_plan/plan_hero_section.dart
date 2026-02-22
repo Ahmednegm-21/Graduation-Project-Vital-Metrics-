@@ -26,7 +26,7 @@ class PlanHeroSection extends StatelessWidget {
       padding: EdgeInsets.all(AppConstants.paddingXXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.primaryGradient,
+          colors: AppColors.primaryGradientList,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -38,7 +38,6 @@ class PlanHeroSection extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Success icon
           Container(
             padding: EdgeInsets.all(AppConstants.paddingXL),
             decoration: BoxDecoration(
@@ -61,7 +60,6 @@ class PlanHeroSection extends StatelessWidget {
 
           SizedBox(height: AppConstants.spaceXXL),
 
-          // Title
           Text(
             'Your Personalized Plan',
             style: TextStyle(
@@ -86,7 +84,6 @@ class PlanHeroSection extends StatelessWidget {
 
           SizedBox(height: AppConstants.spaceL),
 
-          // Target date badge
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: AppConstants.paddingXL,

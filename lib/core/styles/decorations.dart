@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:vital_metrics/core/themes/app_colors.dart'; // عدّل المسار حسب مشروعك
+import 'package:vital_metrics/core/themes/app_colors.dart';
 
 class AppDecorations {
   AppDecorations._();
@@ -167,5 +167,27 @@ class AppDecorations {
         boxShadow: [
           BoxShadow(color: color.withOpacity(0.4), blurRadius: 4),
         ],
+      );
+
+  // ───────────── BUTTON CONTAINER ─────────────
+  static BoxDecoration get buttonContainer => BoxDecoration(
+        color: AppColors.lightCard,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      );
+
+  // ───────────── INFO CARD ─────────────
+  static BoxDecoration get infoCard => BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1.5,
+        ),
       );
 }

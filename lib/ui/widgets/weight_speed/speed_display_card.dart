@@ -13,14 +13,12 @@ class SpeedDisplayCard extends StatelessWidget {
     required this.isLose,
   });
 
-  // Get speed category label
   String _getSpeedLabel(double speed) {
     if (speed <= 0.5) return 'Slow & Steady';
     if (speed <= 1.0) return 'Moderate';
     return 'Fast Track';
   }
 
-  // Get speed category color
   Color _getSpeedColor(double speed) {
     if (speed <= 0.5) return AppColors.slow;
     if (speed <= 1.0) return AppColors.moderate;
@@ -34,19 +32,15 @@ class SpeedDisplayCard extends StatelessWidget {
       padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.primaryGradient,
+          colors: AppColors.primaryGradientList,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        border: Border.all(
-          color: AppColors.primaryBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.primaryBorder, width: 1.5),
       ),
       child: Column(
         children: [
-          // Label text
           Text(
             isLose ? 'Loss weight per week' : 'Gain weight per week',
             style: TextStyle(
@@ -58,14 +52,10 @@ class SpeedDisplayCard extends StatelessWidget {
 
           SizedBox(height: AppConstants.paddingM),
 
-          // Animated speed value
           AnimatedSwitcher(
             duration: Duration(milliseconds: AppConstants.animationNormal),
             transitionBuilder: (child, animation) {
-              return ScaleTransition(
-                scale: animation,
-                child: child,
-              );
+              return ScaleTransition(scale: animation, child: child);
             },
             child: Row(
               key: ValueKey(selectedSpeed),
@@ -96,12 +86,8 @@ class SpeedDisplayCard extends StatelessWidget {
 
           SizedBox(height: AppConstants.spaceS),
 
-          // Speed category badge
           Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 14.w,
-              vertical: 5.h,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 5.h),
             decoration: BoxDecoration(
               color: _getSpeedColor(selectedSpeed).withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppConstants.radiusXL),

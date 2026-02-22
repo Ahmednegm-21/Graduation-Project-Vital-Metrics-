@@ -6,10 +6,7 @@ import 'package:vital_metrics/core/themes/app_colors.dart';
 class TargetWeightIconSection extends StatelessWidget {
   final bool isLose;
 
-  const TargetWeightIconSection({
-    super.key,
-    required this.isLose,
-  });
+  const TargetWeightIconSection({super.key, required this.isLose});
 
   @override
   Widget build(BuildContext context) {
@@ -19,28 +16,23 @@ class TargetWeightIconSection extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.primaryGradient,
+          colors: AppColors.primaryGradientList,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        border: Border.all(
-          color: AppColors.primaryBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.primaryBorder, width: 1.5),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Goal icon
           Icon(
             isLose ? Icons.trending_down : Icons.trending_up,
             size: 50.sp,
             color: AppColors.primary,
           ),
           SizedBox(height: AppConstants.spaceS),
-          
-          // Goal label
+
           Text(
             isLose ? 'Weight Loss Goal' : 'Weight Gain Goal',
             style: TextStyle(
