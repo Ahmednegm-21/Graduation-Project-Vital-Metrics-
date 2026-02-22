@@ -1,4 +1,3 @@
-// lib/logic/home/home_state.dart
 import '../../data/models/nutrition_model.dart';
 
 class HomeState {
