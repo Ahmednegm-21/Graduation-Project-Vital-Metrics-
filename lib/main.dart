@@ -10,7 +10,6 @@ import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
-
 import 'package:vital_metrics/router/app_router.dart';
 
 void main() {
@@ -42,14 +41,14 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _authCubit = AuthCubit();
+    _authCubit          = AuthCubit();
     _onboardingGoalCubit = OnboardingGoalCubit();
     _onboardingDataCubit = OnboardingCubitAllData();
-    _homeCubit = HomeCubit();
-    _waterCubit = WaterCubit();
-    _calorieCubit = CalorieCubit();
-    _themeCubit = ThemeCubit();
-    _personalInfoCubit = PersonalInfoCubit();
+    _homeCubit          = HomeCubit();
+    _waterCubit         = WaterCubit();
+    _calorieCubit       = CalorieCubit();
+    _themeCubit         = ThemeCubit();
+    _personalInfoCubit  = PersonalInfoCubit();
   }
 
   @override
