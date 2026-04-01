@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
     // Navigate after delay
     Timer(
       Duration(milliseconds: AppConstants.splashNavigationDelay),
-      () => context.push('/gender'),
+      () => context.push('/home'),
     );
   }
 

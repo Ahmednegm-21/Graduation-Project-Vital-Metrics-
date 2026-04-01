@@ -9,6 +9,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.2.0"
+  animated_bottom_navigation_bar:
+    dependency: "direct main"
+    description:
+      name: animated_bottom_navigation_bar
+      sha256: "94971fdfd53acd443acd0d17ce1cb5219ad833f20c75b50c55b205e54a5d6117"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
   animations:
     dependency: "direct main"
     description:
@@ -214,6 +222,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.1.1"
+  flutter_expandable_fab:
+    dependency: "direct main"
+    description:
+      name: flutter_expandable_fab
+      sha256: "2a488600924fd2a041679ad889807ee5670414a7a518cf11d4854b9898b3504f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.5.2"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -277,6 +293,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.0"
+<<<<<<< HEAD
   glob:
     dependency: transitive
     description:
@@ -285,6 +302,16 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.3"
+=======
+  glass_nav_bar:
+    dependency: "direct main"
+    description:
+      name: glass_nav_bar
+      sha256: "237c48330a17c43449360ad9044e9907c145887b9a728e767dd012ed32f78d42"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.5"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   go_router:
     dependency: "direct main"
     description:
@@ -337,10 +364,17 @@ packages:
     dependency: transitive
     description:
       name: image_picker_android
+<<<<<<< HEAD
       sha256: "9eae0cbd672549dacc18df855c2a23782afe4854ada5190b7d63b30ee0b0d3fd"
       url: "https://pub.dev"
     source: hosted
     version: "0.8.13+15"
+=======
+      sha256: eda9b91b7e266d9041084a42d605a74937d996b87083395c5e47835916a86156
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+14"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   image_picker_for_web:
     dependency: transitive
     description:
@@ -436,7 +470,19 @@ packages:
       sha256: "12f842a479589fea194fe5c5a3095abc7be0c1f2ddfa9a0e76aed1dbd26a87df"
       url: "https://pub.dev"
     source: hosted
+<<<<<<< HEAD
     version: "6.1.0"
+=======
+    version: "5.1.1"
+  liquid_glass_bottom_bar:
+    dependency: "direct main"
+    description:
+      name: liquid_glass_bottom_bar
+      sha256: "31b19d83d6d10435bc75fafd1e7b5c90589334be1aa714b6139f0cbb6d9521df"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.6"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   logging:
     dependency: transitive
     description:
@@ -641,10 +687,17 @@ packages:
     dependency: transitive
     description:
       name: shared_preferences_android
+<<<<<<< HEAD
       sha256: e8d4762b1e2e8578fc4d0fd548cebf24afd24f49719c08974df92834565e2c53
       url: "https://pub.dev"
     source: hosted
     version: "2.4.23"
+=======
+      sha256: "8374d6200ab33ac99031a852eba4c8eb2170c4bf20778b3e2c9eccb45384fb41"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.21"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   shared_preferences_foundation:
     dependency: transitive
     description:
@@ -742,18 +795,32 @@ packages:
     dependency: transitive
     description:
       name: syncfusion_flutter_core
+<<<<<<< HEAD
       sha256: "6d2505a8a8f9fcc6a070e07715d7fab06868725bb15b5eaf9432ece807ccd93b"
       url: "https://pub.dev"
     source: hosted
     version: "33.1.46"
+=======
+      sha256: a7cc6eaed797806890de86b208b2094e66f61e278457867677a29b040ed56879
+      url: "https://pub.dev"
+    source: hosted
+    version: "32.2.7"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   syncfusion_flutter_sliders:
     dependency: "direct main"
     description:
       name: syncfusion_flutter_sliders
+<<<<<<< HEAD
       sha256: b10a86c170d497b16c32258bc42ed40fcbe0e76b9d1ccbd9b6b0d8e25697becc
       url: "https://pub.dev"
     source: hosted
     version: "33.1.46"
+=======
+      sha256: ce49d43e6e144b2ca9a8e1df7a939a8b1d088cf0398f0ee0af247f3adc99b60b
+      url: "https://pub.dev"
+    source: hosted
+    version: "32.2.7"
+>>>>>>> 5091c0831cab8b68073729ab4acfceee3cff0473
   table_calendar:
     dependency: "direct main"
     description:

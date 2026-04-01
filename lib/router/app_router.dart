@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/logic/food_swapping/food_swapping_cubit.dart';
+import 'package:vital_metrics/ui/screens/home_associated_screens/ai_screen.dart';
+import 'package:vital_metrics/ui/screens/home_associated_screens/fav_screen.dart';
+import 'package:vital_metrics/ui/screens/home_associated_screens/food_swapping_screen.dart';
 import '../ui/screens/splash_screen.dart';
 import '../ui/screens/auth_screens/sign_in_screen.dart';
 import '../ui/screens/auth_screens/sign_up_screen.dart';
@@ -97,10 +102,6 @@ class AppRouter {
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
       ),
-
-      // ✅ Recipes — يقبل mealType كـ query parameter اختياري
-      // للتنقل من صفحة الهوم: context.push('/recipes?mealType=breakfast')
-      // للتنقل من الـ bottom nav بدون فلتر: context.push('/recipes')
       GoRoute(
         path: '/recipes',
         name: 'recipes',
@@ -108,6 +109,66 @@ class AppRouter {
           final mealType = state.uri.queryParameters['mealType'];
           return RecipesScreen(mealType: mealType);
         },
+      ),
+
+      // Food Swapping Screen
+      GoRoute(
+        path: '/food-swapping',
+        name: 'food-swapping',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const FoodSwappingScreen(),
+          transitionsBuilder: (context, animation, _, child) =>
+              SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+                parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        ),
+      ),
+
+      // Favorites Screen
+      GoRoute(
+        path: '/favorites',
+        name: 'favorites',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: BlocProvider(
+            create: (_) => FoodSwapCubit(),
+            child: const FavoritesScreen(),
+          ),
+          transitionsBuilder: (context, animation, _, child) =>
+              SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+                parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        ),
+      ),
+
+      // AI Assistant Screen
+      GoRoute(
+        path: '/ai-assistant',
+        name: 'ai-assistant',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const AiScreen(),
+          transitionsBuilder: (context, animation, _, child) =>
+              SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+                parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        ),
       ),
     ],
 
