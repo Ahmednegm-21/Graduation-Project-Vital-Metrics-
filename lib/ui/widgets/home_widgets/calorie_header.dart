@@ -1,5 +1,3 @@
-// lib/ui/widgets/calorie_header.dart
-
 import 'package:flutter/material.dart';
 
 class CalorieHeader extends StatelessWidget {
