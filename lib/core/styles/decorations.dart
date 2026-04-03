@@ -93,11 +93,13 @@ class AppDecorations {
       );
 
   // ───────────── INFO CARD DECORATIONS ─────────────
+  // ✅ دمجنا التعريفين — استخدام ألوان AppColors مع primary tint
   static BoxDecoration get infoCard => BoxDecoration(
-        color: Colors.blue.shade50,
+        color: AppColors.primary.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.blue.shade100,
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1.5,
         ),
       );
 
@@ -118,11 +120,12 @@ class AppDecorations {
       );
 
   // ───────────── BUTTON CONTAINER ─────────────
+  // ✅ دمجنا التعريفين — استخدام AppColors.lightCard مع shadow محسوب
   static BoxDecoration get buttonContainer => BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.lightCard,
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowLight,
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -157,27 +160,5 @@ class AppDecorations {
   static BoxDecoration get iconContainerPrimary => BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
         shape: BoxShape.circle,
-      );
-
-  // ───────────── BUTTON CONTAINER ─────────────
-  static BoxDecoration get buttonContainer => BoxDecoration(
-        color: AppColors.lightCard,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      );
-
-  // ───────────── INFO CARD ─────────────
-  static BoxDecoration get infoCard => BoxDecoration(
-        color: AppColors.primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.2),
-          width: 1.5,
-        ),
       );
 }
