@@ -21,6 +21,7 @@ import 'package:vital_metrics/ui/screens/user_target_screens/get_my_plan_screen.
 import '../ui/screens/home_associated_screens/main_shell.dart';
 import '../ui/screens/home_associated_screens/settings_screen.dart';
 import '../ui/screens/home_associated_screens/recipes_screen.dart';
+import '../ui/screens/home_associated_screens/notifications_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -109,6 +110,25 @@ class AppRouter {
           final mealType = state.uri.queryParameters['mealType'];
           return RecipesScreen(mealType: mealType);
         },
+      ),
+
+      // Notifications Screen
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const NotificationsScreen(),
+          transitionsBuilder: (context, animation, _, child) =>
+              SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+                parent: animation, curve: Curves.easeOutCubic)),
+            child: child,
+          ),
+        ),
       ),
 
       // Food Swapping Screen

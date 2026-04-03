@@ -26,14 +26,12 @@ class SummaryJourneyCard extends StatelessWidget {
       padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.primaryGradientList,
+          colors: AppColors.primaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        border: Border.all(
-          color: AppColors.primaryBorder,
-        ),
+        border: Border.all(color: AppColors.primaryBorder),
       ),
       child: Column(
         children: [
@@ -46,15 +44,10 @@ class SummaryJourneyCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: AppConstants.spaceXL),
-
           Row(
             children: [
               _buildWeightPoint(
-                weight: currentWeight,
-                label: 'Today',
-                isStart: true,
-              ),
-
+                  weight: currentWeight, label: 'Today', isStart: true),
               Expanded(
                 child: Column(
                   children: [
@@ -62,10 +55,7 @@ class SummaryJourneyCard extends StatelessWidget {
                       height: 4.h,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary,
-                            AppColors.secondaryLight,
-                          ],
+                          colors: [AppColors.primary, AppColors.secondaryLight],
                         ),
                         borderRadius: BorderRadius.circular(2.r),
                       ),
@@ -82,12 +72,10 @@ class SummaryJourneyCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               _buildWeightPoint(
-                weight: targetWeight,
-                label: formatDate(targetDate),
-                isStart: false,
-              ),
+                  weight: targetWeight,
+                  label: formatDate(targetDate),
+                  isStart: false),
             ],
           ),
         ],
@@ -119,7 +107,6 @@ class SummaryJourneyCard extends StatelessWidget {
           ),
         ),
         SizedBox(height: AppConstants.spaceS),
-
         Text(
           '${weight.toStringAsFixed(0)} kg',
           style: TextStyle(
@@ -129,15 +116,11 @@ class SummaryJourneyCard extends StatelessWidget {
           ),
         ),
         SizedBox(height: AppConstants.spaceXS),
-
         SizedBox(
           width: 70.w,
           child: Text(
             label,
-            style: TextStyle(
-              color: AppColors.greyDark,
-              fontSize: 10.sp,
-            ),
+            style: TextStyle(color: AppColors.greyDark, fontSize: 10.sp),
             textAlign: TextAlign.center,
             maxLines: 2,
           ),

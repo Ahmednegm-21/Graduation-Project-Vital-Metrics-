@@ -80,7 +80,7 @@ class AppColors {
   static const Color darkText    = Colors.white;
   static const Color darkSubText = Color(0x8AFFFFFF);
 
-  // ── Gradients ───────────────────────────────────────────────
+  // ── Gradients (List<Color>) ───────────────────────────────────────────────
   static List<Color> get primaryGradient => [
         primary.withOpacity(0.1),
         primary.withOpacity(0.05),
@@ -130,17 +130,16 @@ class AppColors {
       gender.toLowerCase() == 'male' ? maleBlue : femalePink;
 
   // ── Food Swap Feature ─────────────────────────────────────────────────────
-  static const Color swapGreen      = Color(0xFF34C759);
-  static const Color swapGreenLight = Color(0xFF30D158);
-  static const Color swapBlue       = Color(0xFF4361EE);
-  static const Color swapBlueLight  = Color(0xFF4CC9F0);
-  static const Color swapOrange     = Color(0xFFFF9500);
+  static const Color swapGreen       = Color(0xFF34C759);
+  static const Color swapGreenLight  = Color(0xFF30D158);
+  static const Color swapBlue        = Color(0xFF4361EE);
+  static const Color swapBlueLight   = Color(0xFF4CC9F0);
+  static const Color swapOrange      = Color(0xFFFF9500);
   static const Color swapOrangeLight = Color(0xFFFFCC02);
-  static const Color swapRed        = Color(0xFFFF3B30);
-  static const Color swapRedLight   = Color(0xFFFF6B6B);
-  static const Color swapPurple     = Colors.purple;
+  static const Color swapRed         = Color(0xFFFF3B30);
+  static const Color swapRedLight    = Color(0xFFFF6B6B);
+  static const Color swapPurple      = Colors.purple;
 
-  /// 4 gradients swap
   static const List<List<Color>> swapGradients = [
     [Color(0xFF34C759), Color(0xFF30D158)],
     [Color(0xFF4361EE), Color(0xFF4CC9F0)],
@@ -152,8 +151,8 @@ class AppColors {
       swapGradients[index % swapGradients.length];
 
   // ── Favorites Feature ─────────────────────────────────────────────────────
-  static const Color favoriteOrange  = Color(0xFFFF9500);
-  static const Color favoriteYellow  = Color(0xFFFFCC02);
+  static const Color favoriteOrange = Color(0xFFFF9500);
+  static const Color favoriteYellow = Color(0xFFFFCC02);
   static LinearGradient get favoriteGradient => const LinearGradient(
         colors: [favoriteOrange, favoriteYellow],
         begin: Alignment.topLeft,

@@ -32,7 +32,7 @@ class SpeedDisplayCard extends StatelessWidget {
       padding: EdgeInsets.all(AppConstants.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.primaryGradientList,
+          colors: AppColors.primaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -49,14 +49,11 @@ class SpeedDisplayCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-
           SizedBox(height: AppConstants.paddingM),
-
           AnimatedSwitcher(
             duration: Duration(milliseconds: AppConstants.animationNormal),
-            transitionBuilder: (child, animation) {
-              return ScaleTransition(scale: animation, child: child);
-            },
+            transitionBuilder: (child, animation) =>
+                ScaleTransition(scale: animation, child: child),
             child: Row(
               key: ValueKey(selectedSpeed),
               mainAxisAlignment: MainAxisAlignment.center,
@@ -83,9 +80,7 @@ class SpeedDisplayCard extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(height: AppConstants.spaceS),
-
           Container(
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 5.h),
             decoration: BoxDecoration(
