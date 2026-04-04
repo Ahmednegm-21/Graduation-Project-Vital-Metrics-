@@ -9,9 +9,6 @@ import 'package:vital_metrics/ui/widgets/home_widgets/water_tracker_card.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/meal_section.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HomeScreen
-// ─────────────────────────────────────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
