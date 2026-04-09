@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/social_auth_button.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
+import '../../widgets/custom_auth/custom_text_field.dart';
+import '../../widgets/custom_auth/social_auth_button.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -32,13 +37,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
-            Future.delayed(const Duration(milliseconds: 800), () {
-              // TODO: Navigate to HomeScreen
-              // Navigator.pushReplacementNamed(context, '/home');
-            });
+            Future.delayed(
+              Duration(milliseconds: AppConstants.authNavigationDelay),
+              () => context.go('/gender'),
+            );
           }
         },
         builder: (context, state) {
+          // Extract errors
           String? nameError;
           String? emailError;
           String? passwordError;
@@ -56,42 +62,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
           return Container(
             height: MediaQuery.of(context).size.height,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF041374), Color(0xFF01010E)],
-              ),
-            ),
+            decoration: AppDecorations.authGradientBackground,
             child: SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: EdgeInsets.all(AppConstants.paddingXXL),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 80),
+                    SizedBox(height: 80.h),
 
                     // Title
-                    const Text(
+                    Text(
                       'Sign Up',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTextStyles.authTitle,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: AppConstants.spaceS),
 
                     // Subtitle
-                    const Text(
+                    Text(
                       'Enter your email and password',
-                      style: TextStyle(color: Colors.white70, fontSize: 18),
+                      style: AppTextStyles.authSubtitle,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 60),
+                    SizedBox(height: 60.h),
 
-                    // Name Field
+                    // Name field
                     CustomTextField(
                       controller: _nameController,
                       hintText: 'Name',
@@ -99,9 +95,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       errorText: nameError,
                       isSuccess: isSuccess,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppConstants.spaceL),
 
-                    // Email Field
+                    // Email field
                     CustomTextField(
                       controller: _emailController,
                       hintText: 'Email',
@@ -110,9 +106,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       errorText: emailError,
                       isSuccess: isSuccess,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppConstants.spaceL),
 
-                    // Password Field
+                    // Password field
                     CustomTextField(
                       controller: _passwordController,
                       hintText: 'Password',
@@ -121,41 +117,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       errorText: passwordError,
                       isSuccess: isSuccess,
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppConstants.spaceXXL),
 
-                    // Sign Up Button
+                    // Sign up button
                     CustomButton(
                       text: 'Sign Up',
                       onPressed: () {
                         context.read<AuthCubit>().signUp(
-                          name: _nameController.text,
-                          email: _emailController.text,
-                          password: _passwordController.text,
-                        );
+                              name: _nameController.text,
+                              email: _emailController.text,
+                              password: _passwordController.text,
+                            );
                       },
                       isLoading: isLoading,
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: AppConstants.spaceXXXL),
 
                     // Sign in with text
-                    const Text(
+                    Text(
                       'Sign In with',
-                      style: TextStyle(color: Colors.white70),
+                      style: AppTextStyles.authText,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: AppConstants.spaceXL),
 
-                    // Social Auth Buttons
+                    // Social auth buttons
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SocialAuthButton(
-                          imagePath: 'facebook',
-                          onPressed: () {
-                            context.read<AuthCubit>().signInWithFacebook();
-                          },
-                        ),
-                        const SizedBox(width: 20),
+                        SizedBox(width: AppConstants.spaceXL),
                         SocialAuthButton(
                           imagePath: 'google',
                           onPressed: () {
@@ -164,7 +154,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 40),
+                    SizedBox(height: AppConstants.spaceXXXL + 8.h),
                   ],
                 ),
               ),
