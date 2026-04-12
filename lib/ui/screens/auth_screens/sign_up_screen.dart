@@ -19,8 +19,8 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _nameController     = TextEditingController();
+  final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
@@ -31,34 +31,44 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  /// Show a red SnackBar with the error message
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(AppConstants.paddingL),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
+            // Navigate after short delay so user sees success state
             Future.delayed(
               Duration(milliseconds: AppConstants.authNavigationDelay),
               () => context.go('/gender'),
             );
+          } else if (state is AuthError) {
+            _showError(context, state.message);
           }
         },
         builder: (context, state) {
-          // Extract errors
-          String? nameError;
-          String? emailError;
-          String? passwordError;
-          bool isSuccess = false;
-
-          if (state is AuthValidationError) {
-            nameError = state.nameError;
-            emailError = state.emailError;
-            passwordError = state.passwordError;
-          } else if (state is AuthSuccess) {
-            isSuccess = true;
-          }
-
           final isLoading = state is AuthLoading;
+          final isSuccess = state is AuthSuccess;
+
+          // Field-level errors come from AuthValidationError
+          final nameError     = state is AuthValidationError ? state.nameError     : null;
+          final emailError    = state is AuthValidationError ? state.emailError    : null;
+          final passwordError = state is AuthValidationError ? state.passwordError : null;
 
           return Container(
             height: MediaQuery.of(context).size.height,
@@ -133,7 +143,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     SizedBox(height: AppConstants.spaceXXXL),
 
-                    // Sign in with text
+                    // Social auth
                     Text(
                       'Sign In with',
                       style: AppTextStyles.authText,
@@ -141,16 +151,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     SizedBox(height: AppConstants.spaceXL),
 
-                    // Social auth buttons
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(width: AppConstants.spaceXL),
                         SocialAuthButton(
                           imagePath: 'google',
-                          onPressed: () {
-                            context.read<AuthCubit>().signInWithGoogle();
-                          },
+                          onPressed: () =>
+                              context.read<AuthCubit>().signInWithGoogle(),
                         ),
                       ],
                     ),
