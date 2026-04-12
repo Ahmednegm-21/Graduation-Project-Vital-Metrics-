@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/core/styles/decorations.dart';
+import 'package:vital_metrics/core/styles/text_styles.dart';
+import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
-import 'package:vital_metrics/core/styles/text_styles.dart';
-import 'package:vital_metrics/core/styles/decorations.dart';
-import 'package:vital_metrics/core/constants/app_constants.dart';
+import 'package:vital_metrics/ui/widgets/custom_auth/custom_text_field.dart';
+import 'package:vital_metrics/ui/widgets/custom_auth/social_auth_button.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
-import '../../widgets/custom_auth/custom_text_field.dart';
-import '../../widgets/custom_auth/social_auth_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -19,7 +20,7 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _emailController = TextEditingController();
+  final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
@@ -27,6 +28,20 @@ class _SignInScreenState extends State<SignInScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(AppConstants.paddingL),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        ),
+      ),
+    );
   }
 
   @override
@@ -39,22 +54,15 @@ class _SignInScreenState extends State<SignInScreen> {
               Duration(milliseconds: AppConstants.authNavigationDelay),
               () => context.go('/gender'),
             );
+          } else if (state is AuthError) {
+            _showError(state.message);
           }
         },
         builder: (context, state) {
-          // Extract errors
-          String? emailError;
-          String? passwordError;
-          bool isSuccess = false;
-
-          if (state is AuthValidationError) {
-            emailError = state.emailError;
-            passwordError = state.passwordError;
-          } else if (state is AuthSuccess) {
-            isSuccess = true;
-          }
-
-          final isLoading = state is AuthLoading;
+          final isLoading     = state is AuthLoading;
+          final isSuccess     = state is AuthSuccess;
+          final emailError    = state is AuthValidationError ? state.emailError    : null;
+          final passwordError = state is AuthValidationError ? state.passwordError : null;
 
           return Container(
             height: MediaQuery.of(context).size.height,
@@ -111,22 +119,33 @@ class _SignInScreenState extends State<SignInScreen> {
                           errorText: passwordError,
                           isSuccess: isSuccess,
                         ),
+                        SizedBox(height: AppConstants.spaceS),
+
+                        // Forgot password link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => context.push('/forgot-password'),
+                            child: Text(
+                              'Forgot Password?',
+                              style: AppTextStyles.authLink,
+                            ),
+                          ),
+                        ),
                         SizedBox(height: AppConstants.spaceXXL),
 
                         // Sign in button
                         CustomButton(
                           text: 'Sign in',
-                          onPressed: () {
-                            context.read<AuthCubit>().signIn(
-                                  email: _emailController.text,
-                                  password: _passwordController.text,
-                                );
-                          },
+                          onPressed: () => context.read<AuthCubit>().signIn(
+                                email: _emailController.text,
+                                password: _passwordController.text,
+                              ),
                           isLoading: isLoading,
                         ),
                         SizedBox(height: AppConstants.spaceXXL),
 
-                        // Don't have account
+                        // Navigate to sign up
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -145,16 +164,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Social auth buttons
+                        // Social auth
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(width: AppConstants.spaceXL),
                             SocialAuthButton(
                               imagePath: 'google',
-                              onPressed: () {
-                                context.read<AuthCubit>().signInWithGoogle();
-                              },
+                              onPressed: () =>
+                                  context.read<AuthCubit>().signInWithGoogle(),
                             ),
                           ],
                         ),
