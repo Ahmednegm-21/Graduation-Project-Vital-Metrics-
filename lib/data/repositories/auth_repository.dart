@@ -15,7 +15,7 @@ class AuthRepository {
   })  : _apiService = apiService ?? ApiService(),
         _tokenStorage = tokenStorage ?? TokenStorageService();
 
-  // ── Sign In ────────────────────────────────────────────────────────────────
+  // ── Sign In ───────────────────────────────────────────────────────────────
 
   Future<UserModel> signIn({
     required String email,
@@ -26,43 +26,51 @@ class AuthRepository {
         ApiConfig.login,
         body: {'email': email, 'password': password},
       );
-
-      final authResponse = AuthResponse.fromJson(response['data']);
+      final authResponse = AuthResponse.fromJson(response);
       await _saveTokens(authResponse);
-
       return _toUserModel(authResponse.user);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
+      throw ApiException(message: 'Sign in failed: $e');
     }
   }
 
-  // ── Sign Up ────────────────────────────────────────────────────────────────
+  // ── Sign Up ───────────────────────────────────────────────────────────────
 
   Future<UserModel> signUp({
     required String name,
     required String email,
     required String password,
+    required String gender,
+    required String dateOfBirth,
+    required double height,
+    required double weight,
   }) async {
     try {
       final response = await _apiService.post(
         ApiConfig.register,
-        body: {'name': name, 'email': email, 'password': password},
+        body: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'gender': gender,
+          'date_of_birth': dateOfBirth,
+          'height': height,
+          'weight': weight,
+        },
       );
-
-      final authResponse = AuthResponse.fromJson(response['data']);
+      final authResponse = AuthResponse.fromJson(response);
       await _saveTokens(authResponse);
-
       return _toUserModel(authResponse.user);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
+      throw ApiException(message: 'Sign up failed: $e');
     }
   }
 
-  // ── Sign Out ───────────────────────────────────────────────────────────────
+  // ── Sign Out ──────────────────────────────────────────────────────────────
 
   Future<void> signOut() async {
     try {
@@ -73,50 +81,59 @@ class AuthRepository {
           headers: ApiConfig.headers(token: token),
         );
       }
+    } catch (_) {
+    } finally {
       await _tokenStorage.clearTokens();
-    } on ApiException {
-      await _tokenStorage.clearTokens();
-      rethrow;
-    } catch (e) {
-      await _tokenStorage.clearTokens();
-      throw ApiException(message: 'An unexpected error occurred: $e');
     }
   }
 
-  // ── Forgot Password ────────────────────────────────────────────────────────
+  // ── Get User Profile ──────────────────────────────────────────────────────
 
-  /// Step 1: Send reset email → backend sends OTP to the email
+  Future<UserModel> getUserProfile() async {
+    try {
+      final token = await _tokenStorage.getToken();
+      if (token == null) throw UnauthorizedException('No token found');
+
+      final response = await _apiService.get(
+        ApiConfig.userProfile,
+        headers: ApiConfig.headers(token: token),
+      );
+
+      final Map<String, dynamic> userData =
+          response['data'] is Map<String, dynamic>
+              ? response['data'] as Map<String, dynamic>
+              : response;
+
+      return _toUserModel(UserData.fromJson(userData));
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Failed to get profile: $e');
+    }
+  }
+
+  // ── Forgot Password ───────────────────────────────────────────────────────
+
   Future<void> sendResetEmail({required String email}) async {
     try {
-      await _apiService.post(
-        ApiConfig.resetPassword,
-        body: {'email': email},
-      );
+      await _apiService.post(ApiConfig.resetPassword, body: {'email': email});
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
+      throw ApiException(message: 'Failed to send reset email: $e');
     }
   }
 
-  /// Step 2: Verify the OTP code sent to email
-  Future<void> verifyOtp({
-    required String email,
-    required String otp,
-  }) async {
+  Future<void> verifyOtp({required String email, required String otp}) async {
     try {
-      await _apiService.post(
-        ApiConfig.verifyOtp,
-        body: {'email': email, 'otp': otp},
-      );
+      await _apiService.post(ApiConfig.verifyOtp, body: {'email': email, 'otp': otp});
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
+      throw ApiException(message: 'OTP verification failed: $e');
     }
   }
 
-  /// Step 3: Set the new password after OTP is verified
   Future<void> resetPasswordConfirm({
     required String email,
     required String otp,
@@ -125,112 +142,33 @@ class AuthRepository {
     try {
       await _apiService.post(
         ApiConfig.resetPasswordConfirm,
-        body: {
-          'email': email,
-          'otp': otp,
-          'newPassword': newPassword,
-        },
+        body: {'email': email, 'otp': otp, 'newPassword': newPassword},
       );
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
+      throw ApiException(message: 'Password reset failed: $e');
     }
   }
 
-  // ── Token Refresh ──────────────────────────────────────────────────────────
-
-  /// Refresh access token using stored refresh token
-  Future<void> refreshToken() async {
-    try {
-      final refreshToken = await _tokenStorage.getRefreshToken();
-      if (refreshToken == null) throw UnauthorizedException();
-
-      final response = await _apiService.post(
-        ApiConfig.refreshToken,
-        body: {'refreshToken': refreshToken},
-      );
-
-      final newToken = response['data']['token'] as String;
-      await _tokenStorage.saveToken(newToken);
-
-      // Save new refresh token if backend sends one
-      final newRefresh = response['data']['refreshToken'] as String?;
-      if (newRefresh != null) {
-        await _tokenStorage.saveRefreshToken(newRefresh);
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
-    }
-  }
-
-  // ── Google Sign In ─────────────────────────────────────────────────────────
-
-  /// Exchange Google ID token with backend for app token
-  Future<UserModel> signInWithGoogleToken({
-    required String googleIdToken,
-  }) async {
-    try {
-      final response = await _apiService.post(
-        ApiConfig.googleToken,
-        body: {'idToken': googleIdToken},
-      );
-
-      final authResponse = AuthResponse.fromJson(response['data']);
-      await _saveTokens(authResponse);
-
-      return _toUserModel(authResponse.user);
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
-    }
-  }
-
-  // ── Profile ────────────────────────────────────────────────────────────────
-
-  Future<UserModel> getUserProfile() async {
-    try {
-      final token = await _tokenStorage.getToken();
-      if (token == null) throw UnauthorizedException();
-
-      final response = await _apiService.get(
-        ApiConfig.userProfile,
-        headers: ApiConfig.headers(token: token),
-      );
-
-      final userData = UserData.fromJson(response['data']);
-      return _toUserModel(userData);
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'An unexpected error occurred: $e');
-    }
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<bool> isLoggedIn() => _tokenStorage.isLoggedIn();
-
   Future<String?> getToken() => _tokenStorage.getToken();
 
-  /// Save token + refreshToken + userId after login/register
-  Future<void> _saveTokens(AuthResponse authResponse) async {
-    await _tokenStorage.saveToken(authResponse.token);
-    if (authResponse.refreshToken != null) {
-      await _tokenStorage.saveRefreshToken(authResponse.refreshToken!);
+  Future<void> _saveTokens(AuthResponse auth) async {
+    await _tokenStorage.saveToken(auth.token);
+    if (auth.refreshToken != null) {
+      await _tokenStorage.saveRefreshToken(auth.refreshToken!);
     }
-    await _tokenStorage.saveUserId(authResponse.user.id);
+    await _tokenStorage.saveUserId(auth.user.id);
   }
 
-  /// Convert UserData → UserModel
-  UserModel _toUserModel(UserData data) => UserModel(
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        profileImage: data.profileImage,
+  UserModel _toUserModel(UserData user) => UserModel(
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profileImage: user.profileImage,
         createdAt: DateTime.now(),
       );
 

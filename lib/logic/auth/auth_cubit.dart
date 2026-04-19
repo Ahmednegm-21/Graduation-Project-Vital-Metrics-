@@ -17,19 +17,18 @@ class AuthCubit extends Cubit<AuthState> {
     return emailRegex.hasMatch(email);
   }
 
-  bool _isValidPassword(String password) => password.length >= 6;
+  // Backend requires >= 8 characters
+  bool _isValidPassword(String password) => password.length >= 8;
 
   bool _isValidName(String name) =>
-      name.trim().isNotEmpty && name.trim().length >= 2;
+      name.trim().isNotEmpty && name.trim().length >= 3;
 
-  // ── Auth actions ──────────────────────────────────────────────────────────
+  // ── Sign In ───────────────────────────────────────────────────────────────
 
-  /// Validate locally then call sign-in API.
   Future<void> signIn({
     required String email,
     required String password,
   }) async {
-    // Local validation first (no API call)
     final emailError = email.isEmpty
         ? 'Email is required'
         : !_isValidEmail(email)
@@ -39,7 +38,7 @@ class AuthCubit extends Cubit<AuthState> {
     final passwordError = password.isEmpty
         ? 'Password is required'
         : !_isValidPassword(password)
-            ? 'Password must be at least 6 characters'
+            ? 'Password must be at least 8 characters'
             : null;
 
     if (emailError != null || passwordError != null) {
@@ -71,17 +70,23 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  /// Validate locally then call sign-up API.
+  // ── Sign Up - called AFTER onboarding is complete ─────────────────────────
+  // Receives all data at once and sends a single API request.
+
   Future<void> signUp({
     required String name,
     required String email,
     required String password,
+    required String gender,       // 'male' | 'female'
+    required String dateOfBirth,  // 'YYYY-MM-DD'
+    required double height,       // cm
+    required double weight,       // kg
   }) async {
-    // Local validation first (no API call)
+    // Local validation
     final nameError = name.isEmpty
         ? 'Name is required'
         : !_isValidName(name)
-            ? 'Name must be at least 2 characters'
+            ? 'Name must be at least 3 characters'
             : null;
 
     final emailError = email.isEmpty
@@ -93,7 +98,7 @@ class AuthCubit extends Cubit<AuthState> {
     final passwordError = password.isEmpty
         ? 'Password is required'
         : !_isValidPassword(password)
-            ? 'Password must be at least 6 characters'
+            ? 'Password must be at least 8 characters'
             : null;
 
     if (nameError != null || emailError != null || passwordError != null) {
@@ -112,6 +117,10 @@ class AuthCubit extends Cubit<AuthState> {
         name: name,
         email: email,
         password: password,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
+        height: height,
+        weight: weight,
       );
       emit(AuthSuccess(user));
     } on ValidationException catch (e) {
@@ -128,7 +137,8 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  /// Sign out and clear local tokens.
+  // ── Sign Out ──────────────────────────────────────────────────────────────
+
   Future<void> signOut() async {
     emit(AuthLoading());
     try {
@@ -141,7 +151,8 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  /// Check stored token on app start for auto-login.
+  // ── Auto-login on app start ───────────────────────────────────────────────
+
   Future<void> checkAuthStatus() async {
     try {
       final isLoggedIn = await _authRepository.isLoggedIn();
@@ -152,19 +163,16 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthInitial());
       }
     } catch (_) {
-      // Treat any error as "not logged in"
       emit(AuthInitial());
     }
   }
 
-  /// Placeholder until Google Sign-In is implemented.
   Future<void> signInWithGoogle() async {
     emit(AuthLoading());
     await Future.delayed(const Duration(seconds: 1));
     emit(AuthError('Google Sign-In is not implemented yet.'));
   }
 
-  /// Reset state back to initial.
   void reset() => emit(AuthInitial());
 
   @override
