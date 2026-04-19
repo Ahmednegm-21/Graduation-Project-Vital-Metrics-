@@ -8,54 +8,42 @@ abstract class AuthState extends Equatable {
   List<Object?> get props => [];
 }
 
-// Initial state
+/// Initial / logged-out state
 class AuthInitial extends AuthState {}
 
-// Loading state
+/// Waiting for API response
 class AuthLoading extends AuthState {}
 
-// Success state with validation
-class AuthSuccessWithValidation extends AuthState {
-  final UserModel user;
-
-  const AuthSuccessWithValidation(this.user);
-
-  @override
-  List<Object?> get props => [user];
-}
-
-// Success state
+/// API call succeeded
 class AuthSuccess extends AuthState {
   final UserModel user;
-
   const AuthSuccess(this.user);
 
   @override
   List<Object?> get props => [user];
 }
 
-// Error state
+/// General API / network error
 class AuthError extends AuthState {
   final String message;
-
   const AuthError(this.message);
 
   @override
   List<Object?> get props => [message];
 }
 
-// Form validation error state
+/// Local form validation failed (no API call made)
 class AuthValidationError extends AuthState {
+  final String? nameError;
   final String? emailError;
   final String? passwordError;
-  final String? nameError;
 
   const AuthValidationError({
+    this.nameError,
     this.emailError,
     this.passwordError,
-    this.nameError,
   });
 
   @override
-  List<Object?> get props => [emailError, passwordError, nameError];
+  List<Object?> get props => [nameError, emailError, passwordError];
 }
