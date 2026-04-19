@@ -15,7 +15,6 @@ class ApiService {
       ),
     );
 
-    // Log requests/responses in debug mode
     _dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
@@ -76,6 +75,24 @@ class ApiService {
     }
   }
 
+  /// PATCH Request ─── جديد
+  Future<Map<String, dynamic>> patch(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        endpoint,
+        data: body,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   /// DELETE Request
   Future<Map<String, dynamic>> delete(
     String endpoint, {
@@ -94,39 +111,31 @@ class ApiService {
 
   /// Convert DioException to ApiException
   ApiException _handleDioError(DioException e) {
-    // No internet / connection failed
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.unknown) {
       return NetworkException();
     }
 
-    // Request timed out
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.sendTimeout) {
       return TimeoutException();
     }
 
-    // Server returned an error response
     if (e.type == DioExceptionType.badResponse) {
       final statusCode = e.response?.statusCode;
       final data       = e.response?.data;
 
-      // Try to extract message from response body
       String message = 'An error occurred';
       if (data is Map<String, dynamic>) {
         message = data['message'] as String? ?? message;
       }
 
       switch (statusCode) {
-        case 400:
-          return BadRequestException(message);
-        case 401:
-          return UnauthorizedException(message);
-        case 403:
-          return ForbiddenException(message);
-        case 404:
-          return NotFoundException(message);
+        case 400: return BadRequestException(message);
+        case 401: return UnauthorizedException(message);
+        case 403: return ForbiddenException(message);
+        case 404: return NotFoundException(message);
         case 422:
           return ValidationException(
             message: message,
@@ -139,18 +148,12 @@ class ApiService {
         case 503:
           return ServerException(message, statusCode);
         default:
-          return HttpException(
-            message: message,
-            statusCode: statusCode ?? 0,
-          );
+          return HttpException(message: message, statusCode: statusCode ?? 0);
       }
     }
 
     return ApiException(message: e.message ?? 'An unexpected error occurred');
   }
 
-  /// Dispose Dio instance
-  void dispose() {
-    _dio.close();
-  }
+  void dispose() => _dio.close();
 }
