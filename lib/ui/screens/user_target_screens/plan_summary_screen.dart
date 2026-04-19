@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/styles/decorations.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/logic/auth/auth_cubit.dart';
+import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
@@ -17,7 +19,6 @@ import 'package:vital_metrics/ui/widgets/plan_summary/summary_motivational_card.
 class PlanSummaryScreen extends StatelessWidget {
   const PlanSummaryScreen({super.key});
 
-  // Format date helper
   String _formatDate(DateTime date) {
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -30,28 +31,29 @@ class PlanSummaryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = context.read<OnboardingCubitAllData>().currentData;
 
-    // Extract data
-    final isLose = data.goal?.type.toString().contains('lose') == true;
+    final isLose        = data.goal?.type.toString().contains('lose') == true;
     final currentWeight = data.weight ?? 0;
-    final targetWeight = data.targetWeight ?? 0;
-    final weightDiff = (targetWeight - currentWeight).abs();
-    final targetDate = data.targetDate ?? DateTime.now();
-    final weeklyRate = data.weightPerWeek ?? 0.75;
-
-    // Calculate weeks to goal
-    final weeksToGoal =
+    final targetWeight  = data.targetWeight ?? 0;
+    final weightDiff    = (targetWeight - currentWeight).abs();
+    final targetDate    = data.targetDate ?? DateTime.now();
+    final weeklyRate    = data.weightPerWeek ?? 0.75;
+    final weeksToGoal   =
         (targetDate.difference(DateTime.now()).inDays / 7).round();
 
-    return BlocListener<OnboardingCubitAllData, OnboardingState>(
+    return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
-        if (state is OnboardingComplete) {
+        if (state is AuthSuccess) {
           context.go('/get-my-plan');
-        }
-        if (state is OnboardingError) {
+        } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(AppConstants.paddingL),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              ),
             ),
           );
         }
@@ -61,7 +63,6 @@ class PlanSummaryScreen extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              // Back button
               Padding(
                 padding: EdgeInsets.all(AppConstants.paddingL),
                 child: Align(
@@ -77,7 +78,6 @@ class PlanSummaryScreen extends StatelessWidget {
                 ),
               ),
 
-              // Scrollable content
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.only(bottom: AppConstants.spaceXXL),
@@ -85,7 +85,6 @@ class PlanSummaryScreen extends StatelessWidget {
                     children: [
                       SizedBox(height: 10.h),
 
-                      // Header
                       FadeInDown(
                         duration: Duration(milliseconds: AppConstants.animationSlow),
                         child: SummaryHeader(
@@ -98,10 +97,9 @@ class PlanSummaryScreen extends StatelessWidget {
 
                       SizedBox(height: AppConstants.spaceXXL),
 
-                      // Stats cards
                       FadeInUp(
                         duration: Duration(milliseconds: AppConstants.animationSlow),
-                        delay: Duration(milliseconds: 400),
+                        delay: const Duration(milliseconds: 400),
                         child: SummaryStatsCards(
                           weeksToGoal: weeksToGoal,
                           weeklyRate: weeklyRate,
@@ -110,10 +108,9 @@ class PlanSummaryScreen extends StatelessWidget {
 
                       SizedBox(height: AppConstants.spaceXL),
 
-                      // Journey card
                       FadeInUp(
                         duration: Duration(milliseconds: AppConstants.animationSlow),
-                        delay: Duration(milliseconds: 500),
+                        delay: const Duration(milliseconds: 500),
                         child: SummaryJourneyCard(
                           currentWeight: currentWeight,
                           targetWeight: targetWeight,
@@ -125,10 +122,9 @@ class PlanSummaryScreen extends StatelessWidget {
 
                       SizedBox(height: AppConstants.spaceXL),
 
-                      // Motivational card
                       FadeInUp(
                         duration: Duration(milliseconds: AppConstants.animationSlow),
-                        delay: Duration(milliseconds: 600),
+                        delay: const Duration(milliseconds: 600),
                         child: SummaryMotivationalCard(),
                       ),
 
@@ -138,22 +134,28 @@ class PlanSummaryScreen extends StatelessWidget {
                 ),
               ),
 
-              // Start journey button
+              // ✅ Fixed: onPressed uses VoidCallback correctly
               FadeInUp(
                 duration: Duration(milliseconds: AppConstants.animationSlow),
-                delay: Duration(milliseconds: 700),
+                delay: const Duration(milliseconds: 700),
                 child: Container(
                   padding: EdgeInsets.all(AppConstants.paddingXXL),
                   decoration: AppDecorations.buttonContainer,
-                  child: CustomButton(
-                    text: 'Start My Journey',
-                    onPressed: () {
-                      context
-                          .read<OnboardingCubitAllData>()
-                          .saveOnboardingData();
+                  child: BlocBuilder<AuthCubit, AuthState>(
+                    builder: (context, authState) {
+                      final isLoading = authState is AuthLoading;
+                      return CustomButton(
+                        text: 'Start My Journey',
+                        isLoading: isLoading,
+                        onPressed: isLoading
+                            ? () {} // ✅ empty callback instead of null
+                            : () => context
+                                .read<OnboardingCubitAllData>()
+                                .completeSignUp(context.read<AuthCubit>()),
+                        backgroundColor: AppColors.primary,
+                        height: AppConstants.buttonHeightXL,
+                      );
                     },
-                    backgroundColor: AppColors.primary,
-                    height: AppConstants.buttonHeightXL,
                   ),
                 ),
               ),

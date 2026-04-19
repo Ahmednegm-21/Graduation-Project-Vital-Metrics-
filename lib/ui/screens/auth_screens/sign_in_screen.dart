@@ -50,10 +50,8 @@ class _SignInScreenState extends State<SignInScreen> {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
-            Future.delayed(
-              Duration(milliseconds: AppConstants.authNavigationDelay),
-              () => context.go('/gender'),
-            );
+            // ✅ After login → go directly to home
+            context.go('/home');
           } else if (state is AuthError) {
             _showError(state.message);
           }
@@ -83,7 +81,6 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         const Spacer(),
 
-                        // Title
                         Text(
                           'Sign in',
                           style: AppTextStyles.authTitle,
@@ -91,7 +88,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceS),
 
-                        // Subtitle
                         Text(
                           'Enter your email and password',
                           style: AppTextStyles.authSubtitle,
@@ -121,7 +117,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceS),
 
-                        // Forgot password link
+                        // Forgot password
                         Align(
                           alignment: Alignment.centerRight,
                           child: GestureDetector(
@@ -137,15 +133,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         // Sign in button
                         CustomButton(
                           text: 'Sign in',
+                          isLoading: isLoading,
                           onPressed: () => context.read<AuthCubit>().signIn(
                                 email: _emailController.text,
                                 password: _passwordController.text,
                               ),
-                          isLoading: isLoading,
                         ),
                         SizedBox(height: AppConstants.spaceXXL),
 
-                        // Navigate to sign up
+                        // Sign up link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -164,7 +160,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Social auth
+                        // Google sign in
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
