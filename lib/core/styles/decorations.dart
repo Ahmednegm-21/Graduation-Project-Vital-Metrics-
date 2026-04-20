@@ -5,7 +5,7 @@ import 'package:vital_metrics/core/themes/app_colors.dart';
 class AppDecorations {
   AppDecorations._();
 
-  //Auth screen gradient background
+  // ───────────── AUTH SCREEN ─────────────
   static BoxDecoration get authGradientBackground => BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -14,7 +14,7 @@ class AppDecorations {
         ),
       );
 
-  // Card decorations
+  // ───────────── CARD DECORATIONS ─────────────
   static BoxDecoration get card => BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16.r),
@@ -60,7 +60,7 @@ class AppDecorations {
         ],
       );
 
-  // Gradient decorations
+  // ───────────── GRADIENT DECORATIONS ─────────────
   static BoxDecoration get primaryGradient => BoxDecoration(
         gradient: LinearGradient(
           colors: AppColors.primaryGradient,
@@ -80,9 +80,10 @@ class AppDecorations {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
+        borderRadius: BorderRadius.circular(16.r),
       );
 
-  // Badge decorations
+  // ───────────── BADGE DECORATIONS ─────────────
   static BoxDecoration badge({required Color color}) => BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20.r),
@@ -91,12 +92,14 @@ class AppDecorations {
         ),
       );
 
-  // Info card decorations
+  // ───────────── INFO CARD DECORATIONS ─────────────
+  // ✅ دمجنا التعريفين — استخدام ألوان AppColors مع primary tint
   static BoxDecoration get infoCard => BoxDecoration(
-        color: Colors.blue.shade50,
+        color: AppColors.primary.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: Colors.blue.shade100,
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1.5,
         ),
       );
 
@@ -116,19 +119,20 @@ class AppDecorations {
         ),
       );
 
-  // Button container decoration
+  // ───────────── BUTTON CONTAINER ─────────────
+  // ✅ دمجنا التعريفين — استخدام AppColors.lightCard مع shadow محسوب
   static BoxDecoration get buttonContainer => BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.lightCard,
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowLight,
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
         ],
       );
 
-  // Input decorations
+  // ───────────── INPUT DECORATIONS ─────────────
   static BoxDecoration get input => BoxDecoration(
         color: AppColors.backgroundLight,
         borderRadius: BorderRadius.circular(12.r),
@@ -147,7 +151,7 @@ class AppDecorations {
         ),
       );
 
-  // Icon container decorations
+  // ───────────── ICON CONTAINER DECORATIONS ─────────────
   static BoxDecoration iconContainer({required Color color}) => BoxDecoration(
         color: color.withOpacity(0.1),
         shape: BoxShape.circle,

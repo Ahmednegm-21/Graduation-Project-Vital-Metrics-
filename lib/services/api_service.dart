@@ -1,14 +1,25 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../data/config/api_config.dart';
 import '../data/exceptions/api_exception.dart';
 
-/// Base API Service for all HTTP requests
 class ApiService {
-  final http.Client _client;
+  late final Dio _dio;
 
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: ApiConfig.baseUrl,
+        connectTimeout: ApiConfig.connectionTimeout,
+        receiveTimeout: ApiConfig.receiveTimeout,
+        headers: ApiConfig.headers(),
+      ),
+    );
+
+    _dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+    ));
+  }
 
   /// GET Request
   Future<Map<String, dynamic>> get(
@@ -17,19 +28,14 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
   }) async {
     try {
-      final uri = _buildUri(endpoint, queryParameters);
-      
-      final response = await _client
-          .get(uri, headers: headers ?? ApiConfig.headers())
-          .timeout(ApiConfig.connectionTimeout);
-
-      return _handleResponse(response);
-    } on SocketException {
-      throw NetworkException();
-    } on http.ClientException {
-      throw NetworkException();
-    } on TimeoutException {
-      throw TimeoutException();
+      final response = await _dio.get(
+        endpoint,
+        queryParameters: queryParameters,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 
@@ -40,23 +46,14 @@ class ApiService {
     Map<String, dynamic>? body,
   }) async {
     try {
-      final uri = _buildUri(endpoint);
-      
-      final response = await _client
-          .post(
-            uri,
-            headers: headers ?? ApiConfig.headers(),
-            body: body != null ? jsonEncode(body) : null,
-          )
-          .timeout(ApiConfig.connectionTimeout);
-
-      return _handleResponse(response);
-    } on SocketException {
-      throw NetworkException();
-    } on http.ClientException {
-      throw NetworkException();
-    } on TimeoutException {
-      throw TimeoutException();
+      final response = await _dio.post(
+        endpoint,
+        data: body,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 
@@ -67,23 +64,32 @@ class ApiService {
     Map<String, dynamic>? body,
   }) async {
     try {
-      final uri = _buildUri(endpoint);
-      
-      final response = await _client
-          .put(
-            uri,
-            headers: headers ?? ApiConfig.headers(),
-            body: body != null ? jsonEncode(body) : null,
-          )
-          .timeout(ApiConfig.connectionTimeout);
+      final response = await _dio.put(
+        endpoint,
+        data: body,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
 
-      return _handleResponse(response);
-    } on SocketException {
-      throw NetworkException();
-    } on http.ClientException {
-      throw NetworkException();
-    } on TimeoutException {
-      throw TimeoutException();
+  /// PATCH Request ─── جديد
+  Future<Map<String, dynamic>> patch(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        endpoint,
+        data: body,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 
@@ -93,80 +99,61 @@ class ApiService {
     Map<String, String>? headers,
   }) async {
     try {
-      final uri = _buildUri(endpoint);
-      
-      final response = await _client
-          .delete(uri, headers: headers ?? ApiConfig.headers())
-          .timeout(ApiConfig.connectionTimeout);
-
-      return _handleResponse(response);
-    } on SocketException {
-      throw NetworkException();
-    } on http.ClientException {
-      throw NetworkException();
-    } on TimeoutException {
-      throw TimeoutException();
+      final response = await _dio.delete(
+        endpoint,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 
-  /// Build URI with base URL and query parameters
-  Uri _buildUri(String endpoint, [Map<String, dynamic>? queryParameters]) {
-    final url = '${ApiConfig.baseUrl}$endpoint';
-    final uri = Uri.parse(url);
-
-    if (queryParameters != null && queryParameters.isNotEmpty) {
-      return uri.replace(queryParameters: queryParameters);
+  /// Convert DioException to ApiException
+  ApiException _handleDioError(DioException e) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.unknown) {
+      return NetworkException();
     }
 
-    return uri;
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return TimeoutException();
+    }
+
+    if (e.type == DioExceptionType.badResponse) {
+      final statusCode = e.response?.statusCode;
+      final data       = e.response?.data;
+
+      String message = 'An error occurred';
+      if (data is Map<String, dynamic>) {
+        message = data['message'] as String? ?? message;
+      }
+
+      switch (statusCode) {
+        case 400: return BadRequestException(message);
+        case 401: return UnauthorizedException(message);
+        case 403: return ForbiddenException(message);
+        case 404: return NotFoundException(message);
+        case 422:
+          return ValidationException(
+            message: message,
+            errors: data is Map<String, dynamic>
+                ? data['errors'] as Map<String, dynamic>?
+                : null,
+          );
+        case 500:
+        case 502:
+        case 503:
+          return ServerException(message, statusCode);
+        default:
+          return HttpException(message: message, statusCode: statusCode ?? 0);
+      }
+    }
+
+    return ApiException(message: e.message ?? 'An unexpected error occurred');
   }
 
-  /// Handle HTTP Response
-  Map<String, dynamic> _handleResponse(http.Response response) {
-    final statusCode = response.statusCode;
-    
-    // Try to decode response body
-    Map<String, dynamic> body;
-    try {
-      body = jsonDecode(response.body) as Map<String, dynamic>;
-    } catch (e) {
-      // If can't decode, create a simple error object
-      body = {'message': response.body};
-    }
-
-    // Success
-    if (statusCode >= 200 && statusCode < 300) {
-      return body;
-    }
-
-    // Error handling based on status code
-    final message = body['message'] as String? ?? 'An error occurred';
-
-    switch (statusCode) {
-      case 400:
-        throw BadRequestException(message);
-      case 401:
-        throw UnauthorizedException(message);
-      case 403:
-        throw ForbiddenException(message);
-      case 404:
-        throw NotFoundException(message);
-      case 422:
-        throw ValidationException(
-          message: message,
-          errors: body['errors'] as Map<String, dynamic>?,
-        );
-      case 500:
-      case 502:
-      case 503:
-        throw ServerException(message, statusCode);
-      default:
-        throw HttpException(message: message, statusCode: statusCode);
-    }
-  }
-
-  /// Dispose (clean up)
-  void dispose() {
-    _client.close();
-  }
+  void dispose() => _dio.close();
 }

@@ -17,6 +17,10 @@ class AppAssets {
   static const String gainWeightImage = 'assets/images/gain_image.jpg';
   static const String loseWeightImage = 'assets/images/lose_image.jpg';
   
+  //Home images
+  static const String homeFood  = 'assets/images/home_food.png';
+  static const String waterCup  = 'assets/images/water_cup.png';
+
   // Onboarding images
   static const String thanksImage = 'assets/images/thanks.png';
   

@@ -5,24 +5,22 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  // Light theme
+  // ───────────────── LIGHT THEME ─────────────────
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      
-      // Color scheme
+
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        surface: AppColors.white,
+        surface: AppColors.cardBackground,
         error: AppColors.error,
       ),
 
-      // Scaffold
       scaffoldBackgroundColor: AppColors.background,
 
-      // AppBar theme
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -38,7 +36,6 @@ class AppTheme {
         ),
       ),
 
-      // Elevated button theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -56,7 +53,6 @@ class AppTheme {
         ),
       ),
 
-      // Text button theme
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
@@ -67,7 +63,6 @@ class AppTheme {
         ),
       ),
 
-      // Icon button theme
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: AppColors.black,
@@ -75,7 +70,6 @@ class AppTheme {
         ),
       ),
 
-      // Card theme
       cardTheme: CardThemeData(
         color: AppColors.cardBackground,
         elevation: 2,
@@ -86,7 +80,6 @@ class AppTheme {
         margin: EdgeInsets.zero,
       ),
 
-      // Input decoration theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.backgroundLight,
@@ -124,14 +117,12 @@ class AppTheme {
         ),
       ),
 
-      // Divider theme
       dividerTheme: DividerThemeData(
         color: AppColors.greyLight,
         thickness: 1,
         space: 16.h,
       ),
 
-      // Slider theme
       sliderTheme: SliderThemeData(
         activeTrackColor: AppColors.primary,
         inactiveTrackColor: AppColors.greyLight,
@@ -149,18 +140,36 @@ class AppTheme {
     );
   }
 
-  // Dark theme
+  // ───────────────── DARK THEME ─────────────────
+
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+
       colorScheme: ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: const Color(0xFF1E1E1E),
         error: AppColors.error,
       ),
+
       scaffoldBackgroundColor: const Color(0xFF121212),
+
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF1E1E1E),
+        elevation: 0,
+        centerTitle: true,
+      ),
+
+      //CardThemeData
+      cardTheme: CardThemeData(
+        color: const Color(0xFF1E1E1E),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
     );
   }
 }
