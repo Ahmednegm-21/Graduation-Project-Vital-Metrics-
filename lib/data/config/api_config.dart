@@ -7,7 +7,7 @@ class ApiConfig {
   static const String register = '/auth/register';
   static const String logout   = '/auth/logout';
 
-  // ── Forgot Password ────────────────────────────────────────────────────────
+  // ── Forgot Password flow ───────────────────────────────────────────────────
   static const String resetPassword        = '/auth/reset-password';
   static const String verifyOtp            = '/auth/verify-otp';
   static const String resetPasswordConfirm = '/auth/reset-password/confirm';
@@ -27,6 +27,14 @@ class ApiConfig {
   static const String onboardingAge      = '/onboarding/age';
   static const String onboardingGoal     = '/onboarding/goal';
   static const String onboardingComplete = '/onboarding/complete';
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  static const String notifications      = '/notifications';
+  static const String notificationUnread = '/notifications/unread';
+  static String notificationById(String id)     => '/notifications/$id';
+  static String notificationMarkRead(String id) => '/notifications/$id/read';
+  static const String notificationsMarkAllRead  = '/notifications/read-all';
+  static const String notificationsDeleteAll    = '/notifications';
 
   // ── Timeouts ───────────────────────────────────────────────────────────────
   static const Duration connectionTimeout = Duration(seconds: 30);
