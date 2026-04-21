@@ -10,14 +10,9 @@ class AuthCubit extends Cubit<AuthState> {
       : _authRepository = authRepository ?? AuthRepository(),
         super(AuthInitial());
 
-  // ── Validation helpers ────────────────────────────────────────────────────
+  bool _isValidEmail(String email) =>
+      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    return emailRegex.hasMatch(email);
-  }
-
-  // Backend requires >= 8 characters
   bool _isValidPassword(String password) => password.length >= 8;
 
   bool _isValidName(String name) =>
@@ -70,19 +65,17 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Sign Up - called AFTER onboarding is complete ─────────────────────────
-  // Receives all data at once and sends a single API request.
+  // ── Sign Up ───────────────────────────────────────────────────────────────
 
   Future<void> signUp({
     required String name,
     required String email,
     required String password,
-    required String gender,       // 'male' | 'female'
-    required String dateOfBirth,  // 'YYYY-MM-DD'
-    required double height,       // cm
-    required double weight,       // kg
+    required String gender,
+    required String dateOfBirth,
+    required double height,
+    required double weight,
   }) async {
-    // Local validation
     final nameError = name.isEmpty
         ? 'Name is required'
         : !_isValidName(name)
@@ -114,20 +107,20 @@ class AuthCubit extends Cubit<AuthState> {
 
     try {
       final user = await _authRepository.signUp(
-        name: name,
-        email: email,
-        password: password,
-        gender: gender,
+        name:        name,
+        email:       email,
+        password:    password,
+        gender:      gender,
         dateOfBirth: dateOfBirth,
-        height: height,
-        weight: weight,
+        height:      height,
+        weight:      weight,
       );
       emit(AuthSuccess(user));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
       emit(AuthValidationError(
-        nameError: errors['name']?.toString(),
-        emailError: errors['email']?.toString(),
+        nameError:     errors['name']?.toString(),
+        emailError:    errors['email']?.toString(),
         passwordError: errors['password']?.toString(),
       ));
     } on ApiException catch (e) {
@@ -151,7 +144,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Auto-login on app start ───────────────────────────────────────────────
+  // ── Check token on app start ──────────────────────────────────────────────
 
   Future<void> checkAuthStatus() async {
     try {

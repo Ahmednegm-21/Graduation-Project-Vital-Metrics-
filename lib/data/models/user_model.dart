@@ -4,6 +4,7 @@ class UserModel {
   final String email;
   final String? profileImage;
   final DateTime? createdAt;
+  final bool? onboardingComplete;
 
   UserModel({
     this.id,
@@ -11,6 +12,7 @@ class UserModel {
     required this.email,
     this.profileImage,
     this.createdAt,
+    this.onboardingComplete,
   });
 
   // Convert from JSON
@@ -23,6 +25,7 @@ class UserModel {
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt'] as String)
           : null,
+      onboardingComplete: json['onboardingComplete'] as bool?,
     );
   }
 
@@ -34,6 +37,7 @@ class UserModel {
       'email': email,
       'profileImage': profileImage,
       'createdAt': createdAt?.toIso8601String(),
+      'onboardingComplete': onboardingComplete,
     };
   }
 
@@ -44,6 +48,7 @@ class UserModel {
     String? email,
     String? profileImage,
     DateTime? createdAt,
+    bool? onboardingComplete,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -51,6 +56,7 @@ class UserModel {
       email: email ?? this.email,
       profileImage: profileImage ?? this.profileImage,
       createdAt: createdAt ?? this.createdAt,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     );
   }
 }

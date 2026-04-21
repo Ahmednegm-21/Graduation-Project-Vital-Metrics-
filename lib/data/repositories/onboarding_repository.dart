@@ -1,5 +1,6 @@
 import '../config/api_config.dart';
 import '../models/onboarding_data.dart';
+import '../models/user_goal.dart';
 import '../exceptions/api_exception.dart';
 import '../../services/api_service.dart';
 import '../../services/token_storage_service.dart';
@@ -90,6 +91,32 @@ class OnboardingRepository {
     }
   }
 
+  // ── Save goal ──────────────────────────────────────────────────────────────
+  Future<void> saveGoal({
+    required UserGoal goal,
+    double? targetWeight,
+    double? weightPerWeek,
+    DateTime? targetDate,
+  }) async {
+    try {
+      final headers = await _authHeaders;
+      await _apiService.patch(
+        ApiConfig.onboardingGoal,
+        headers: headers,
+        body: {
+          'goal': goal.type.toString().split('.').last,
+          'target_weight': targetWeight,
+          'weight_per_week': weightPerWeek,
+          'target_date': targetDate?.toIso8601String(),
+        },
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Failed to save goal: $e');
+    }
+  }
+
   // ── Save full profile at once ──────────────────────────────────────────────
   Future<void> saveProfile(OnboardingData data) async {
     try {
@@ -106,12 +133,32 @@ class OnboardingRepository {
           'weight':        data.weight,
           'age':           data.age?.toInt(),
           'date_of_birth': dateOfBirth,
+          'goal':          data.goal?.type.toString().split('.').last,
+          'target_weight': data.targetWeight,
+          'weight_per_week': data.weightPerWeek,
+          'target_date':   data.targetDate?.toIso8601String(),
         },
       );
     } on ApiException {
       rethrow;
     } catch (e) {
       throw ApiException(message: 'Failed to save profile: $e');
+    }
+  }
+
+  // ── Mark onboarding as complete ────────────────────────────────────────────
+  Future<void> completeOnboarding() async {
+    try {
+      final headers = await _authHeaders;
+      await _apiService.post(
+        ApiConfig.onboardingComplete,
+        headers: headers,
+        body: {'completed': true},
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Failed to complete onboarding: $e');
     }
   }
 

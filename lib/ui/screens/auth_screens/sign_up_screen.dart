@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/styles/decorations.dart';
 import 'package:vital_metrics/core/styles/text_styles.dart';
-import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
