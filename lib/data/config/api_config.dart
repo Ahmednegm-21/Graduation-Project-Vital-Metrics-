@@ -1,6 +1,6 @@
 class ApiConfig {
   // ── Base URL ───────────────────────────────────────────────────────────────
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static const String baseUrl = 'http://10.0.2.2:3000';
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   static const String login    = '/auth/login';
@@ -17,7 +17,7 @@ class ApiConfig {
   static const String googleToken  = '/auth/google/token';
 
   // ── User ───────────────────────────────────────────────────────────────────
-  static const String userProfile = '/user/profile';
+  static const String getUserProfile = '/users/profile';
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
   static const String onboardingProfile  = '/onboarding/profile';

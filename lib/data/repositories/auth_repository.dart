@@ -95,7 +95,7 @@ class AuthRepository {
       if (token == null) throw UnauthorizedException('No token found');
 
       final response = await _apiService.get(
-        ApiConfig.userProfile,
+        ApiConfig.getUserProfile,
         headers: ApiConfig.headers(token: token),
       );
 
