@@ -10,23 +10,43 @@ class AuthResponse {
     required this.user,
   });
 
-  /// Parse from JSON
-  /// Expected format:
-  /// {
-  ///   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  ///   "refreshToken": "optional_refresh_token",
-  ///   "user": {
-  ///     "id": "123",
-  ///     "name": "Ahmed",
-  ///     "email": "ahmed@test.com",
-  ///     "profileImage": "url"
-  ///   }
-  /// }
+  /// Parse from JSON - handles multiple response formats:
+  ///
+  /// Format 1 (flat):
+  /// { "token": "...", "user": { ... } }
+  ///
+  /// Format 2 (nested in data):
+  /// { "data": { "token": "...", "user": { ... } } }
+  ///
+  /// Format 3 (token + user separate):
+  /// { "accessToken": "...", "user": { ... } }
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    // Unwrap "data" if present
+    final Map<String, dynamic> payload =
+        json['data'] is Map<String, dynamic>
+            ? json['data'] as Map<String, dynamic>
+            : json;
+
+    // Support both "token" and "accessToken"
+    final token = (payload['token'] ?? payload['accessToken']) as String?;
+    if (token == null) {
+      throw FormatException(
+          'AuthResponse: missing token field. Keys found: ${payload.keys.toList()}');
+    }
+
+    // Support both "user" object and flat user fields
+    UserData user;
+    if (payload['user'] is Map<String, dynamic>) {
+      user = UserData.fromJson(payload['user'] as Map<String, dynamic>);
+    } else {
+      // Flat format - user fields are at root level
+      user = UserData.fromJson(payload);
+    }
+
     return AuthResponse(
-      token: json['token'] as String,
-      refreshToken: json['refreshToken'] as String?,
-      user: UserData.fromJson(json['user'] as Map<String, dynamic>),
+      token: token,
+      refreshToken: payload['refreshToken'] as String?,
+      user: user,
     );
   }
 
@@ -53,10 +73,19 @@ class UserData {
     this.profileImage,
   });
 
+  /// Parse from JSON - handles multiple id field names:
+  /// "id", "_id", "userId"
   factory UserData.fromJson(Map<String, dynamic> json) {
+    // Support "_id" (MongoDB) or "id" or "userId"
+    final id = (json['id'] ?? json['_id'] ?? json['userId'])?.toString();
+    if (id == null) {
+      throw FormatException(
+          'UserData: missing id field. Keys found: ${json.keys.toList()}');
+    }
+
     return UserData(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: id,
+      name: (json['name'] ?? json['username'] ?? '') as String,
       email: json['email'] as String,
       profileImage: json['profileImage'] as String?,
     );

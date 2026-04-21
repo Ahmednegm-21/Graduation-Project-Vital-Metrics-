@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/styles/decorations.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/logic/auth/auth_cubit.dart';
+import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
+import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/get_my_plan/plan_hero_section.dart';
 import 'package:vital_metrics/ui/widgets/get_my_plan/plan_progress_card.dart';
@@ -109,87 +112,151 @@ class GetMyPlanScreen extends StatelessWidget {
 
     final weightDiff = (targetWeight - currentWeight).abs();
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Hero section
-                    FadeInDown(
-                      duration: Duration(milliseconds: AppConstants.animationSlow),
-                      child: PlanHeroSection(
-                        gender: gender,
-                        targetDate: targetDate,
-                        formatDate: _formatDate,
+    return MultiBlocListener(
+      listeners: [
+        // Listen to Auth state
+        BlocListener<AuthCubit, AuthState>(
+          listener: (context, state) {
+            if (state is AuthSuccess) {
+              // Registration successful → navigate to home
+              context.go('/home');
+            } else if (state is AuthError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.all(AppConstants.paddingL),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+        // Listen to Onboarding state
+        BlocListener<OnboardingCubitAllData, OnboardingState>(
+          listener: (context, state) {
+            if (state is OnboardingError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.all(AppConstants.paddingL),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Hero section
+                      FadeInDown(
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        child: PlanHeroSection(
+                          gender: gender,
+                          targetDate: targetDate,
+                          formatDate: _formatDate,
+                        ),
                       ),
-                    ),
 
-                    SizedBox(height: AppConstants.spaceXL),
+                      SizedBox(height: AppConstants.spaceXL),
 
-                    // Progress card
-                    FadeInUp(
-                      duration: Duration(milliseconds: AppConstants.animationSlow),
-                      delay: Duration(milliseconds: AppConstants.animationFast),
-                      child: PlanProgressCard(
-                        currentWeight: currentWeight,
-                        targetWeight: targetWeight,
-                        weightDiff: weightDiff,
-                        goalType: goalType,
+                      // Progress card
+                      FadeInUp(
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        delay: Duration(milliseconds: AppConstants.animationFast),
+                        child: PlanProgressCard(
+                          currentWeight: currentWeight,
+                          targetWeight: targetWeight,
+                          weightDiff: weightDiff,
+                          goalType: goalType,
+                        ),
                       ),
-                    ),
 
-                    SizedBox(height: AppConstants.spaceXL),
+                      SizedBox(height: AppConstants.spaceXL),
 
-                    // Success rate card
-                    FadeInUp(
-                      duration: Duration(milliseconds: AppConstants.animationSlow),
-                      delay: Duration(milliseconds: AppConstants.animationNormal),
-                      child: PlanSuccessRateCard(),
-                    ),
-
-                    SizedBox(height: AppConstants.spaceXL),
-
-                    // Daily goals grid
-                    FadeInUp(
-                      duration: Duration(milliseconds: AppConstants.animationSlow),
-                      delay: Duration(milliseconds: 400),
-                      child: PlanDailyGoalsGrid(
-                        goalLabel: goalLabel,
-                        dailyCalories: dailyCalories,
-                        workoutFrequency: workoutFrequency,
-                        waterIntake: waterIntake,
+                      // Success rate card
+                      FadeInUp(
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        delay: Duration(milliseconds: AppConstants.animationNormal),
+                        child: PlanSuccessRateCard(),
                       ),
-                    ),
 
-                    SizedBox(height: 30.h),
-                  ],
+                      SizedBox(height: AppConstants.spaceXL),
+
+                      // Daily goals grid
+                      FadeInUp(
+                        duration: Duration(milliseconds: AppConstants.animationSlow),
+                        delay: Duration(milliseconds: 400),
+                        child: PlanDailyGoalsGrid(
+                          goalLabel: goalLabel,
+                          dailyCalories: dailyCalories,
+                          workoutFrequency: workoutFrequency,
+                          waterIntake: waterIntake,
+                        ),
+                      ),
+
+                      SizedBox(height: 30.h),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Get plan button
-            FadeInUp(
-              duration: Duration(milliseconds: AppConstants.animationSlow),
-              delay: Duration(milliseconds: 500),
-              child: Container(
-                padding: EdgeInsets.all(AppConstants.paddingXXL),
-                decoration: AppDecorations.buttonContainer,
-                child: CustomButton(
-                  text: 'Get Your Plan',
-                  onPressed: () {
-                    context.go('/home');
-                  },
-                  backgroundColor: AppColors.primary,
-                  height: AppConstants.buttonHeightXL,
+              // Get Your Plan button - triggers registration
+              FadeInUp(
+                duration: Duration(milliseconds: AppConstants.animationSlow),
+                delay: Duration(milliseconds: 500),
+                child: Container(
+                  padding: EdgeInsets.all(AppConstants.paddingXXL),
+                  decoration: AppDecorations.buttonContainer,
+                  child: BlocBuilder<AuthCubit, AuthState>(
+                    builder: (context, authState) {
+                      final isLoading = authState is AuthLoading;
+                      
+                      return BlocBuilder<OnboardingCubitAllData, OnboardingState>(
+                        builder: (context, onboardingState) {
+                          final isOnboardingLoading = onboardingState is OnboardingLoading;
+                          final isAnyLoading = isLoading || isOnboardingLoading;
+
+                          return CustomButton(
+                            text: 'Get Your Plan',
+                            isLoading: isAnyLoading,
+                            onPressed: isAnyLoading
+                                ? () {} // empty callback when loading
+                                : () {
+                                    // Trigger registration + save all data
+                                    context
+                                        .read<OnboardingCubitAllData>()
+                                        .completeSignUpAndOnboarding(
+                                          context.read<AuthCubit>(),
+                                        );
+                                  },
+                            backgroundColor: AppColors.primary,
+                            height: AppConstants.buttonHeightXL,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
