@@ -28,7 +28,7 @@ class AuthRepository {
       );
       final authResponse = AuthResponse.fromJson(response);
       await _saveTokens(authResponse);
-      return _toUserModel(authResponse.user);
+      return _toUserModelFromAuth(authResponse.user);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -36,9 +36,9 @@ class AuthRepository {
     }
   }
 
-  // ── Sign Up ───────────────────────────────────────────────────────────────
+  // ── Sign Up → returns email + tempToken (OTP sent to email) ───────────────
 
-  Future<UserModel> signUp({
+  Future<Map<String, dynamic>> signUp({
     required String name,
     required String email,
     required String password,
@@ -51,22 +51,64 @@ class AuthRepository {
       final response = await _apiService.post(
         ApiConfig.register,
         body: {
-          'name': name,
-          'email': email,
-          'password': password,
-          'gender': gender,
+          'name':          name,
+          'email':         email,
+          'password':      password,
+          'gender':        gender,
           'date_of_birth': dateOfBirth,
-          'height': height,
-          'weight': weight,
+          'height':        height,
+          'weight':        weight,
         },
       );
-      final authResponse = AuthResponse.fromJson(response);
-      await _saveTokens(authResponse);
-      return _toUserModel(authResponse.user);
+
+      return {
+        'email':     email,
+        'tempToken': response['tempToken'] ?? response['token'] ?? '',
+        'message':   response['message'] ?? 'OTP sent to your email',
+      };
     } on ApiException {
       rethrow;
     } catch (e) {
       throw ApiException(message: 'Sign up failed: $e');
+    }
+  }
+
+  // ── Verify OTP → saves token ──────────────────────────────────────────────
+
+  Future<void> verifyOTP({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        ApiConfig.verifyOtp,
+        body: {'email': email, 'otp': otp},
+      );
+
+      // Save token after OTP verification
+      if (response['token'] != null || response['accessToken'] != null) {
+        final authResponse = AuthResponse.fromJson(response);
+        await _saveTokens(authResponse);
+      }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'OTP verification failed: $e');
+    }
+  }
+
+  // ── Resend OTP ────────────────────────────────────────────────────────────
+
+  Future<void> resendOTP({required String email}) async {
+    try {
+      await _apiService.post(
+        ApiConfig.resendOtp,
+        body: {'email': email},
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Failed to resend OTP: $e');
     }
   }
 
@@ -104,7 +146,7 @@ class AuthRepository {
               ? response['data'] as Map<String, dynamic>
               : response;
 
-      return _toUserModel(UserData.fromJson(userData));
+      return _toUserModelFromProfile(userData);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -164,12 +206,24 @@ class AuthRepository {
     await _tokenStorage.saveUserId(auth.user.id);
   }
 
-  UserModel _toUserModel(UserData user) => UserModel(
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        profileImage: user.profileImage,
-        createdAt: DateTime.now(),
+  UserModel _toUserModelFromAuth(UserData user) => UserModel(
+        id:                 user.id,
+        name:               user.name,
+        email:              user.email,
+        profileImage:       user.profileImage,
+        createdAt:          DateTime.now(),
+        onboardingComplete: user.onboardingComplete ?? false,
+      );
+
+  UserModel _toUserModelFromProfile(Map<String, dynamic> json) => UserModel(
+        id:                 json['id']?.toString() ?? json['_id']?.toString(),
+        name:               json['name'] as String,
+        email:              json['email'] as String,
+        profileImage:       json['profileImage'] as String?,
+        createdAt:          json['createdAt'] != null
+            ? DateTime.parse(json['createdAt'] as String)
+            : DateTime.now(),
+        onboardingComplete: json['onboardingComplete'] as bool? ?? false,
       );
 
   void dispose() => _apiService.dispose();

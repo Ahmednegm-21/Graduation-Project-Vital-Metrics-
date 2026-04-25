@@ -65,7 +65,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Sign Up ───────────────────────────────────────────────────────────────
+  // ── Sign Up → sends OTP ───────────────────────────────────────────────────
 
   Future<void> signUp({
     required String name,
@@ -106,7 +106,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
-      final user = await _authRepository.signUp(
+      final result = await _authRepository.signUp(
         name:        name,
         email:       email,
         password:    password,
@@ -115,7 +115,11 @@ class AuthCubit extends Cubit<AuthState> {
         height:      height,
         weight:      weight,
       );
-      emit(AuthSuccess(user));
+
+      emit(AuthRegistrationSuccess(
+        email:     result['email'] as String,
+        tempToken: result['tempToken'] as String? ?? '',
+      ));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
       emit(AuthValidationError(
@@ -126,7 +130,37 @@ class AuthCubit extends Cubit<AuthState> {
     } on ApiException catch (e) {
       emit(AuthError(e.message));
     } catch (_) {
-      emit(AuthError('An unexpected error occurred. Please try again.'));
+      emit(AuthError('Registration failed. Please try again.'));
+    }
+  }
+
+  // ── Verify OTP → saves token ──────────────────────────────────────────────
+
+  Future<void> verifyOTP({
+    required String email,
+    required String otp,
+  }) async {
+    emit(AuthLoading());
+    try {
+      await _authRepository.verifyOTP(email: email, otp: otp);
+      emit(AuthOTPVerified(email));
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
+    } catch (_) {
+      emit(AuthError('OTP verification failed. Please try again.'));
+    }
+  }
+
+  // ── Resend OTP ────────────────────────────────────────────────────────────
+
+  Future<void> resendOTP(String email) async {
+    try {
+      await _authRepository.resendOTP(email: email);
+      emit(AuthOTPResent(email));
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
+    } catch (_) {
+      emit(AuthError('Failed to resend OTP. Please try again.'));
     }
   }
 

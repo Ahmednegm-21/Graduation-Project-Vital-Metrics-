@@ -22,6 +22,8 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
 
   OnboardingData get currentData => _data;
 
+  // ── Credentials ───────────────────────────────────────────────────────────
+
   void setCredentials({
     required String name,
     required String email,
@@ -31,6 +33,8 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     _email    = email;
     _password = password;
   }
+
+  // ── Onboarding setters ────────────────────────────────────────────────────
 
   void setGender(String gender) {
     _data = _data.copyWith(gender: gender);
@@ -74,6 +78,63 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingDataUpdated(_data));
   }
 
+  // ── Step 3: Register user after Age screen ────────────────────────────────
+  // Calls signUp API → emits AuthRegistrationSuccess → UI navigates to OTP screen
+
+  Future<void> registerUser(AuthCubit authCubit) async {
+    if (_name == null || _email == null || _password == null) {
+      emit(const OnboardingError('Missing credentials. Please sign up again.'));
+      return;
+    }
+    if (_data.gender == null || _data.height == null ||
+        _data.weight == null   || _data.age == null) {
+      emit(const OnboardingError('Please complete all required fields.'));
+      return;
+    }
+
+    emit(OnboardingLoading());
+
+    try {
+      final birthYear   = DateTime.now().year - _data.age!.toInt();
+      final dateOfBirth = '$birthYear-01-01';
+
+      await authCubit.signUp(
+        name:        _name!,
+        email:       _email!,
+        password:    _password!,
+        gender:      _data.gender!.toLowerCase(),
+        dateOfBirth: dateOfBirth,
+        height:      _data.height!,
+        weight:      _data.weight!,
+      );
+
+      // Wait for AuthCubit state
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final authState = authCubit.state;
+
+      if (authState is AuthRegistrationSuccess) {
+        // Registration done - OTP sent - UI will navigate to OTP screen
+        emit(OnboardingDataUpdated(_data));
+      } else if (authState is AuthError) {
+        emit(OnboardingError(authState.message));
+      } else if (authState is AuthValidationError) {
+        final errors = [
+          authState.nameError,
+          authState.emailError,
+          authState.passwordError,
+        ].where((e) => e != null).join(', ');
+        emit(OnboardingError(errors));
+      }
+    } on ApiException catch (e) {
+      emit(OnboardingError(e.message));
+    } catch (e) {
+      emit(OnboardingError('Registration failed. Please try again.'));
+    }
+  }
+
+  // ── saveGoal: local transition only ──────────────────────────────────────
+
   Future<void> saveGoal() async {
     if (_data.goal == null) {
       emit(const OnboardingError('Please select a goal first'));
@@ -84,79 +145,36 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingDataUpdated(_data));
   }
 
-  /// Complete registration + send all onboarding data
-  Future<void> completeSignUpAndOnboarding(AuthCubit authCubit) async {
-    // ── Validation ────────────────────────────────────────────────────────────
-    if (_name == null || _email == null || _password == null) {
-      emit(const OnboardingError('Missing credentials. Please sign up again.'));
-      return;
-    }
-    if (_data.gender == null) {
-      emit(const OnboardingError('Please select your gender'));
-      return;
-    }
-    if (_data.age == null) {
-      emit(const OnboardingError('Please enter your age'));
-      return;
-    }
-    if (_data.height == null) {
-      emit(const OnboardingError('Please enter your height'));
-      return;
-    }
-    if (_data.weight == null) {
-      emit(const OnboardingError('Please enter your weight'));
-      return;
-    }
-    if (_data.goal == null) {
-      emit(const OnboardingError('Please select your goal'));
-      return;
-    }
-    if (_data.targetWeight == null) {
-      emit(const OnboardingError('Please set your target weight'));
+  // ── Step 9: Complete onboarding - save goal data ──────────────────────────
+  // Called from GetMyPlanScreen "Get Your Plan" button.
+
+  Future<void> completeOnboarding() async {
+    if (_data.goal == null || _data.targetWeight == null) {
+      emit(const OnboardingError('Please complete all goal information'));
       return;
     }
 
     emit(OnboardingLoading());
 
     try {
-      // ── Step 1: Register user ────────────────────────────────────────────────
-      final birthYear   = DateTime.now().year - _data.age!.toInt();
-      final dateOfBirth = '$birthYear-01-01';
-
-      await authCubit.signUp(
-        name:        _name!,
-        email:       _email!,
-        password:    _password!,
-        gender:      _data.gender!,
-        dateOfBirth: dateOfBirth,
-        height:      _data.height!,
-        weight:      _data.weight!,
-      );
-
-      // Check if registration failed
-      if (authCubit.state is AuthError) {
-        emit(OnboardingError((authCubit.state as AuthError).message));
-        return;
-      }
-
-      // ── Step 2: Save goal data ──────────────────────────────────────────────
       await _repo.saveGoal(
-        goal: _data.goal!,
-        targetWeight: _data.targetWeight,
+        goal:          _data.goal!,
+        targetWeight:  _data.targetWeight,
         weightPerWeek: _data.weightPerWeek,
-        targetDate: _data.targetDate,
+        targetDate:    _data.targetDate,
       );
 
-      // ── Step 3: Mark onboarding as complete ────────────────────────────────
       await _repo.completeOnboarding();
 
       emit(OnboardingComplete(_data));
     } on ApiException catch (e) {
       emit(OnboardingError(e.message));
     } catch (e) {
-      emit(OnboardingError('Registration failed. Please try again.'));
+      emit(OnboardingError('Failed to complete onboarding. Please try again.'));
     }
   }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
 
   void reset() {
     _data     = OnboardingData();

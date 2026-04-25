@@ -14,7 +14,7 @@ class AuthInitial extends AuthState {}
 /// Waiting for API response
 class AuthLoading extends AuthState {}
 
-/// API call succeeded
+/// API call succeeded - User logged in
 class AuthSuccess extends AuthState {
   final UserModel user;
   const AuthSuccess(this.user);
@@ -32,7 +32,7 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
-/// Local form validation failed (no API call made)
+/// Local form validation failed
 class AuthValidationError extends AuthState {
   final String? nameError;
   final String? emailError;
@@ -46,4 +46,36 @@ class AuthValidationError extends AuthState {
 
   @override
   List<Object?> get props => [nameError, emailError, passwordError];
+}
+
+// ✅ Registration successful - OTP sent to email
+class AuthRegistrationSuccess extends AuthState {
+  final String email;
+  final String tempToken;
+  
+  const AuthRegistrationSuccess({
+    required this.email,
+    required this.tempToken,
+  });
+
+  @override
+  List<Object?> get props => [email, tempToken];
+}
+
+// ✅ OTP verified successfully - User can continue
+class AuthOTPVerified extends AuthState {
+  final String email;
+  const AuthOTPVerified(this.email);
+
+  @override
+  List<Object?> get props => [email];
+}
+
+// ✅ OTP resent
+class AuthOTPResent extends AuthState {
+  final String email;
+  const AuthOTPResent(this.email);
+
+  @override
+  List<Object?> get props => [email];
 }
