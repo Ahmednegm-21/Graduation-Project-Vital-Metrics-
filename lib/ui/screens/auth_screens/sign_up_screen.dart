@@ -24,7 +24,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // Local validation errors (before touching Cubit)
+  // Local validation errors
   String? _nameError;
   String? _emailError;
   String? _passwordError;
@@ -40,9 +40,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isValidEmail(String email) =>
       RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
-  /// Validate fields locally.
-  /// If valid → save credentials in OnboardingCubit and go to onboarding.
-  /// The actual API call happens at the END of onboarding.
+  /// Validate fields locally and navigate to onboarding
   void _onNextPressed() {
     final name     = _nameController.text.trim();
     final email    = _emailController.text.trim();
@@ -72,22 +70,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _passwordError = passwordError;
     });
 
-    if (nameError != null || emailError != null || passwordError != null) return;
+    if (nameError != null || emailError != null || passwordError != null) {
+      return;
+    }
 
-    // Save credentials in OnboardingCubit so we can use them at the end
+    // ✅ Save credentials in OnboardingCubit
     context.read<OnboardingCubitAllData>().setCredentials(
-          name: name,
-          email: email,
-          password: password,
-        );
+      name: name,
+      email: email,
+      password: password,
+    );
 
-    // Navigate to onboarding - do NOT call API yet
-    context.push('/gender');
+    // ✅ Navigate to gender screen
+    context.go('/gender');
   }
 
   @override
   Widget build(BuildContext context) {
-    // Only listen for AuthError (e.g. from Google sign-in)
     return Scaffold(
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
@@ -159,7 +158,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   SizedBox(height: AppConstants.spaceXXL),
 
-                  // Next → goes to onboarding (no API call yet)
+                  // Next button
                   CustomButton(
                     text: 'Next',
                     onPressed: _onNextPressed,

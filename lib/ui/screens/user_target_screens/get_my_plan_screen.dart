@@ -19,7 +19,6 @@ import 'package:vital_metrics/ui/widgets/get_my_plan/plan_success_rate_card.dart
 class GetMyPlanScreen extends StatelessWidget {
   const GetMyPlanScreen({super.key});
 
-  // Format date helper
   String _formatDate(DateTime date) {
     final months = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -28,7 +27,6 @@ class GetMyPlanScreen extends StatelessWidget {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  // Calculate BMR using Mifflin-St Jeor equation
   double _calculateBMR({
     required String gender,
     required double weight,
@@ -42,7 +40,6 @@ class GetMyPlanScreen extends StatelessWidget {
     }
   }
 
-  // Calculate daily calories
   int _calculateDailyCalories({
     required double bmr,
     required String goalType,
@@ -61,7 +58,6 @@ class GetMyPlanScreen extends StatelessWidget {
     }
   }
 
-  // Calculate water intake
   int _calculateWaterIntake(double weight) {
     return (weight * AppConstants.waterPerKg).round();
   }
@@ -96,14 +92,12 @@ class GetMyPlanScreen extends StatelessWidget {
 
     final waterIntake = _calculateWaterIntake(currentWeight);
 
-    // Determine workout frequency
     final workoutFrequency = goalType.contains('lose')
         ? 5
         : goalType.contains('gain')
             ? 4
             : 3;
 
-    // Goal label
     final goalLabel = goalType.contains('lose')
         ? 'Lose Weight'
         : goalType.contains('gain')
@@ -114,13 +108,14 @@ class GetMyPlanScreen extends StatelessWidget {
 
     return MultiBlocListener(
       listeners: [
-        // Listen to Auth state
+        // ✅ Listen to Auth state
         BlocListener<AuthCubit, AuthState>(
           listener: (context, state) {
             if (state is AuthSuccess) {
-              // Registration successful → navigate to home
+              print('✅ Auth Success - Navigating to /home');
               context.go('/home');
             } else if (state is AuthError) {
+              print('❌ Auth Error: ${state.message}');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
@@ -130,15 +125,38 @@ class GetMyPlanScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppConstants.radiusM),
                   ),
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            } else if (state is AuthValidationError) {
+              final errors = [
+                state.nameError,
+                state.emailError,
+                state.passwordError,
+              ].where((e) => e != null).join('\n');
+              
+              print('❌ Validation Error: $errors');
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(errors),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.all(AppConstants.paddingL),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                  duration: const Duration(seconds: 5),
                 ),
               );
             }
           },
         ),
-        // Listen to Onboarding state
+        // ✅ Listen to Onboarding state
         BlocListener<OnboardingCubitAllData, OnboardingState>(
           listener: (context, state) {
             if (state is OnboardingError) {
+              print('❌ Onboarding Error: ${state.message}');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
@@ -148,8 +166,11 @@ class GetMyPlanScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppConstants.radiusM),
                   ),
+                  duration: const Duration(seconds: 5),
                 ),
               );
+            } else if (state is OnboardingComplete) {
+              print('✅ Onboarding Complete');
             }
           },
         ),
@@ -217,7 +238,7 @@ class GetMyPlanScreen extends StatelessWidget {
                 ),
               ),
 
-              // Get Your Plan button - triggers registration
+              // ✅ Get Your Plan button
               FadeInUp(
                 duration: Duration(milliseconds: AppConstants.animationSlow),
                 delay: Duration(milliseconds: 500),
@@ -226,12 +247,12 @@ class GetMyPlanScreen extends StatelessWidget {
                   decoration: AppDecorations.buttonContainer,
                   child: BlocBuilder<AuthCubit, AuthState>(
                     builder: (context, authState) {
-                      final isLoading = authState is AuthLoading;
+                      final isAuthLoading = authState is AuthLoading;
                       
                       return BlocBuilder<OnboardingCubitAllData, OnboardingState>(
                         builder: (context, onboardingState) {
                           final isOnboardingLoading = onboardingState is OnboardingLoading;
-                          final isAnyLoading = isLoading || isOnboardingLoading;
+                          final isAnyLoading = isAuthLoading || isOnboardingLoading;
 
                           return CustomButton(
                             text: 'Get Your Plan',
@@ -239,7 +260,9 @@ class GetMyPlanScreen extends StatelessWidget {
                             onPressed: isAnyLoading
                                 ? () {} // empty callback when loading
                                 : () {
-                                    // Trigger registration + save all data
+                                    print('\n🔘 User pressed "Get Your Plan" button');
+                                    
+                                    // ✅ Trigger complete registration
                                     context
                                         .read<OnboardingCubitAllData>()
                                         .completeSignUpAndOnboarding(

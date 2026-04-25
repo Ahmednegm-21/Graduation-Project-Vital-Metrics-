@@ -28,7 +28,7 @@ class AuthRepository {
       );
       final authResponse = AuthResponse.fromJson(response);
       await _saveTokens(authResponse);
-      return _toUserModel(authResponse.user);
+      return _toUserModelFromAuth(authResponse.user); // ✅ CHANGED
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -48,6 +48,14 @@ class AuthRepository {
     required double weight,
   }) async {
     try {
+      print('📤 Sending Sign Up Request:');
+      print('  Name: $name');
+      print('  Email: $email');
+      print('  Gender: $gender');
+      print('  Date of Birth: $dateOfBirth');
+      print('  Height: $height');
+      print('  Weight: $weight');
+      
       final response = await _apiService.post(
         ApiConfig.register,
         body: {
@@ -55,17 +63,22 @@ class AuthRepository {
           'email': email,
           'password': password,
           'gender': gender,
-          'date_of_birth': dateOfBirth,
           'height': height,
           'weight': weight,
+          'date_of_birth': dateOfBirth,
         },
       );
+      
+      print('📥 Sign Up Response:');
+      print(response);
+      
       final authResponse = AuthResponse.fromJson(response);
       await _saveTokens(authResponse);
-      return _toUserModel(authResponse.user);
+      return _toUserModelFromAuth(authResponse.user); // ✅ CHANGED
     } on ApiException {
       rethrow;
     } catch (e) {
+      print('❌ Sign Up Error: $e');
       throw ApiException(message: 'Sign up failed: $e');
     }
   }
@@ -104,7 +117,7 @@ class AuthRepository {
               ? response['data'] as Map<String, dynamic>
               : response;
 
-      return _toUserModel(UserData.fromJson(userData));
+      return _toUserModelFromProfile(userData); // ✅ CHANGED
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -164,12 +177,26 @@ class AuthRepository {
     await _tokenStorage.saveUserId(auth.user.id);
   }
 
-  UserModel _toUserModel(UserData user) => UserModel(
+  // ✅ NEW: Convert from AuthResponse (after login/signup)
+  UserModel _toUserModelFromAuth(UserData user) => UserModel(
         id: user.id,
         name: user.name,
         email: user.email,
         profileImage: user.profileImage,
         createdAt: DateTime.now(),
+        onboardingComplete: user.onboardingComplete ?? false, // ✅ Get from response
+      );
+
+  // ✅ NEW: Convert from profile endpoint
+  UserModel _toUserModelFromProfile(Map<String, dynamic> json) => UserModel(
+        id: json['id']?.toString() ?? json['_id']?.toString(),
+        name: json['name'] as String,
+        email: json['email'] as String,
+        profileImage: json['profileImage'] as String?,
+        createdAt: json['createdAt'] != null
+            ? DateTime.parse(json['createdAt'] as String)
+            : DateTime.now(),
+        onboardingComplete: json['onboardingComplete'] as bool? ?? false, // ✅ Get from profile
       );
 
   void dispose() => _apiService.dispose();
