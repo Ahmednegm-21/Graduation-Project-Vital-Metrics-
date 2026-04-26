@@ -36,6 +36,7 @@ async function bootstrap() {
     .addTag('Notifications', 'Push notification management')
     .addTag('Device Tokens', 'Device registration for push notifications')
     .addTag('Notification Preferences', 'User notification settings')
+    .addTag('Admin', 'Admin-only endpoints for user and platform management')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

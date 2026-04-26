@@ -26,7 +26,8 @@ export class CreateNotificationDto {
   message: string;
 
   @ApiProperty({
-    description: 'Notification type',
+    description:
+      'Notification type. Allowed values: "goal_reached", "daily_reminder", "water_reminder", "meal_reminder", "activity_reminder", "sleep_reminder", "streak_milestone", "weight_update", "system", "custom"',
     enum: [
       'goal_reached',
       'daily_reminder',

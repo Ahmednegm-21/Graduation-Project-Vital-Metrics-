@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, gte, count } from 'drizzle-orm';
 import * as admin from 'firebase-admin';
 import { DRIZZLE } from '../drizzle/drizzle.module';
 import { DrizzleDB } from '../drizzle/types/drizzle';
@@ -11,7 +11,7 @@ import {
 import { FirebaseService } from '../firebase/firebase.service';
 import { DeviceTokensService } from '../device-tokens/device-tokens.service';
 import { NotificationPreferencesService } from '../notification-preferences/notification-preferences.service';
-import { CreateNotificationDto, NotificationQueryDto } from './dto';
+import { NotificationQueryDto } from './dto';
 
 @Injectable()
 export class NotificationsService {
@@ -25,7 +25,10 @@ export class NotificationsService {
   ) {}
 
   /**
-   * Send a notification to a user - creates DB record and sends push
+   * Send a notification to a user - creates DB record and sends push.
+   * Includes deduplication: if a notification of the same type was recently
+   * sent to this user (within the cooldown window), the request is silently
+   * discarded to prevent spam.
    */
   async sendNotification(
     userId: number,
@@ -33,7 +36,28 @@ export class NotificationsService {
     message: string,
     type: NotificationType,
     data?: Record<string, string>,
-  ): Promise<Notification> {
+  ): Promise<Notification | null> {
+    // -- Deduplication: check cooldown window for this notification type --
+    const cooldownMinutes = this.getCooldownMinutes(type);
+    const cooldownThreshold = new Date(
+      Date.now() - cooldownMinutes * 60 * 1000,
+    );
+
+    const recentDuplicate = await this.db.query.notifications.findFirst({
+      where: and(
+        eq(notifications.user_id, userId),
+        eq(notifications.type, type),
+        gte(notifications.time, cooldownThreshold),
+      ),
+    });
+
+    if (recentDuplicate) {
+      this.logger.debug(
+        `Skipping ${type} notification for user ${userId} — duplicate within ${cooldownMinutes}min cooldown`,
+      );
+      return null;
+    }
+
     // 1. Check user preferences
     const prefs = await this.preferencesService.getPreferences(userId);
 
@@ -77,6 +101,21 @@ export class NotificationsService {
     }
 
     return notification;
+  }
+
+  /**
+   * Get cooldown period (in minutes) for each notification type.
+   * Prevents sending duplicate notifications within this window.
+   */
+  private getCooldownMinutes(type: NotificationType): number {
+    const cooldowns: Partial<Record<NotificationType, number>> = {
+      water_reminder: 60,
+      meal_reminder: 240, // 4 hours
+      activity_reminder: 720, // 12 hours
+      sleep_reminder: 720,
+      daily_reminder: 720,
+    };
+    return cooldowns[type] ?? 30; // Default 30-minute cooldown
   }
 
   /**
@@ -194,11 +233,11 @@ export class NotificationsService {
       offset,
     });
 
-    // Get total count (simplified - in production use count query)
-    const allNotifications = await this.db.query.notifications.findMany({
-      where: and(...conditions),
-    });
-    const total = allNotifications.length;
+    // Get total count
+    const [{ value: total }] = await this.db
+      .select({ value: count() })
+      .from(notifications)
+      .where(and(...conditions));
 
     return { data, total, page, limit };
   }
@@ -207,13 +246,16 @@ export class NotificationsService {
    * Get unread notification count
    */
   async getUnreadCount(userId: number): Promise<number> {
-    const unreadNotifications = await this.db.query.notifications.findMany({
-      where: and(
-        eq(notifications.user_id, userId),
-        eq(notifications.is_read, false),
-      ),
-    });
-    return unreadNotifications.length;
+    const [{ value }] = await this.db
+      .select({ value: count() })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.user_id, userId),
+          eq(notifications.is_read, false),
+        ),
+      );
+    return value;
   }
 
   /**

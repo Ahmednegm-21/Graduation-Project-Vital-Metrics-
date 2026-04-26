@@ -169,7 +169,9 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password reset OTP sent successfully',
-    type: MessageResponseDto,
+    schema: {
+      example: { message: 'Password reset OTP sent successfully' },
+    },
   })
   @ApiResponse({
     status: 404,
@@ -190,13 +192,19 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'OTP verified successfully',
-    type: MessageResponseDto,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Email verified and tokens returned',
-    type: AuthResponseDto,
+    description:
+      'OTP verified successfully (reset_password purpose returns message, verify_email purpose returns auth tokens)',
+    schema: {
+      oneOf: [
+        {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'OTP verified successfully' },
+          },
+        },
+        { $ref: '#/components/schemas/AuthResponseDto' },
+      ],
+    },
   })
   @ApiResponse({
     status: 400,
@@ -227,7 +235,9 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password reset successfully',
-    type: MessageResponseDto,
+    schema: {
+      example: { message: 'Password has been reset successfully' },
+    },
   })
   @ApiResponse({
     status: 400,

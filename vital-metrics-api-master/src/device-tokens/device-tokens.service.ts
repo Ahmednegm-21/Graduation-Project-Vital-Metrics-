@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, lt } from 'drizzle-orm';
 import { DRIZZLE } from '../drizzle/drizzle.module';
 import { DrizzleDB } from '../drizzle/types/drizzle';
 import { deviceTokens, DeviceToken } from '../drizzle/schema';
@@ -130,8 +130,7 @@ export class DeviceTokensService {
       .where(
         and(
           eq(deviceTokens.is_active, true),
-          // @ts-ignore - drizzle inArray type issue
-          deviceTokens.token_id,
+          inArray(deviceTokens.token_id, tokenIds),
         ),
       );
 
@@ -172,7 +171,7 @@ export class DeviceTokensService {
       .where(
         and(
           eq(deviceTokens.is_active, false),
-          // updated_at < thirtyDaysAgo
+          lt(deviceTokens.updated_at, thirtyDaysAgo),
         ),
       )
       .returning();

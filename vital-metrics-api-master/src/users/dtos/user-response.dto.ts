@@ -21,7 +21,7 @@ export class UserResponseDto {
   email: string;
 
   @ApiProperty({
-    description: 'User biological gender',
+    description: 'User biological gender. Allowed values: "male", "female"',
     example: 'male',
     enum: ['male', 'female'],
   })

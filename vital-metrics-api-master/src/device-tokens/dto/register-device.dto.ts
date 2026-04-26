@@ -11,7 +11,7 @@ export class RegisterDeviceDto {
   token: string;
 
   @ApiProperty({
-    description: 'Device platform',
+    description: 'Device platform. Allowed values: "ios", "android"',
     enum: ['ios', 'android'],
     example: 'ios',
   })

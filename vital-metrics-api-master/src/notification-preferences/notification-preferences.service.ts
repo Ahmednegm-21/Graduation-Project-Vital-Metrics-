@@ -109,26 +109,45 @@ export class NotificationPreferencesService {
 
     // Handle quiet hours that span midnight (e.g., 22:00 to 07:00)
     if (start > end) {
-      return currentTime >= start || currentTime <= end;
+      return currentTime > start || currentTime <= end;
     }
 
     // Normal quiet hours (e.g., 01:00 to 06:00)
-    return currentTime >= start && currentTime <= end;
+    return currentTime > start && currentTime <= end;
   }
 
   /**
-   * Get all users with a specific preference enabled (for scheduled notifications)
+   * Get all users with a specific preference enabled (for scheduled notifications).
+   * Filters at the database level for efficiency.
    */
   async getUsersWithPreference(
     preferenceKey: keyof NotificationPreference,
     value: boolean,
   ): Promise<NotificationPreference[]> {
-    // This would need a more complex query builder
-    // For now, return all preferences and filter in memory
-    const allPreferences =
-      await this.db.query.notificationPreferences.findMany();
-    return allPreferences.filter(
-      (pref) => pref[preferenceKey] === value,
-    ) as NotificationPreference[];
+    // Explicit mapping from preference keys to their Drizzle column references.
+    // This avoids accessing non-column members on the table object.
+    const columnMap: Partial<
+      Record<keyof NotificationPreference, ReturnType<typeof eq> extends infer _ ? any : never>
+    > = {
+      push_enabled: notificationPreferences.push_enabled,
+      daily_reminder: notificationPreferences.daily_reminder,
+      goal_alerts: notificationPreferences.goal_alerts,
+      water_reminders: notificationPreferences.water_reminders,
+      meal_reminders: notificationPreferences.meal_reminders,
+      activity_reminders: notificationPreferences.activity_reminders,
+      sleep_reminders: notificationPreferences.sleep_reminders,
+    };
+
+    const column = columnMap[preferenceKey];
+    if (!column) {
+      this.logger.warn(
+        `Invalid preference key for DB filter: ${String(preferenceKey)}, returning empty result`,
+      );
+      return [];
+    }
+
+    return this.db.query.notificationPreferences.findMany({
+      where: eq(column, value),
+    });
   }
 }

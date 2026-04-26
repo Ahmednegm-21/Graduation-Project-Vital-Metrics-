@@ -33,7 +33,7 @@ export class GoogleTokenLoginDto {
 
   @ApiPropertyOptional({
     description:
-      'Required only when this Google account is signing in for the first time: user biological gender.',
+      'Required only when this Google account is signing in for the first time: user biological gender. Allowed values: "male", "female"',
     example: 'male',
     enum: ['male', 'female'],
   })

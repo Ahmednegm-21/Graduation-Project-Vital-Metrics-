@@ -14,6 +14,8 @@ export class NotificationResponseDto {
   message: string;
 
   @ApiProperty({
+    description:
+      'Notification type. Allowed values: "goal_reached", "daily_reminder", "water_reminder", "meal_reminder", "activity_reminder", "sleep_reminder", "streak_milestone", "weight_update", "system", "custom"',
     example: 'goal_reached',
     enum: [
       'goal_reached',

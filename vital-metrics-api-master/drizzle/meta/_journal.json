@@ -43,6 +43,62 @@
       "when": 1771011387531,
       "tag": "0005_elite_warhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773320153577,
+      "tag": "0006_open_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773673689828,
+      "tag": "0007_cuddly_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773695189825,
+      "tag": "0009_sudden_payback",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773696364404,
+      "tag": "0010_remarkable_karen_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773744234459,
+      "tag": "0011_young_lockjaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776807813649,
+      "tag": "0012_cascade_fk_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776856328690,
+      "tag": "0013_add_water_sleep_to_metrics",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777056674381,
+      "tag": "0014_rapid_green_goblin",
+      "breakpoints": true
     }
   ]
 }

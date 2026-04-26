@@ -1,244 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:flutter_screenutil/flutter_screenutil.dart';
-// import 'package:go_router/go_router.dart';
-// import 'package:vital_metrics/core/constants/app_constants.dart';
-// import 'package:vital_metrics/core/themes/app_colors.dart';
-// import 'package:vital_metrics/logic/auth/auth_cubit.dart';
-// import 'package:vital_metrics/logic/auth/auth_state.dart';
-// import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
-// import 'package:pin_code_fields/pin_code_fields.dart';
-
-// class VerifySignupOtpScreen extends StatefulWidget {
-//   final String email;
-  
-//   const VerifySignupOtpScreen({super.key, required this.email});
-
-//   @override
-//   State<VerifySignupOtpScreen> createState() => _VerifySignupOtpScreenState();
-// }
-
-// class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
-//   final _otpController = TextEditingController();
-//   String _currentOtp = '';
-
-//   @override
-//   void dispose() {
-//     _otpController.dispose();
-//     super.dispose();
-//   }
-
-//   void _verifyOTP() {
-//     if (_currentOtp.length != 6) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text('Please enter the 6-digit code'),
-//           backgroundColor: AppColors.error,
-//           behavior: SnackBarBehavior.floating,
-//           margin: EdgeInsets.all(AppConstants.paddingL),
-//           shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(AppConstants.radiusM),
-//           ),
-//         ),
-//       );
-//       return;
-//     }
-
-//     context.read<AuthCubit>().verifyOTP(
-//       email: widget.email,
-//       otp: _currentOtp,
-//     );
-//   }
-
-//   void _resendOTP() {
-//     context.read<AuthCubit>().resendOTP(widget.email);
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return BlocListener<AuthCubit, AuthState>(
-//       listener: (context, state) {
-//         if (state is AuthOTPVerified) {
-//           // OTP verified - go to goal selection
-//           context.go('/goal-selection');
-//         } else if (state is AuthOTPResent) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(
-//               content: Text('OTP resent to ${widget.email}'),
-//               backgroundColor: Colors.green,
-//               behavior: SnackBarBehavior.floating,
-//               margin: EdgeInsets.all(AppConstants.paddingL),
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(AppConstants.radiusM),
-//               ),
-//             ),
-//           );
-//         } else if (state is AuthError) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(
-//               content: Text(state.message),
-//               backgroundColor: AppColors.error,
-//               behavior: SnackBarBehavior.floating,
-//               margin: EdgeInsets.all(AppConstants.paddingL),
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(AppConstants.radiusM),
-//               ),
-//             ),
-//           );
-//         }
-//       },
-//       child: Scaffold(
-//         backgroundColor: AppColors.background,
-//         appBar: AppBar(
-//           backgroundColor: AppColors.background,
-//           elevation: 0,
-//           leading: IconButton(
-//             icon: Icon(Icons.arrow_back_ios, color: AppColors.black),
-//             onPressed: () => context.pop(),
-//           ),
-//         ),
-//         body: SafeArea(
-//           child: Padding(
-//             padding: EdgeInsets.all(AppConstants.paddingXXL),
-//             child: Column(
-//               children: [
-//                 Expanded(
-//                   child: SingleChildScrollView(
-//                     child: Column(
-//                       children: [
-//                         SizedBox(height: 40.h),
-                        
-//                         // Icon
-//                         Container(
-//                           padding: EdgeInsets.all(30.w),
-//                           decoration: BoxDecoration(
-//                             color: AppColors.primary.withOpacity(0.1),
-//                             shape: BoxShape.circle,
-//                           ),
-//                           child: Icon(
-//                             Icons.email_outlined,
-//                             size: 60.sp,
-//                             color: AppColors.primary,
-//                           ),
-//                         ),
-                        
-//                         SizedBox(height: AppConstants.spaceXL),
-                        
-//                         // Title
-//                         Text(
-//                           'Verify Your Email',
-//                           style: TextStyle(
-//                             fontSize: 26.sp,
-//                             fontWeight: FontWeight.bold,
-//                             color: AppColors.black,
-//                           ),
-//                           textAlign: TextAlign.center,
-//                         ),
-                        
-//                         SizedBox(height: AppConstants.spaceM),
-                        
-//                         // Description
-//                         Text(
-//                           'We sent a 6-digit code to:',
-//                           style: TextStyle(
-//                             fontSize: 16.sp,
-//                             color: AppColors.textSecondary,
-//                           ),
-//                           textAlign: TextAlign.center,
-//                         ),
-                        
-//                         SizedBox(height: AppConstants.spaceS),
-                        
-//                         // Email
-//                         Text(
-//                           widget.email,
-//                           style: TextStyle(
-//                             fontSize: 16.sp,
-//                             fontWeight: FontWeight.w600,
-//                             color: AppColors.primary,
-//                           ),
-//                           textAlign: TextAlign.center,
-//                         ),
-                        
-//                         SizedBox(height: AppConstants.spaceXXL),
-                        
-//                         // OTP Input
-//                         PinCodeTextField(
-//                           appContext: context,
-//                           length: 6,
-//                           controller: _otpController,
-//                           onChanged: (value) {
-//                             setState(() {
-//                               _currentOtp = value;
-//                             });
-//                           },
-//                           onCompleted: (value) {
-//                             _verifyOTP();
-//                           },
-//                           pinTheme: PinTheme(
-//                             shape: PinCodeFieldShape.box,
-//                             borderRadius: BorderRadius.circular(AppConstants.radiusM),
-//                             fieldHeight: 50.h,
-//                             fieldWidth: 45.w,
-//                             activeFillColor: AppColors.white,
-//                             inactiveFillColor: AppColors.white,
-//                             selectedFillColor: AppColors.white,
-//                             activeColor: AppColors.primary,
-//                             inactiveColor: AppColors.border,
-//                             selectedColor: AppColors.primary,
-//                           ),
-//                           cursorColor: AppColors.primary,
-//                           enableActiveFill: true,
-//                           keyboardType: TextInputType.number,
-//                           textStyle: TextStyle(
-//                             fontSize: 20.sp,
-//                             fontWeight: FontWeight.bold,
-//                           ),
-//                         ),
-                        
-//                         SizedBox(height: AppConstants.spaceXL),
-                        
-//                         // Resend button
-//                         TextButton(
-//                           onPressed: _resendOTP,
-//                           child: Text(
-//                             'Didn\'t receive the code? Resend',
-//                             style: TextStyle(
-//                               fontSize: 14.sp,
-//                               color: AppColors.primary,
-//                               fontWeight: FontWeight.w600,
-//                             ),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-                
-//                 // Verify button
-//                 BlocBuilder<AuthCubit, AuthState>(
-//                   builder: (context, state) {
-//                     final isLoading = state is AuthLoading;
-                    
-//                     return CustomButton(
-//                       text: 'Verify',
-//                       isLoading: isLoading,
-//                       onPressed: isLoading ? () {} : _verifyOTP,
-//                       backgroundColor: AppColors.primary,
-//                       height: AppConstants.buttonHeightXL,
-//                     );
-//                   },
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -254,7 +13,6 @@ import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 
 class VerifySignupOtpScreen extends StatefulWidget {
   final String email;
-
   const VerifySignupOtpScreen({super.key, required this.email});
 
   @override
@@ -289,9 +47,9 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
     );
   }
 
-  void _verifyOTP() {
-    if (_otp.length < 4) {
-      _showSnack('Please enter the verification code');
+  void _verify() {
+    if (_otp.length < 6) {
+      _showSnack('Please enter the 6-digit verification code');
       return;
     }
     context.read<AuthCubit>().verifyOTP(
@@ -306,8 +64,15 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
     }
     if (index == 5 && val.isNotEmpty) {
       FocusScope.of(context).unfocus();
-      _verifyOTP();
+      _verify();
     }
+  }
+
+  void _showResendInfo() {
+    _showSnack(
+      'To get a new code, go back and sign up again',
+      color: AppColors.primaryLight,
+    );
   }
 
   @override
@@ -316,8 +81,6 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
       listener: (context, state) {
         if (state is AuthOTPVerified) {
           context.go('/goal-selection');
-        } else if (state is AuthOTPResent) {
-          _showSnack('Code resent to ${widget.email}', color: AppColors.success);
         } else if (state is AuthError) {
           _showSnack(state.message);
         }
@@ -361,11 +124,9 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
 
                       SizedBox(height: AppConstants.spaceXXXL),
 
-                      // Title
                       Text('Check your\nemail', style: AppTextStyles.authTitle),
                       SizedBox(height: AppConstants.spaceS),
 
-                      // Subtitle
                       RichText(
                         text: TextSpan(
                           style: AppTextStyles.authSubtitle,
@@ -381,8 +142,7 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
                               ),
                             ),
                             const TextSpan(
-                              text:
-                                  '\nEnter the code mentioned in the email',
+                              text: '\nEnter the code to complete sign up',
                             ),
                           ],
                         ),
@@ -390,7 +150,7 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
 
                       SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                      // OTP boxes (6 digits)
+                      // OTP boxes
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: List.generate(
@@ -409,16 +169,15 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
 
                       SizedBox(height: AppConstants.spaceXXXL),
 
-                      // Verify button
                       CustomButton(
                         text: 'Verify Code',
                         isLoading: isLoading,
-                        onPressed: isLoading ? () {} : _verifyOTP,
+                        onPressed: isLoading ? () {} : _verify,
                       ),
 
                       SizedBox(height: AppConstants.spaceXXL),
 
-                      // Resend
+                      // Resend → shows info message instead
                       Center(
                         child: RichText(
                           text: TextSpan(
@@ -427,9 +186,7 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
                               const TextSpan(text: "Haven't got the code?  "),
                               WidgetSpan(
                                 child: GestureDetector(
-                                  onTap: () => context
-                                      .read<AuthCubit>()
-                                      .resendOTP(widget.email),
+                                  onTap: _showResendInfo,
                                   child: Text(
                                     'Resend',
                                     style: AppTextStyles.authLink,
@@ -452,7 +209,6 @@ class _VerifySignupOtpScreenState extends State<VerifySignupOtpScreen> {
   }
 }
 
-// ── Single OTP digit box ──────────────────────────────────────────────────────
 class _OtpBox extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -507,10 +263,7 @@ class _OtpBox extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              borderSide: BorderSide(
-                color: AppColors.primaryLight,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: AppColors.primaryLight, width: 2),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppConstants.radiusM),

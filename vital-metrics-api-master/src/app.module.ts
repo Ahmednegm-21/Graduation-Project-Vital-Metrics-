@@ -12,6 +12,14 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DeviceTokensModule } from './device-tokens/device-tokens.module';
 import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
+import { GoalsModule } from './goals/goals.module';
+import { DailyMetricsModule } from './daily-metrics/daily-metrics.module';
+import { ActivitiesModule } from './activities/activities.module';
+import { MealsModule } from './meals/meals.module';
+import { ConsumedMealsModule } from './consumed-meals/consumed-meals.module';
+import { WaterIntakesModule } from './water-intakes/water-intakes.module';
+import { SleepsModule } from './sleeps/sleeps.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -26,6 +34,14 @@ import { NotificationPreferencesModule } from './notification-preferences/notifi
     NotificationsModule,
     DeviceTokensModule,
     NotificationPreferencesModule,
+    GoalsModule,
+    DailyMetricsModule,
+    ActivitiesModule,
+    MealsModule,
+    ConsumedMealsModule,
+    WaterIntakesModule,
+    SleepsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

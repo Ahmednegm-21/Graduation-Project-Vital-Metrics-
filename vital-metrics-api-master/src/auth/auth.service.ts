@@ -336,20 +336,22 @@ export class AuthService {
 
   async requestPasswordReset(email: string): Promise<{
     message: string;
-    expiresAt: Date;
   }> {
-    const user = await this.usersService.findByEmail(email);
+    try {
+      const user = await this.usersService.findByEmail(email);
 
-    const { code, expiresAt } = await this.otpService.createOtp(
-      user.user_id,
-      'reset_password',
-    );
+      const { code, expiresAt } = await this.otpService.createOtp(
+        user.user_id,
+        'reset_password',
+      );
 
-    await this.mailService.sendPasswordResetOtp(email, code, expiresAt);
+      await this.mailService.sendPasswordResetOtp(email, code, expiresAt);
+    } catch {
+      // Silently ignore - don't reveal if email exists
+    }
 
     return {
-      message: 'Password reset OTP sent to your email',
-      expiresAt,
+      message: 'If that email is registered, a reset code has been sent.',
     };
   }
 
@@ -357,9 +359,12 @@ export class AuthService {
     email: string,
     code: string,
   ): Promise<{ message: string }> {
-    const user = await this.usersService.findByEmail(email);
-
-    await this.otpService.checkOtp(user.user_id, 'reset_password', code);
+    try {
+      const user = await this.usersService.findByEmail(email);
+      await this.otpService.checkOtp(user.user_id, 'reset_password', code);
+    } catch {
+      throw new BadRequestException('Invalid or expired code');
+    }
 
     return {
       message: 'OTP verified successfully. You can now reset your password.',
@@ -379,7 +384,12 @@ export class AuthService {
   }
 
   async verifyEmailOtp(email: string, code: string): Promise<AuthResponse> {
-    const user = await this.usersService.findByEmail(email);
+    let user;
+    try {
+      user = await this.usersService.findByEmail(email);
+    } catch {
+      throw new BadRequestException('Invalid or expired code');
+    }
 
     if (user.is_verified) {
       throw new BadRequestException('Email already verified');
@@ -425,7 +435,12 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const user = await this.usersService.findByEmail(email);
+    let user;
+    try {
+      user = await this.usersService.findByEmail(email);
+    } catch {
+      throw new BadRequestException('Invalid or expired code');
+    }
 
     await this.otpService.verifyOtp(user.user_id, 'reset_password', code);
 

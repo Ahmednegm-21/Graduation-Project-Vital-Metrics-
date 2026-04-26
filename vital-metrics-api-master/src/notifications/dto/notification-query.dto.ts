@@ -37,7 +37,8 @@ export class NotificationQueryDto {
   limit?: number = 20;
 
   @ApiProperty({
-    description: 'Filter by notification type',
+    description:
+      'Filter by notification type. Allowed values: "goal_reached", "daily_reminder", "water_reminder", "meal_reminder", "activity_reminder", "sleep_reminder", "streak_milestone", "weight_update", "system", "custom"',
     enum: [
       'goal_reached',
       'daily_reminder',

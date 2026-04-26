@@ -24,7 +24,9 @@ export class VerifyOtpDto {
   code: string;
 
   @ApiProperty({
-    description: 'OTP purpose',
+    type: String,
+    description:
+      'OTP purpose. Allowed values: "verify_email", "reset_password"',
     enum: ['verify_email', 'reset_password'],
     example: 'verify_email',
   })

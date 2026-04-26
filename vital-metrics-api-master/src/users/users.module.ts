@@ -1,12 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { DrizzleModule } from 'src/drizzle/drizzle.module';
+import { GoalsModule } from '../goals/goals.module';
 
 @Module({
   providers: [UsersService],
   controllers: [UsersController],
-  imports: [DrizzleModule],
+  imports: [DrizzleModule, forwardRef(() => GoalsModule)],
   exports: [UsersService],
 })
 export class UsersModule {}

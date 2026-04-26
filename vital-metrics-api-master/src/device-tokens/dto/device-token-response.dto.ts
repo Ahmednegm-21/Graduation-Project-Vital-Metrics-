@@ -7,7 +7,11 @@ export class DeviceTokenResponseDto {
   @ApiProperty({ example: 'fcm-device-token-string-here' })
   token: string;
 
-  @ApiProperty({ example: 'ios', enum: ['ios', 'android'] })
+  @ApiProperty({
+    description: 'Device platform. Allowed values: "ios", "android"',
+    example: 'ios',
+    enum: ['ios', 'android'],
+  })
   platform: 'ios' | 'android';
 
   @ApiProperty({ example: 'iPhone 15 Pro', nullable: true })

@@ -14,50 +14,50 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Network/Connection Exceptions
+/// No internet connection
 class NetworkException extends ApiException {
   NetworkException([String? message])
       : super(
-          message: message ?? 'No internet connection. Please check your network.',
+          message: message ?? 'No internet connection. Please check your network and try again.',
         );
 }
 
-/// Timeout Exception
+/// Request timed out
 class TimeoutException extends ApiException {
   TimeoutException([String? message])
       : super(
-          message: message ?? 'Request timed out. Please try again.',
+          message: message ?? 'The request took too long. Please try again.',
         );
 }
 
-/// Server Error
+/// 500 / 502 / 503
 class ServerException extends ApiException {
   ServerException([String? message, int? statusCode])
       : super(
-          message: message ?? 'Server error. Please try again later.',
+          message: message ?? 'Something went wrong on our end. Please try again later.',
           statusCode: statusCode,
         );
 }
 
-/// Unauthorized (401)
+/// 401
 class UnauthorizedException extends ApiException {
   UnauthorizedException([String? message])
       : super(
-          message: message ?? 'Session expired. Please login again.',
+          message: message ?? 'Your session has expired. Please sign in again.',
           statusCode: 401,
         );
 }
 
-/// Forbidden (403)
+/// 403
 class ForbiddenException extends ApiException {
   ForbiddenException([String? message])
       : super(
-          message: message ?? 'You don\'t have permission to access this.',
+          message: message ?? 'You don\'t have permission to do this.',
           statusCode: 403,
         );
 }
 
-/// Not Found (404)
+/// 404
 class NotFoundException extends ApiException {
   NotFoundException([String? message])
       : super(
@@ -66,7 +66,7 @@ class NotFoundException extends ApiException {
         );
 }
 
-/// Validation Error (422)
+/// 422
 class ValidationException extends ApiException {
   final Map<String, dynamic>? errors;
 
@@ -74,22 +74,22 @@ class ValidationException extends ApiException {
     String? message,
     this.errors,
   }) : super(
-          message: message ?? 'Validation failed.',
+          message: message ?? 'Please check your information and try again.',
           statusCode: 422,
           data: errors,
         );
 }
 
-/// Bad Request (400)
+/// 400
 class BadRequestException extends ApiException {
   BadRequestException([String? message])
       : super(
-          message: message ?? 'Invalid request.',
+          message: message ?? 'Invalid request. Please check your information.',
           statusCode: 400,
         );
 }
 
-/// Generic HTTP Exception
+/// Generic HTTP
 class HttpException extends ApiException {
   HttpException({
     required super.message,

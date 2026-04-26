@@ -7,6 +7,7 @@ import {
   numeric,
   boolean,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
@@ -28,22 +29,37 @@ export const goals = pgTable('goals', {
   goal_id: serial('goal_id').primaryKey(),
   type: text('type').$type<'lose' | 'gain'>().notNull(),
   target_weight: numeric('target_weight', { precision: 5, scale: 2 }).notNull(),
+  weekly_rate: numeric('weekly_rate', { precision: 3, scale: 2 }).notNull(), // kg per week (e.g., 0.5)
   daily_calories: integer('daily_calories').notNull(),
+  target_date: date('target_date').notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
   user_id: integer('user_id')
-    .references(() => users.user_id)
+    .references(() => users.user_id, { onDelete: 'cascade' })
     .unique()
     .notNull(),
 });
 
-export const dailyMetrics = pgTable('daily_metrics', {
-  metrics_id: serial('metrics_id').primaryKey(),
-  date: date('date').notNull(),
-  total_steps: integer('total_steps').default(0),
-  total_calories: integer('total_calories').default(0),
-  user_id: integer('user_id')
-    .references(() => users.user_id)
-    .notNull(),
-});
+export const dailyMetrics = pgTable(
+  'daily_metrics',
+  {
+    metrics_id: serial('metrics_id').primaryKey(),
+    date: date('date').notNull(),
+    total_steps: integer('total_steps').default(0),
+    calories_consumed: integer('calories_consumed').default(0).notNull(),
+    burned_total: integer('burned_total').default(0).notNull(),
+    total_water_ml: integer('total_water_ml').default(0).notNull(),
+    total_sleep_minutes: integer('total_sleep_minutes').default(0).notNull(),
+    user_id: integer('user_id')
+      .references(() => users.user_id, { onDelete: 'cascade' })
+      .notNull(),
+  },
+  (table) => ({
+    userDateUnique: uniqueIndex('daily_metrics_user_date_unique').on(
+      table.user_id,
+      table.date,
+    ),
+  }),
+);
 
 export const notifications = pgTable('notifications', {
   notification_id: serial('notification_id').primaryKey(),
@@ -103,32 +119,28 @@ export const notificationPreferences = pgTable('notification_preferences', {
     .notNull(),
 });
 
-export const voiceLogs = pgTable('voice_logs', {
-  log_id: serial('log_id').primaryKey(),
-  transcript: text('transcript').notNull(),
-  time: timestamp('time').defaultNow().notNull(),
-  user_id: integer('user_id')
-    .references(() => users.user_id)
-    .notNull(),
-});
-
-export const userMeals = pgTable('user_meals', {
-  user_meal_id: serial('user_meal_id').primaryKey(),
-  user_id: integer('user_id')
-    .references(() => users.user_id)
-    .notNull(),
-});
-
 export const meals = pgTable('meals', {
   meal_id: serial('meal_id').primaryKey(),
-  name: text('name').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
   calories: integer('calories').notNull(),
   protein: numeric('protein', { precision: 5, scale: 2 }).notNull(),
   carbs: numeric('carbs', { precision: 5, scale: 2 }).notNull(),
   fat: numeric('fat', { precision: 5, scale: 2 }).notNull(),
-  user_meal_id: integer('user_meal_id').references(
-    () => userMeals.user_meal_id,
-  ),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const consumedMeals = pgTable('consumed_meals', {
+  consumed_id: serial('consumed_id').primaryKey(),
+  quantity: integer('quantity').default(1).notNull(),
+  consumed_at: timestamp('consumed_at').defaultNow().notNull(),
+  meal_id: integer('meal_id')
+    .references(() => meals.meal_id, { onDelete: 'cascade' })
+    .notNull(),
+  metrics_id: integer('metrics_id')
+    .references(() => dailyMetrics.metrics_id, { onDelete: 'cascade' })
+    .notNull(),
 });
 
 export const activities = pgTable('activities', {
@@ -137,7 +149,7 @@ export const activities = pgTable('activities', {
   duration: integer('duration').notNull(),
   calories_burned: integer('calories_burned').notNull(),
   metrics_id: integer('metrics_id')
-    .references(() => dailyMetrics.metrics_id)
+    .references(() => dailyMetrics.metrics_id, { onDelete: 'cascade' })
     .notNull(),
 });
 
@@ -146,7 +158,7 @@ export const waterIntakes = pgTable('water_intakes', {
   amount_ml: integer('amount_ml').notNull(),
   time: timestamp('time').defaultNow().notNull(),
   metrics_id: integer('metrics_id')
-    .references(() => dailyMetrics.metrics_id)
+    .references(() => dailyMetrics.metrics_id, { onDelete: 'cascade' })
     .notNull(),
 });
 
@@ -155,7 +167,7 @@ export const sleeps = pgTable('sleeps', {
   duration: integer('duration').notNull(),
   quality: text('quality').notNull(),
   metrics_id: integer('metrics_id')
-    .references(() => dailyMetrics.metrics_id)
+    .references(() => dailyMetrics.metrics_id, { onDelete: 'cascade' })
     .notNull(),
 });
 
@@ -166,7 +178,7 @@ export const otps = pgTable('otps', {
   expires_at: timestamp('expires_at').notNull(),
   used: boolean('used').default(false).notNull(),
   user_id: integer('user_id')
-    .references(() => users.user_id)
+    .references(() => users.user_id, { onDelete: 'cascade' })
     .notNull(),
 });
 
@@ -193,3 +205,27 @@ export type NotificationPreference =
   typeof notificationPreferences.$inferSelect;
 export type NewNotificationPreference =
   typeof notificationPreferences.$inferInsert;
+
+export type Goal = typeof goals.$inferSelect;
+export type NewGoal = typeof goals.$inferInsert;
+
+export type DailyMetric = typeof dailyMetrics.$inferSelect;
+export type NewDailyMetric = typeof dailyMetrics.$inferInsert;
+
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;
+
+export type Meal = typeof meals.$inferSelect;
+export type NewMeal = typeof meals.$inferInsert;
+
+export type ConsumedMeal = typeof consumedMeals.$inferSelect;
+export type NewConsumedMeal = typeof consumedMeals.$inferInsert;
+
+export type WaterIntake = typeof waterIntakes.$inferSelect;
+export type NewWaterIntake = typeof waterIntakes.$inferInsert;
+
+export type Sleep = typeof sleeps.$inferSelect;
+export type NewSleep = typeof sleeps.$inferInsert;
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
