@@ -10,20 +10,21 @@ class AuthResponse {
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    // Unwrap "data" if present
     final Map<String, dynamic> payload =
         json['data'] is Map<String, dynamic>
             ? json['data'] as Map<String, dynamic>
             : json;
 
-    // Support both "token" and "accessToken"
-    final token = (payload['token'] ?? payload['accessToken']) as String?;
+    // ✅ access_token أو token أو accessToken
+    final token = _safeStr(payload, 'access_token')
+        ?? _safeStr(payload, 'token')
+        ?? _safeStr(payload, 'accessToken');
+
     if (token == null) {
       throw FormatException(
           'AuthResponse: missing token. Keys: ${payload.keys.toList()}');
     }
 
-    // Support both "user" object and flat fields
     UserData user;
     if (payload['user'] is Map<String, dynamic>) {
       user = UserData.fromJson(payload['user'] as Map<String, dynamic>);
@@ -33,25 +34,32 @@ class AuthResponse {
 
     return AuthResponse(
       token: token,
-      refreshToken: payload['refreshToken'] as String?,
+      // ✅ refresh_token أو refreshToken
+      refreshToken: _safeStr(payload, 'refresh_token')
+          ?? _safeStr(payload, 'refreshToken'),
       user: user,
     );
   }
 
+  static String? _safeStr(Map<String, dynamic> map, String key) {
+    final val = map[key];
+    if (val is String) return val;
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
-        'token': token,
-        'refreshToken': refreshToken,
-        'user': user.toJson(),
+        'access_token':  token,
+        'refresh_token': refreshToken,
+        'user':          user.toJson(),
       };
 }
 
-/// User Data returned from auth endpoints
 class UserData {
   final String id;
   final String name;
   final String email;
   final String? profileImage;
-  final bool? onboardingComplete; // ✅ Added
+  final bool? onboardingComplete;
 
   UserData({
     required this.id,
@@ -62,27 +70,39 @@ class UserData {
   });
 
   factory UserData.fromJson(Map<String, dynamic> json) {
-    // Support "_id" (MongoDB), "id", or "userId"
-    final id = (json['id'] ?? json['_id'] ?? json['userId'])?.toString();
+    // ✅ user_id أو id أو _id أو userId
+    final id = (json['user_id'] ?? json['id'] ?? json['_id'] ?? json['userId'])
+        ?.toString();
+
     if (id == null) {
       throw FormatException(
           'UserData: missing id. Keys: ${json.keys.toList()}');
     }
 
     return UserData(
-      id: id,
-      name: (json['name'] ?? json['username'] ?? '') as String,
-      email: json['email'] as String,
-      profileImage: json['profileImage'] as String?,
-      onboardingComplete: json['onboardingComplete'] as bool?, // ✅ Added
+      id:    id,
+      name:  _safeStr(json, 'name') ?? _safeStr(json, 'username') ?? '',
+      email: _safeStr(json, 'email') ?? '',
+      profileImage: json['profileImage'] is String
+          ? json['profileImage'] as String
+          : null,
+      onboardingComplete: json['onboardingComplete'] is bool
+          ? json['onboardingComplete'] as bool
+          : null,
     );
   }
 
+  static String? _safeStr(Map<String, dynamic> map, String key) {
+    final val = map[key];
+    if (val is String) return val;
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'email': email,
-        'profileImage': profileImage,
+        'user_id':            id,
+        'name':               name,
+        'email':              email,
+        'profileImage':       profileImage,
         'onboardingComplete': onboardingComplete,
       };
 }

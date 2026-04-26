@@ -78,16 +78,17 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingDataUpdated(_data));
   }
 
-  // ── Step 3: Register user after Age screen ────────────────────────────────
-  // Calls signUp API → emits AuthRegistrationSuccess → UI navigates to OTP screen
+  // ── Register user after Age screen ───────────────────────────────────────
 
   Future<void> registerUser(AuthCubit authCubit) async {
     if (_name == null || _email == null || _password == null) {
       emit(const OnboardingError('Missing credentials. Please sign up again.'));
       return;
     }
-    if (_data.gender == null || _data.height == null ||
-        _data.weight == null   || _data.age == null) {
+    if (_data.gender == null ||
+        _data.height == null ||
+        _data.weight == null ||
+        _data.age == null) {
       emit(const OnboardingError('Please complete all required fields.'));
       return;
     }
@@ -98,6 +99,7 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
       final birthYear   = DateTime.now().year - _data.age!.toInt();
       final dateOfBirth = '$birthYear-01-01';
 
+      // ✅ بنستنى الـ signUp مباشرة - مش بنعمل Future.delayed
       await authCubit.signUp(
         name:        _name!,
         email:       _email!,
@@ -108,13 +110,10 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
         weight:      _data.weight!,
       );
 
-      // Wait for AuthCubit state
-      await Future.delayed(const Duration(milliseconds: 300));
-
       final authState = authCubit.state;
 
       if (authState is AuthRegistrationSuccess) {
-        // Registration done - OTP sent - UI will navigate to OTP screen
+        // ✅ Registration OK → UI هتروح OTP screen
         emit(OnboardingDataUpdated(_data));
       } else if (authState is AuthError) {
         emit(OnboardingError(authState.message));
@@ -124,16 +123,19 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
           authState.emailError,
           authState.passwordError,
         ].where((e) => e != null).join(', ');
-        emit(OnboardingError(errors));
+        emit(OnboardingError(errors.isNotEmpty ? errors : 'Validation failed'));
+      } else {
+        // حالة غير متوقعة
+        emit(const OnboardingError('Registration failed. Please try again.'));
       }
     } on ApiException catch (e) {
       emit(OnboardingError(e.message));
     } catch (e) {
-      emit(OnboardingError('Registration failed. Please try again.'));
+      emit(OnboardingError('Registration failed: $e'));
     }
   }
 
-  // ── saveGoal: local transition only ──────────────────────────────────────
+  // ── Save goal (local) ─────────────────────────────────────────────────────
 
   Future<void> saveGoal() async {
     if (_data.goal == null) {
@@ -145,8 +147,7 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingDataUpdated(_data));
   }
 
-  // ── Step 9: Complete onboarding - save goal data ──────────────────────────
-  // Called from GetMyPlanScreen "Get Your Plan" button.
+  // ── Complete onboarding ───────────────────────────────────────────────────
 
   Future<void> completeOnboarding() async {
     if (_data.goal == null || _data.targetWeight == null) {

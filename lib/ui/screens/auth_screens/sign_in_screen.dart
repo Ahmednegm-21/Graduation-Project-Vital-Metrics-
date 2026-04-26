@@ -49,9 +49,9 @@ class _SignInScreenState extends State<SignInScreen> {
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthSuccess) {
-            // ✅ After login → go directly to home
-            context.go('/home');
+          if (state is AuthSignInOTPSent) {
+            // Credentials correct → OTP sent → go to verify OTP screen
+            context.push('/verify-signin-otp', extra: state.email);
           } else if (state is AuthError) {
             _showError(state.message);
           }
@@ -95,7 +95,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Email field
                         CustomTextField(
                           controller: _emailController,
                           hintText: 'Email',
@@ -106,7 +105,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceL),
 
-                        // Password field
                         CustomTextField(
                           controller: _passwordController,
                           hintText: 'Password',
@@ -117,7 +115,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceS),
 
-                        // Forgot password
                         Align(
                           alignment: Alignment.centerRight,
                           child: GestureDetector(
@@ -130,7 +127,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXL),
 
-                        // Sign in button
                         CustomButton(
                           text: 'Sign in',
                           isLoading: isLoading,
@@ -141,7 +137,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXL),
 
-                        // Sign up link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -160,7 +155,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                        // Google sign in
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

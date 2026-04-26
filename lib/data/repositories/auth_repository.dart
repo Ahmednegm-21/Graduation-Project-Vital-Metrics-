@@ -15,20 +15,26 @@ class AuthRepository {
   })  : _apiService = apiService ?? ApiService(),
         _tokenStorage = tokenStorage ?? TokenStorageService();
 
-  // ── Sign In ───────────────────────────────────────────────────────────────
+  // ── Sign In → OTP sent to email ───────────────────────────────────────────
 
-  Future<UserModel> signIn({
+  Future<void> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      final response = await _apiService.post(
+      await _apiService.post(
         ApiConfig.login,
         body: {'email': email, 'password': password},
       );
-      final authResponse = AuthResponse.fromJson(response);
-      await _saveTokens(authResponse);
-      return _toUserModelFromAuth(authResponse.user);
+    } on ForbiddenException catch (e) {
+      // 403 = email not verified → OTP sent
+      final msg = e.message.toLowerCase();
+      if (msg.contains('not verified') ||
+          msg.contains('verification') ||
+          msg.contains('email')) {
+        return;
+      }
+      rethrow;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -36,9 +42,9 @@ class AuthRepository {
     }
   }
 
-  // ── Sign Up → returns email + tempToken (OTP sent to email) ───────────────
+  // ── Sign Up → OTP sent to email ───────────────────────────────────────────
 
-  Future<Map<String, dynamic>> signUp({
+  Future<String> signUp({
     required String name,
     required String email,
     required String password,
@@ -48,7 +54,7 @@ class AuthRepository {
     required double weight,
   }) async {
     try {
-      final response = await _apiService.post(
+      await _apiService.post(
         ApiConfig.register,
         body: {
           'name':          name,
@@ -60,12 +66,8 @@ class AuthRepository {
           'weight':        weight,
         },
       );
-
-      return {
-        'email':     email,
-        'tempToken': response['tempToken'] ?? response['token'] ?? '',
-        'message':   response['message'] ?? 'OTP sent to your email',
-      };
+      // الباك إند بيبعت OTP ويرجع message فقط → نرجع الـ email
+      return email;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -73,22 +75,31 @@ class AuthRepository {
     }
   }
 
-  // ── Verify OTP → saves token ──────────────────────────────────────────────
+  // ── Verify OTP ────────────────────────────────────────────────────────────
+  // الباك إند عايز: email, code, purpose
 
   Future<void> verifyOTP({
     required String email,
     required String otp,
+    String purpose = 'verify_email',
   }) async {
     try {
       final response = await _apiService.post(
         ApiConfig.verifyOtp,
-        body: {'email': email, 'otp': otp},
+        body: {
+          'email':   email,
+          'code':    otp,
+          'purpose': purpose,
+        },
       );
 
-      // Save token after OTP verification
-      if (response['token'] != null || response['accessToken'] != null) {
-        final authResponse = AuthResponse.fromJson(response);
-        await _saveTokens(authResponse);
+      // نحاول نحفظ الـ token
+      final saved = await _trySaveTokenFromResponse(response);
+      if (!saved) {
+        final data = response['data'];
+        if (data is Map<String, dynamic>) {
+          await _trySaveTokenFromResponse(data);
+        }
       }
     } on ApiException {
       rethrow;
@@ -99,11 +110,17 @@ class AuthRepository {
 
   // ── Resend OTP ────────────────────────────────────────────────────────────
 
-  Future<void> resendOTP({required String email}) async {
+  Future<void> resendOTP({
+    required String email,
+    String purpose = 'verify_email',
+  }) async {
     try {
       await _apiService.post(
         ApiConfig.resendOtp,
-        body: {'email': email},
+        body: {
+          'email':   email,
+          'purpose': purpose,
+        },
       );
     } on ApiException {
       rethrow;
@@ -166,9 +183,19 @@ class AuthRepository {
     }
   }
 
-  Future<void> verifyOtp({required String email, required String otp}) async {
+  Future<void> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
     try {
-      await _apiService.post(ApiConfig.verifyOtp, body: {'email': email, 'otp': otp});
+      await _apiService.post(
+        ApiConfig.verifyOtp,
+        body: {
+          'email':   email,
+          'code':    otp,
+          'purpose': 'reset_password',
+        },
+      );
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -184,7 +211,11 @@ class AuthRepository {
     try {
       await _apiService.post(
         ApiConfig.resetPasswordConfirm,
-        body: {'email': email, 'otp': otp, 'newPassword': newPassword},
+        body: {
+          'email':       email,
+          'code':        otp,
+          'newPassword': newPassword,
+        },
       );
     } on ApiException {
       rethrow;
@@ -198,6 +229,16 @@ class AuthRepository {
   Future<bool> isLoggedIn() => _tokenStorage.isLoggedIn();
   Future<String?> getToken() => _tokenStorage.getToken();
 
+  Future<bool> _trySaveTokenFromResponse(Map<String, dynamic> map) async {
+    final token = _safeStr(map, 'access_token')
+        ?? _safeStr(map, 'token')
+        ?? _safeStr(map, 'accessToken');
+    if (token == null) return false;
+    final authResponse = AuthResponse.fromJson(map);
+    await _saveTokens(authResponse);
+    return true;
+  }
+
   Future<void> _saveTokens(AuthResponse auth) async {
     await _tokenStorage.saveToken(auth.token);
     if (auth.refreshToken != null) {
@@ -206,22 +247,23 @@ class AuthRepository {
     await _tokenStorage.saveUserId(auth.user.id);
   }
 
-  UserModel _toUserModelFromAuth(UserData user) => UserModel(
-        id:                 user.id,
-        name:               user.name,
-        email:              user.email,
-        profileImage:       user.profileImage,
-        createdAt:          DateTime.now(),
-        onboardingComplete: user.onboardingComplete ?? false,
-      );
+  String? _safeStr(Map<String, dynamic> map, String key) {
+    final val = map[key];
+    if (val is String) return val;
+    return null;
+  }
 
   UserModel _toUserModelFromProfile(Map<String, dynamic> json) => UserModel(
-        id:                 json['id']?.toString() ?? json['_id']?.toString(),
-        name:               json['name'] as String,
-        email:              json['email'] as String,
-        profileImage:       json['profileImage'] as String?,
+        id:                 json['user_id']?.toString()
+            ?? json['id']?.toString()
+            ?? json['_id']?.toString(),
+        name:               _safeStr(json, 'name') ?? '',
+        email:              _safeStr(json, 'email') ?? '',
+        profileImage:       json['profileImage'] is String
+            ? json['profileImage'] as String
+            : null,
         createdAt:          json['createdAt'] != null
-            ? DateTime.parse(json['createdAt'] as String)
+            ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
             : DateTime.now(),
         onboardingComplete: json['onboardingComplete'] as bool? ?? false,
       );

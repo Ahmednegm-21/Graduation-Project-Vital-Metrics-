@@ -6,6 +6,8 @@ import 'auth_state.dart';
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepository;
 
+  bool _isSignInFlow = false;
+
   AuthCubit({AuthRepository? authRepository})
       : _authRepository = authRepository ?? AuthRepository(),
         super(AuthInitial());
@@ -47,11 +49,19 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
-      final user = await _authRepository.signIn(
-        email: email,
-        password: password,
-      );
-      emit(AuthSuccess(user));
+      await _authRepository.signIn(email: email, password: password);
+      _isSignInFlow = true;
+      emit(AuthSignInOTPSent(email));
+    } on ForbiddenException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('not verified') ||
+          msg.contains('verification') ||
+          msg.contains('email')) {
+        _isSignInFlow = true;
+        emit(AuthSignInOTPSent(email));
+      } else {
+        emit(AuthError(e.message));
+      }
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
       emit(AuthValidationError(
@@ -65,7 +75,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Sign Up → sends OTP ───────────────────────────────────────────────────
+  // ── Sign Up ───────────────────────────────────────────────────────────────
 
   Future<void> signUp({
     required String name,
@@ -106,7 +116,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
-      final result = await _authRepository.signUp(
+      final resultEmail = await _authRepository.signUp(
         name:        name,
         email:       email,
         password:    password,
@@ -116,9 +126,10 @@ class AuthCubit extends Cubit<AuthState> {
         weight:      weight,
       );
 
+      _isSignInFlow = false;
       emit(AuthRegistrationSuccess(
-        email:     result['email'] as String,
-        tempToken: result['tempToken'] as String? ?? '',
+        email:     resultEmail,
+        tempToken: '',
       ));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
@@ -134,7 +145,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Verify OTP → saves token ──────────────────────────────────────────────
+  // ── Verify OTP ────────────────────────────────────────────────────────────
 
   Future<void> verifyOTP({
     required String email,
@@ -142,8 +153,19 @@ class AuthCubit extends Cubit<AuthState> {
   }) async {
     emit(AuthLoading());
     try {
-      await _authRepository.verifyOTP(email: email, otp: otp);
-      emit(AuthOTPVerified(email));
+      await _authRepository.verifyOTP(
+        email:   email,
+        otp:     otp,
+        purpose: 'verify_email',
+      );
+
+      if (_isSignInFlow) {
+        final user = await _authRepository.getUserProfile();
+        _isSignInFlow = false;
+        emit(AuthSuccess(user));
+      } else {
+        emit(AuthOTPVerified(email));
+      }
     } on ApiException catch (e) {
       emit(AuthError(e.message));
     } catch (_) {
@@ -155,7 +177,10 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> resendOTP(String email) async {
     try {
-      await _authRepository.resendOTP(email: email);
+      await _authRepository.resendOTP(
+        email:   email,
+        purpose: 'verify_email',
+      );
       emit(AuthOTPResent(email));
     } on ApiException catch (e) {
       emit(AuthError(e.message));
@@ -178,7 +203,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Check token on app start ──────────────────────────────────────────────
+  // ── Check Auth on app start ───────────────────────────────────────────────
 
   Future<void> checkAuthStatus() async {
     try {
@@ -200,7 +225,10 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthError('Google Sign-In is not implemented yet.'));
   }
 
-  void reset() => emit(AuthInitial());
+  void reset() {
+    _isSignInFlow = false;
+    emit(AuthInitial());
+  }
 
   @override
   Future<void> close() {
