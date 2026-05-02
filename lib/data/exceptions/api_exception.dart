@@ -34,7 +34,9 @@ class TimeoutException extends ApiException {
 class ServerException extends ApiException {
   ServerException([String? message, int? statusCode])
       : super(
-          message: message ?? 'Something went wrong on our end. Please try again later.',
+          message: message != null && message != 'Internal Server Error'
+              ? message
+              : 'Something went wrong. Please try again.',
           statusCode: statusCode,
         );
 }

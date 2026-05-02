@@ -20,18 +20,15 @@ class VerifyOtpScreen extends StatefulWidget {
 }
 
 class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
+  // 6 digits to match backend verify-otp endpoint
   final List<TextEditingController> _controllers =
-      List.generate(5, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    for (final c in _controllers) c.dispose();
+    for (final f in _focusNodes) f.dispose();
     super.dispose();
   }
 
@@ -52,13 +49,12 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   }
 
   void _onDigitChanged(int index, String val) {
-    if (val.isNotEmpty && index < 4) {
-      // Move focus to next box
+    if (val.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
 
     // Auto-verify when last digit is entered
-    if (index == 4 && val.isNotEmpty) {
+    if (index == 5 && val.isNotEmpty) {
       FocusScope.of(context).unfocus();
       context.read<ForgotPasswordCubit>().verifyOtp(
             email: widget.email,
@@ -75,7 +71,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           if (state is ForgotPasswordOtpVerified) {
             context.push('/set-new-password', extra: {
               'email': widget.email,
-              'otp': _otp,
+              'otp':   _otp,
             });
           } else if (state is ForgotPasswordError) {
             _showError(state.message);
@@ -107,7 +103,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                       text: TextSpan(
                         style: AppTextStyles.authSubtitle,
                         children: [
-                          const TextSpan(text: 'We sent a reset link to '),
+                          const TextSpan(text: 'We sent a reset code to '),
                           TextSpan(
                             text: widget.email,
                             style: TextStyle(
@@ -117,19 +113,18 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                             ),
                           ),
                           const TextSpan(
-                            text:
-                                '\nEnter the 5-digit code mentioned in the email',
+                            text: '\nEnter the 6-digit code from your email',
                           ),
                         ],
                       ),
                     ),
                     SizedBox(height: AppConstants.spaceXXXL + 8.h),
 
-                    // OTP boxes
+                    // 6 OTP boxes
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(
-                        5,
+                        6,
                         (i) => _OtpBox(
                           controller: _controllers[i],
                           focusNode: _focusNodes[i],
@@ -143,35 +138,34 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                       ),
                     ),
 
-                    // OTP error
                     if (otpError != null) ...[
                       SizedBox(height: AppConstants.spaceS),
                       Row(children: [
                         Icon(Icons.error_outline,
-                            color: AppColors.error,
-                            size: AppConstants.iconXS),
+                            color: AppColors.error, size: AppConstants.iconXS),
                         SizedBox(width: AppConstants.spaceXS),
                         Text(otpError,
-                            style: TextStyle(
-                                color: AppColors.error, fontSize: 12.sp)),
+                            style:
+                                TextStyle(color: AppColors.error, fontSize: 12.sp)),
                       ]),
                     ],
 
                     SizedBox(height: AppConstants.spaceXXXL),
 
-                    // Manual verify button (fallback if auto didn't trigger)
+                    // Manual verify button
                     CustomButton(
                       text: 'Verify Code',
                       isLoading: isLoading,
-                      onPressed: () =>
-                          context.read<ForgotPasswordCubit>().verifyOtp(
+                      onPressed: isLoading
+                          ? () {}
+                          : () => context.read<ForgotPasswordCubit>().verifyOtp(
                                 email: widget.email,
                                 otp: _otp,
                               ),
                     ),
                     SizedBox(height: AppConstants.spaceXXL),
 
-                    // Resend email
+                    // Resend → calls sendResetEmail again
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -183,10 +177,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                                 onTap: () => context
                                     .read<ForgotPasswordCubit>()
                                     .sendResetEmail(email: widget.email),
-                                child: Text(
-                                  'Resend email',
-                                  style: AppTextStyles.authLink,
-                                ),
+                                child: Text('Resend email',
+                                    style: AppTextStyles.authLink),
                               ),
                             ),
                           ],
@@ -204,7 +196,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   }
 }
 
-// ── Single OTP digit box ──────────────────────────────────────────────────────
 class _OtpBox extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -225,8 +216,8 @@ class _OtpBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52.w,
-      height: 58.h,
+      width: 45.w,
+      height: 55.h,
       child: RawKeyboardListener(
         focusNode: FocusNode(),
         onKey: (event) {
@@ -308,5 +299,3 @@ class _BackButton extends StatelessWidget {
     );
   }
 }
-
-

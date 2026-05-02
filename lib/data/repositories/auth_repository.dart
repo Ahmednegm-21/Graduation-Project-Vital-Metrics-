@@ -15,26 +15,30 @@ class AuthRepository {
   })  : _apiService = apiService ?? ApiService(),
         _tokenStorage = tokenStorage ?? TokenStorageService();
 
-  // ── Sign In → OTP sent to email ───────────────────────────────────────────
+  // ── Sign In ───────────────────────────────────────────────────────────────
+  // true  → email verified → token saved → AuthSuccess → home
+  // false → email not verified (403) → AuthSignInOTPSent → OTP screen
 
-  Future<void> signIn({
+  Future<bool> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      await _apiService.post(
+      final response = await _apiService.post(
         ApiConfig.login,
         body: {'email': email, 'password': password},
       );
-    } on ForbiddenException catch (e) {
-      // 403 = email not verified → OTP sent
-      final msg = e.message.toLowerCase();
-      if (msg.contains('not verified') ||
-          msg.contains('verification') ||
-          msg.contains('email')) {
-        return;
+
+      final saved = await _trySaveTokenFromResponse(response);
+      if (!saved) {
+        final data = response['data'];
+        if (data is Map<String, dynamic>) {
+          await _trySaveTokenFromResponse(data);
+        }
       }
-      rethrow;
+      return true;
+    } on ForbiddenException {
+      return false;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -42,7 +46,9 @@ class AuthRepository {
     }
   }
 
-  // ── Sign Up → OTP sent to email ───────────────────────────────────────────
+  // ── Sign Up ───────────────────────────────────────────────────────────────
+  // 201 → OTP sent → AuthRegistrationSuccess
+  // 409 → email exists → treat as success → OTP screen
 
   Future<String> signUp({
     required String name,
@@ -66,8 +72,10 @@ class AuthRepository {
           'weight':        weight,
         },
       );
-      // الباك إند بيبعت OTP ويرجع message فقط → نرجع الـ email
       return email;
+    } on HttpException catch (e) {
+      if (e.statusCode == 409) return email;
+      rethrow;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -76,7 +84,8 @@ class AuthRepository {
   }
 
   // ── Verify OTP ────────────────────────────────────────────────────────────
-  // الباك إند عايز: email, code, purpose
+  // verify_email → save tokens
+  // reset_password → no tokens saved
 
   Future<void> verifyOTP({
     required String email,
@@ -93,7 +102,61 @@ class AuthRepository {
         },
       );
 
-      // نحاول نحفظ الـ token
+      if (purpose == 'verify_email') {
+        final saved = await _trySaveTokenFromResponse(response);
+        if (!saved) {
+          final data = response['data'];
+          if (data is Map<String, dynamic>) {
+            await _trySaveTokenFromResponse(data);
+          }
+        }
+      }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'OTP verification failed: $e');
+    }
+  }
+
+  // ── Verify OTP for forgot password ────────────────────────────────────────
+
+  Future<void> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      await _apiService.post(
+        ApiConfig.verifyOtp,
+        body: {
+          'email':   email,
+          'code':    otp,
+          'purpose': 'reset_password',
+        },
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'OTP verification failed: $e');
+    }
+  }
+
+  // ── Refresh Token ─────────────────────────────────────────────────────────
+
+  Future<void> refreshToken() async {
+    try {
+      final accessToken  = await _tokenStorage.getToken();
+      final refreshToken = await _tokenStorage.getRefreshToken();
+
+      if (accessToken == null || refreshToken == null) {
+        throw UnauthorizedException('No tokens found');
+      }
+
+      final response = await _apiService.post(
+        ApiConfig.refreshToken,
+        headers: ApiConfig.headers(token: accessToken),
+        body: {'refresh_token': refreshToken},
+      );
+
       final saved = await _trySaveTokenFromResponse(response);
       if (!saved) {
         final data = response['data'];
@@ -104,28 +167,7 @@ class AuthRepository {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(message: 'OTP verification failed: $e');
-    }
-  }
-
-  // ── Resend OTP ────────────────────────────────────────────────────────────
-
-  Future<void> resendOTP({
-    required String email,
-    String purpose = 'verify_email',
-  }) async {
-    try {
-      await _apiService.post(
-        ApiConfig.resendOtp,
-        body: {
-          'email':   email,
-          'purpose': purpose,
-        },
-      );
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to resend OTP: $e');
+      throw ApiException(message: 'Token refresh failed: $e');
     }
   }
 
@@ -164,6 +206,13 @@ class AuthRepository {
               : response;
 
       return _toUserModelFromProfile(userData);
+    } on UnauthorizedException {
+      try {
+        await refreshToken();
+        return getUserProfile();
+      } catch (_) {
+        rethrow;
+      }
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -183,38 +232,22 @@ class AuthRepository {
     }
   }
 
-  Future<void> verifyOtp({
-    required String email,
-    required String otp,
-  }) async {
-    try {
-      await _apiService.post(
-        ApiConfig.verifyOtp,
-        body: {
-          'email':   email,
-          'code':    otp,
-          'purpose': 'reset_password',
-        },
-      );
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'OTP verification failed: $e');
-    }
-  }
+  // ── Reset Password Confirm ────────────────────────────────────────────────
 
   Future<void> resetPasswordConfirm({
     required String email,
     required String otp,
     required String newPassword,
+    required String confirmPassword,
   }) async {
     try {
       await _apiService.post(
         ApiConfig.resetPasswordConfirm,
         body: {
-          'email':       email,
-          'code':        otp,
-          'newPassword': newPassword,
+          'email':           email,
+          'code':            otp,
+          'newPassword':     newPassword,
+          'confirmPassword': confirmPassword,
         },
       );
     } on ApiException {
@@ -254,18 +287,20 @@ class AuthRepository {
   }
 
   UserModel _toUserModelFromProfile(Map<String, dynamic> json) => UserModel(
-        id:                 json['user_id']?.toString()
+        id:    json['user_id']?.toString()
             ?? json['id']?.toString()
             ?? json['_id']?.toString(),
-        name:               _safeStr(json, 'name') ?? '',
-        email:              _safeStr(json, 'email') ?? '',
-        profileImage:       json['profileImage'] is String
+        name:  _safeStr(json, 'name') ?? '',
+        email: _safeStr(json, 'email') ?? '',
+        profileImage: json['profileImage'] is String
             ? json['profileImage'] as String
             : null,
-        createdAt:          json['createdAt'] != null
+        createdAt: json['createdAt'] != null
             ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
             : DateTime.now(),
-        onboardingComplete: json['onboardingComplete'] as bool? ?? false,
+        onboardingComplete: json['onboardingComplete'] as bool?
+            ?? json['is_verified'] as bool?
+            ?? false,
       );
 
   void dispose() => _apiService.dispose();

@@ -99,7 +99,6 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
       final birthYear   = DateTime.now().year - _data.age!.toInt();
       final dateOfBirth = '$birthYear-01-01';
 
-      // ✅ بنستنى الـ signUp مباشرة - مش بنعمل Future.delayed
       await authCubit.signUp(
         name:        _name!,
         email:       _email!,
@@ -113,7 +112,6 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
       final authState = authCubit.state;
 
       if (authState is AuthRegistrationSuccess) {
-        // ✅ Registration OK → UI هتروح OTP screen
         emit(OnboardingDataUpdated(_data));
       } else if (authState is AuthError) {
         emit(OnboardingError(authState.message));
@@ -125,7 +123,6 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
         ].where((e) => e != null).join(', ');
         emit(OnboardingError(errors.isNotEmpty ? errors : 'Validation failed'));
       } else {
-        // حالة غير متوقعة
         emit(const OnboardingError('Registration failed. Please try again.'));
       }
     } on ApiException catch (e) {
@@ -135,7 +132,7 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     }
   }
 
-  // ── Save goal (local) ─────────────────────────────────────────────────────
+  // ── Save goal (local transition) ──────────────────────────────────────────
 
   Future<void> saveGoal() async {
     if (_data.goal == null) {
@@ -147,11 +144,11 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingDataUpdated(_data));
   }
 
-  // ── Complete onboarding ───────────────────────────────────────────────────
+  // ── Complete onboarding → POST /goals ─────────────────────────────────────
 
   Future<void> completeOnboarding() async {
-    if (_data.goal == null || _data.targetWeight == null) {
-      emit(const OnboardingError('Please complete all goal information'));
+    if (_data.goal == null) {
+      emit(const OnboardingError('Please select a goal first'));
       return;
     }
 
@@ -160,18 +157,30 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     try {
       await _repo.saveGoal(
         goal:          _data.goal!,
+        currentWeight: _data.weight,
         targetWeight:  _data.targetWeight,
         weightPerWeek: _data.weightPerWeek,
         targetDate:    _data.targetDate,
       );
 
-      await _repo.completeOnboarding();
-
       emit(OnboardingComplete(_data));
     } on ApiException catch (e) {
-      emit(OnboardingError(e.message));
+      if (e.statusCode == 409) {
+        try {
+          await _repo.updateGoal(
+            goal:          _data.goal!,
+            targetWeight:  _data.targetWeight,
+            weightPerWeek: _data.weightPerWeek,
+          );
+          emit(OnboardingComplete(_data));
+        } on ApiException catch (e2) {
+          emit(OnboardingError(e2.message));
+        }
+      } else {
+        emit(OnboardingError(e.message));
+      }
     } catch (e) {
-      emit(OnboardingError('Failed to complete onboarding. Please try again.'));
+      emit(OnboardingError('Failed to save your plan. Please try again.'));
     }
   }
 

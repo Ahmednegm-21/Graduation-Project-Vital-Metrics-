@@ -14,13 +14,14 @@ class AuthCubit extends Cubit<AuthState> {
 
   bool _isValidEmail(String email) =>
       RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
-
   bool _isValidPassword(String password) => password.length >= 8;
-
   bool _isValidName(String name) =>
       name.trim().isNotEmpty && name.trim().length >= 3;
 
   // ── Sign In ───────────────────────────────────────────────────────────────
+  // true  → email verified → token saved → AuthSuccess → home
+  // false → email not verified (403) → AuthSignInOTPSent → OTP screen
+  // throws ApiException(401) → invalid credentials → AuthError
 
   Future<void> signIn({
     required String email,
@@ -49,18 +50,19 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
-      await _authRepository.signIn(email: email, password: password);
-      _isSignInFlow = true;
-      emit(AuthSignInOTPSent(email));
-    } on ForbiddenException catch (e) {
-      final msg = e.message.toLowerCase();
-      if (msg.contains('not verified') ||
-          msg.contains('verification') ||
-          msg.contains('email')) {
+      final isVerified = await _authRepository.signIn(
+        email: email,
+        password: password,
+      );
+
+      if (isVerified) {
+        // Email already verified → fetch profile → go home
+        final user = await _authRepository.getUserProfile();
+        emit(AuthSuccess(user));
+      } else {
+        // Email not verified → go to OTP screen
         _isSignInFlow = true;
         emit(AuthSignInOTPSent(email));
-      } else {
-        emit(AuthError(e.message));
       }
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
@@ -76,6 +78,8 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Sign Up ───────────────────────────────────────────────────────────────
+  // 201 → OTP sent → AuthRegistrationSuccess
+  // 409 → email exists → AuthError with clear message
 
   Future<void> signUp({
     required String name,
@@ -127,10 +131,7 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       _isSignInFlow = false;
-      emit(AuthRegistrationSuccess(
-        email:     resultEmail,
-        tempToken: '',
-      ));
+      emit(AuthRegistrationSuccess(email: resultEmail, tempToken: ''));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
       emit(AuthValidationError(
@@ -146,6 +147,8 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Verify OTP ────────────────────────────────────────────────────────────
+  // signin flow → fetch profile → AuthSuccess → home
+  // signup flow → AuthOTPVerified → goal selection
 
   Future<void> verifyOTP({
     required String email,
@@ -174,19 +177,10 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Resend OTP ────────────────────────────────────────────────────────────
+  // No resend endpoint → UI shows message to go back and try again
 
   Future<void> resendOTP(String email) async {
-    try {
-      await _authRepository.resendOTP(
-        email:   email,
-        purpose: 'verify_email',
-      );
-      emit(AuthOTPResent(email));
-    } on ApiException catch (e) {
-      emit(AuthError(e.message));
-    } catch (_) {
-      emit(AuthError('Failed to resend OTP. Please try again.'));
-    }
+    emit(AuthOTPResent(email));
   }
 
   // ── Sign Out ──────────────────────────────────────────────────────────────
@@ -203,7 +197,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // ── Check Auth on app start ───────────────────────────────────────────────
+  // ── Check auth status on app start ───────────────────────────────────────
 
   Future<void> checkAuthStatus() async {
     try {

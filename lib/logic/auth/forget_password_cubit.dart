@@ -12,25 +12,23 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
 
   // ── Validation helpers ────────────────────────────────────────────────────
 
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    return emailRegex.hasMatch(email);
-  }
+  bool _isValidEmail(String email) =>
+      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
-  bool _isValidPassword(String password) => password.length >= 6;
+  bool _isValidPassword(String password) => password.length >= 8;
 
   // ── Step 1: Send reset email ──────────────────────────────────────────────
+  // POST /auth/reset-password → { email }
+  // 200 → OTP sent
+  // 404 → email does not exist
 
   Future<void> sendResetEmail({required String email}) async {
-    // Local validation first
     if (email.isEmpty) {
-      emit(const ForgotPasswordValidationError(
-          emailError: 'Email is required'));
+      emit(const ForgotPasswordValidationError(emailError: 'Email is required'));
       return;
     }
     if (!_isValidEmail(email)) {
-      emit(const ForgotPasswordValidationError(
-          emailError: 'Invalid email format'));
+      emit(const ForgotPasswordValidationError(emailError: 'Invalid email format'));
       return;
     }
 
@@ -42,21 +40,23 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
     } on ApiException catch (e) {
       emit(ForgotPasswordError(e.message));
     } catch (_) {
-      emit(ForgotPasswordError(
-          'An unexpected error occurred. Please try again.'));
+      emit(ForgotPasswordError('An unexpected error occurred. Please try again.'));
     }
   }
 
   // ── Step 2: Verify OTP ────────────────────────────────────────────────────
+  // POST /auth/verify-otp → { email, code, purpose: "reset_password" }
+  // 200 → OTP verified
+  // 400 → invalid or expired OTP
+  // 404 → email does not exist
 
   Future<void> verifyOtp({
     required String email,
     required String otp,
   }) async {
-    // Local validation first
-    if (otp.length < 5) {
+    if (otp.length < 6) {
       emit(const ForgotPasswordValidationError(
-          otpError: 'Please enter the 5-digit code'));
+          otpError: 'Please enter the 6-digit code'));
       return;
     }
 
@@ -68,16 +68,16 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
     } on ApiException catch (e) {
       emit(ForgotPasswordError(e.message));
     } catch (_) {
-      emit(ForgotPasswordError(
-          'An unexpected error occurred. Please try again.'));
+      emit(ForgotPasswordError('An unexpected error occurred. Please try again.'));
     }
-
-// TODO: remove this when backend is ready
-// await Future.delayed(const Duration(seconds: 1));
-// emit(ForgotPasswordOtpVerified());
   }
 
   // ── Step 3: Reset password ────────────────────────────────────────────────
+  // POST /auth/reset-password/confirm
+  // Body: { email, code, newPassword, confirmPassword }
+  // 200 → password reset successfully
+  // 400 → invalid OTP, expired OTP, or passwords do not match
+  // 404 → email does not exist
 
   Future<void> resetPasswordConfirm({
     required String email,
@@ -85,11 +85,10 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
     required String newPassword,
     required String confirmPassword,
   }) async {
-    // Local validation first
     final passwordError = newPassword.isEmpty
         ? 'Password is required'
         : !_isValidPassword(newPassword)
-            ? 'Password must be at least 6 characters'
+            ? 'Password must be at least 8 characters'
             : null;
 
     final confirmError = confirmPassword.isEmpty
@@ -110,19 +109,18 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
 
     try {
       await _authRepository.resetPasswordConfirm(
-        email: email,
-        otp: otp,
-        newPassword: newPassword,
+        email:           email,
+        otp:             otp,
+        newPassword:     newPassword,
+        confirmPassword: confirmPassword,
       );
       emit(ForgotPasswordResetSuccess());
     } on ApiException catch (e) {
       emit(ForgotPasswordError(e.message));
     } catch (_) {
-      emit(ForgotPasswordError(
-          'An unexpected error occurred. Please try again.'));
+      emit(ForgotPasswordError('An unexpected error occurred. Please try again.'));
     }
   }
 
-  /// Reset state back to initial
   void reset() => emit(ForgotPasswordInitial());
 }
