@@ -1,9 +1,8 @@
 import 'dart:ui';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
-import 'package:vital_metrics/ui/screens/home_associated_screens/ai_screen.dart';
-import 'package:vital_metrics/ui/screens/home_associated_screens/food_swapping_screen.dart';
 
 void showCenterFabSheet(BuildContext context) {
   showModalBottomSheet(
@@ -21,22 +20,10 @@ void showCenterFabSheet(BuildContext context) {
 class _CenterFabSheet extends StatelessWidget {
   const _CenterFabSheet();
 
-  void _openScreen(BuildContext context, Widget screen) {
+  void _openScreen(BuildContext context, String route) {
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 150), () {
-      Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => screen,
-          transitionsBuilder: (_, animation, __, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
-            child: child,
-          ),
-        ),
-      );
+      context.push(route);
     });
   }
 
@@ -129,7 +116,7 @@ class _CenterFabSheet extends StatelessWidget {
                         end: Alignment.bottomRight,
                       ),
                       shadowColor: const Color(0xFF34C759),
-                      onTap: () => _openScreen(context, const FoodSwappingScreen()),
+                      onTap: () => _openScreen(context, '/food-swapping'),
                     ),
                   ),
                   SizedBox(width: 12.w),
@@ -144,7 +131,7 @@ class _CenterFabSheet extends StatelessWidget {
                         end: Alignment.bottomRight,
                       ),
                       shadowColor: const Color(0xFF4361EE),
-                      onTap: () => _openScreen(context, const AiScreen()),
+                      onTap: () => _openScreen(context, '/ai-assistant'),
                     ),
                   ),
                 ],

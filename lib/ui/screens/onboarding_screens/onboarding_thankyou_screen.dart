@@ -13,16 +13,12 @@ class OnboardingThankYou extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get gender from OnboardingCubitAllData
     final gender =
         context.read<OnboardingCubitAllData>().currentData.gender ?? 'male';
-
     final Color accent = AppColors.getGenderColor(gender);
 
     return Scaffold(
       backgroundColor: AppColors.white,
-
-      // AppBar with back button and complete progress
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -30,17 +26,11 @@ class OnboardingThankYou extends StatelessWidget {
         titleSpacing: 0,
         title: Row(
           children: [
-            // Back button
             IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios,
-                size: AppConstants.iconS.sp,
-              ),
+              icon: Icon(Icons.arrow_back_ios, size: AppConstants.iconS.sp),
               color: accent,
               onPressed: () => context.pop(),
             ),
-
-            // Progress bar (100% complete)
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(right: AppConstants.paddingL.w),
@@ -58,7 +48,6 @@ class OnboardingThankYou extends StatelessWidget {
           ],
         ),
       ),
-
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL.w),
@@ -66,7 +55,6 @@ class OnboardingThankYou extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
 
-              // Thank you image
               SizedBox(
                 height: 0.28.sh,
                 child: Image.asset(
@@ -82,7 +70,6 @@ class OnboardingThankYou extends StatelessWidget {
 
               const Spacer(flex: 1),
 
-              // Thank you title
               Text(
                 'Thank you for\ntrusting us!',
                 textAlign: TextAlign.center,
@@ -91,29 +78,22 @@ class OnboardingThankYou extends StatelessWidget {
 
               SizedBox(height: AppConstants.spaceL.h),
 
-              // Privacy message
               Text(
                 'Your privacy and security matter to us.\n'
                 'We promise to always keep your personal information\n'
                 'private and secure.',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall.copyWith(
-                  height: 1.5,
-                ),
+                style: AppTextStyles.bodySmall.copyWith(height: 1.5),
               ),
 
               const Spacer(flex: 3),
 
-              // Continue button
               SizedBox(
                 width: double.infinity,
                 height: AppConstants.buttonHeightL.h,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Save data and navigate to goal selection
-                    context
-                        .read<OnboardingCubitAllData>()
-                        .saveOnboardingData();
+                    // ✅ Just navigate - no API call here
                     context.push('/goal-selection');
                   },
                   style: ElevatedButton.styleFrom(
@@ -123,10 +103,7 @@ class OnboardingThankYou extends StatelessWidget {
                           BorderRadius.circular(AppConstants.radiusM.r),
                     ),
                   ),
-                  child: Text(
-                    'Continue',
-                    style: AppTextStyles.button,
-                  ),
+                  child: Text('Continue', style: AppTextStyles.button),
                 ),
               ),
 

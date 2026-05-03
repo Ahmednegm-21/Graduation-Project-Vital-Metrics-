@@ -1,4 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vital_metrics/data/exceptions/api_exception.dart';
+import 'package:vital_metrics/data/repositories/onboarding_repository.dart';
+import 'package:vital_metrics/logic/auth/auth_cubit.dart';
+import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import '../../data/models/user_goal.dart';
 import '../../data/models/onboarding_data.dart';
@@ -6,65 +10,143 @@ import '../../data/models/onboarding_data.dart';
 class OnboardingCubitAllData extends Cubit<OnboardingState> {
   OnboardingData _data = OnboardingData();
 
-  OnboardingCubitAllData() : super(OnboardingInitial());
+  String? _name;
+  String? _email;
+  String? _password;
+
+  final OnboardingRepository _repo;
+
+  OnboardingCubitAllData({OnboardingRepository? repo})
+      : _repo = repo ?? OnboardingRepository(),
+        super(OnboardingInitial());
 
   OnboardingData get currentData => _data;
+
+  // ── Credentials ───────────────────────────────────────────────────────────
+
+  void setCredentials({
+    required String name,
+    required String email,
+    required String password,
+  }) {
+    _name     = name;
+    _email    = email;
+    _password = password;
+  }
+
+  // ── Onboarding setters ────────────────────────────────────────────────────
 
   void setGender(String gender) {
     _data = _data.copyWith(gender: gender);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Gender set: $gender');
   }
 
   void setHeight(double height) {
     _data = _data.copyWith(height: height);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Height set: $height cm');
   }
 
   void setWeight(double weight) {
     _data = _data.copyWith(weight: weight);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Weight set: $weight kg');
   }
 
   void setAge(double age) {
     _data = _data.copyWith(age: age);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Age set: $age years');
   }
 
   void selectGoal(UserGoal goal) {
     _data = _data.copyWith(goal: goal);
     emit(GoalSelected(goal));
-    print('✅ Goal selected: ${goal.type}');
   }
+
   void setWeightPerWeek(double weightPerWeek) {
     _data = _data.copyWith(weightPerWeek: weightPerWeek);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Weight per week set: $weightPerWeek kg');
   }
 
   void setTargetWeight(double targetWeight) {
-    // calc auto target date
     final currentWeight = _data.weight ?? 0;
-    final weeklyRate = _data.weightPerWeek ?? 0.75;
-    final diff = (targetWeight - currentWeight).abs();
-    final weeksNeeded = diff / weeklyRate;
-    final targetDate = DateTime.now().add(
+    final weeklyRate    = _data.weightPerWeek ?? 0.75;
+    final diff          = (targetWeight - currentWeight).abs();
+    final weeksNeeded   = weeklyRate > 0 ? diff / weeklyRate : 0;
+    final targetDate    = DateTime.now().add(
       Duration(days: (weeksNeeded * 7).round()),
     );
-
-    _data = _data.copyWith(
-      targetWeight: targetWeight,
-      targetDate: targetDate,
-    );
+    _data = _data.copyWith(targetWeight: targetWeight, targetDate: targetDate);
     emit(OnboardingDataUpdated(_data));
-    print('✅ Target weight set: $targetWeight kg');
-    print('📅 Target date: $targetDate');
   }
 
+  // ── Register user after Age screen ───────────────────────────────────────
+
+  Future<void> registerUser(AuthCubit authCubit) async {
+    if (_name == null || _email == null || _password == null) {
+      emit(const OnboardingError('Missing credentials. Please sign up again.'));
+      return;
+    }
+    if (_data.gender == null ||
+        _data.height == null ||
+        _data.weight == null ||
+        _data.age == null) {
+      emit(const OnboardingError('Please complete all required fields.'));
+      return;
+    }
+
+    emit(OnboardingLoading());
+
+    try {
+      final birthYear   = DateTime.now().year - _data.age!.toInt();
+      final dateOfBirth = '$birthYear-01-01';
+
+      await authCubit.signUp(
+        name:        _name!,
+        email:       _email!,
+        password:    _password!,
+        gender:      _data.gender!.toLowerCase(),
+        dateOfBirth: dateOfBirth,
+        height:      _data.height!,
+        weight:      _data.weight!,
+      );
+
+      final authState = authCubit.state;
+
+      if (authState is AuthRegistrationSuccess) {
+        emit(OnboardingDataUpdated(_data));
+      } else if (authState is AuthError) {
+        emit(OnboardingError(authState.message));
+      } else if (authState is AuthValidationError) {
+        final errors = [
+          authState.nameError,
+          authState.emailError,
+          authState.passwordError,
+        ].where((e) => e != null).join(', ');
+        emit(OnboardingError(errors.isNotEmpty ? errors : 'Validation failed'));
+      } else {
+        emit(const OnboardingError('Registration failed. Please try again.'));
+      }
+    } on ApiException catch (e) {
+      emit(OnboardingError(e.message));
+    } catch (e) {
+      emit(OnboardingError('Registration failed: $e'));
+    }
+  }
+
+  // ── Save goal (local transition) ──────────────────────────────────────────
+
   Future<void> saveGoal() async {
+    if (_data.goal == null) {
+      emit(const OnboardingError('Please select a goal first'));
+      return;
+    }
+    emit(OnboardingLoading());
+    await Future.delayed(const Duration(milliseconds: 300));
+    emit(OnboardingDataUpdated(_data));
+  }
+
+  // ── Complete onboarding → POST /goals ─────────────────────────────────────
+
+  Future<void> completeOnboarding() async {
     if (_data.goal == null) {
       emit(const OnboardingError('Please select a goal first'));
       return;
@@ -73,34 +155,42 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
     emit(OnboardingLoading());
 
     try {
-      await Future.delayed(const Duration(milliseconds: 800));
-      print('✅ Goal saved: ${_data.goal!.type}');
-      emit(OnboardingDataUpdated(_data));
-    } catch (e) {
-      emit(OnboardingError('Failed to save goal: $e'));
-    }
-  }
+      await _repo.saveGoal(
+        goal:          _data.goal!,
+        currentWeight: _data.weight,
+        targetWeight:  _data.targetWeight,
+        weightPerWeek: _data.weightPerWeek,
+        targetDate:    _data.targetDate,
+      );
 
-  Future<void> saveOnboardingData() async {
-    if (!_data.isComplete) {
-      emit(const OnboardingError('Please complete all fields'));
-      return;
-    }
-
-    emit(OnboardingLoading());
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 1000));
-      print('✅ All data saved!');
-      print('📊 Final data: $_data');
       emit(OnboardingComplete(_data));
+    } on ApiException catch (e) {
+      if (e.statusCode == 409) {
+        try {
+          await _repo.updateGoal(
+            goal:          _data.goal!,
+            targetWeight:  _data.targetWeight,
+            weightPerWeek: _data.weightPerWeek,
+          );
+          emit(OnboardingComplete(_data));
+        } on ApiException catch (e2) {
+          emit(OnboardingError(e2.message));
+        }
+      } else {
+        emit(OnboardingError(e.message));
+      }
     } catch (e) {
-      emit(OnboardingError('Failed to save data: $e'));
+      emit(OnboardingError('Failed to save your plan. Please try again.'));
     }
   }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
 
   void reset() {
-    _data = OnboardingData();
+    _data     = OnboardingData();
+    _name     = null;
+    _email    = null;
+    _password = null;
     emit(OnboardingInitial());
   }
 }

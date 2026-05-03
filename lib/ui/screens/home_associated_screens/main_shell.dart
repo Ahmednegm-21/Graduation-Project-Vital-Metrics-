@@ -1,13 +1,14 @@
+import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/ui/screens/home_associated_screens/activity_screen.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/center_fab_sheet.dart';
+
 import 'home_screen.dart';
-import 'recipes_screen.dart';
 import 'progress_screen.dart';
+import 'recipes_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
