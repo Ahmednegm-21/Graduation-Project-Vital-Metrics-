@@ -45,28 +45,73 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
     super.dispose();
   }
 
+  // Map activity type to icon and color
+  // Handles both display names (Running, Football) and backend types (run, walk)
   _ActivityMeta _getMeta(String type) {
     switch (type.toLowerCase()) {
-      case 'tennis':
-        return _ActivityMeta(Icons.sports_tennis_rounded, const Color(0xFFFFCC00));
-      case 'running':
-        return _ActivityMeta(Icons.directions_run_rounded, const Color(0xFFFF3B30));
-      case 'cycling':
-        return _ActivityMeta(Icons.directions_bike_rounded, const Color(0xFF32ADE6));
       case 'walking':
-        return _ActivityMeta(Icons.directions_walk_rounded, const Color(0xFF34C759));
+      case 'walk':
+        return _ActivityMeta(
+          Icons.directions_walk_rounded,
+          const Color(0xFF34C759),
+          'Walking',
+        );
+      case 'running':
+      case 'run':
+        return _ActivityMeta(
+          Icons.directions_run_rounded,
+          const Color(0xFFFF3B30),
+          'Running',
+        );
+      case 'cycling':
+        return _ActivityMeta(
+          Icons.directions_bike_rounded,
+          const Color(0xFF32ADE6),
+          'Cycling',
+        );
       case 'swimming':
-        return _ActivityMeta(Icons.pool_rounded, const Color(0xFF5AC8FA));
+        return _ActivityMeta(
+          Icons.pool_rounded,
+          const Color(0xFF5AC8FA),
+          'Swimming',
+        );
+      case 'football':
+        return _ActivityMeta(
+          Icons.sports_soccer_rounded,
+          const Color(0xFF4361EE),
+          'Football',
+        );
+      case 'basketball':
+        return _ActivityMeta(
+          Icons.sports_basketball_rounded,
+          const Color(0xFFFF6B00),
+          'Basketball',
+        );
       case 'yoga':
-        return _ActivityMeta(Icons.self_improvement_rounded, const Color(0xFFAF52DE));
+        return _ActivityMeta(
+          Icons.self_improvement_rounded,
+          const Color(0xFFAF52DE),
+          'Yoga',
+        );
+      case 'tennis':
+        return _ActivityMeta(
+          Icons.sports_tennis_rounded,
+          const Color(0xFFFFCC00),
+          'Tennis',
+        );
       default:
-        return _ActivityMeta(Icons.fitness_center_rounded, const Color(0xFF4361EE));
+        // For any other type use the original name with a default icon
+        return _ActivityMeta(
+          Icons.fitness_center_rounded,
+          const Color(0xFF00B894),
+          type,
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final meta = _getMeta(widget.activity.type);
+    final meta  = _getMeta(widget.activity.type);
     final isDark = context.isDark;
 
     return FadeTransition(
@@ -76,10 +121,10 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
         child: Container(
           margin: EdgeInsets.symmetric(
             horizontal: AppConstants.paddingXXL,
-            vertical: AppConstants.spaceS,
+            vertical:   AppConstants.spaceS,
           ),
           decoration: BoxDecoration(
-            color: context.colors.card,
+            color:        context.colors.card,
             borderRadius: BorderRadius.circular(AppConstants.radiusL),
             border: Border.all(
               color: isDark
@@ -101,12 +146,12 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
             children: [
               // Colored left accent bar
               Container(
-                width: 4.w,
+                width:  4.w,
                 height: 72.h,
                 decoration: BoxDecoration(
                   color: meta.color,
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(AppConstants.radiusL),
+                    topLeft:    Radius.circular(AppConstants.radiusL),
                     bottomLeft: Radius.circular(AppConstants.radiusL),
                   ),
                 ),
@@ -114,11 +159,11 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
 
               SizedBox(width: 12.w),
 
-              // Icon
+              // Activity icon with colored background
               Container(
                 padding: EdgeInsets.all(10.w),
                 decoration: BoxDecoration(
-                  color: meta.color.withOpacity(0.12),
+                  color:        meta.color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Icon(
@@ -130,17 +175,18 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
 
               SizedBox(width: 12.w),
 
-              // Details
+              // Activity name and stats
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Show display name not backend type
                     Text(
-                      widget.activity.type,
+                      meta.displayName,
                       style: TextStyle(
-                        fontSize: 15.sp,
+                        fontSize:   15.sp,
                         fontWeight: FontWeight.w700,
-                        color: context.colors.text,
+                        color:      context.colors.text,
                       ),
                     ),
                     SizedBox(height: 3.h),
@@ -188,8 +234,8 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
         Text(
           label,
           style: TextStyle(
-            fontSize: 10.sp,
-            color: color,
+            fontSize:   10.sp,
+            color:      color,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -201,5 +247,6 @@ class _TrackedActivityCardState extends State<TrackedActivityCard>
 class _ActivityMeta {
   final IconData icon;
   final Color color;
-  _ActivityMeta(this.icon, this.color);
+  final String displayName;
+  _ActivityMeta(this.icon, this.color, this.displayName);
 }

@@ -31,10 +31,17 @@ class ApiConfig {
   static const String getUserProfile = '/users/profile';
 
   // ── Goals ──────────────────────────────────────────────────────────────────
-  static const String createGoal = '/goals'; // POST
-  static const String getGoal    = '/goals'; // GET
-  static const String updateGoal = '/goals'; // PATCH
-  static const String deleteGoal = '/goals'; // DELETE
+  static const String createGoal = '/goals';
+  static const String getGoal    = '/goals';
+  static const String updateGoal = '/goals';
+  static const String deleteGoal = '/goals';
+
+  // ── Activities ─────────────────────────────────────────────────────────────
+  static const String createActivity = '/activities';
+  static const String getActivities  = '/activities';
+  static const String getActivity    = '/activities';
+  static const String updateActivity = '/activities';
+  static const String deleteActivity = '/activities';
 
   // ── Notifications ──────────────────────────────────────────────────────────
   static const String getNotifications         = '/Get/notifications';

@@ -2,37 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/models/activity_model.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 
 // Activity type model
+// name is the display name shown to the user
+// backendType is the value sent to the backend API
 class _ActivityType {
   final String name;
+  final String backendType;
   final IconData icon;
   final Color color;
-  final int metValue; // MET value for calorie calculation
-  const _ActivityType(this.name, this.icon, this.color, this.metValue);
+  final int metValue;
+  const _ActivityType(
+    this.name,
+    this.backendType,
+    this.icon,
+    this.color,
+    this.metValue,
+  );
 }
 
-// Popular activities in Egypt
-// MET values sourced from Compendium of Physical Activities
+// Popular activities with their backend type mappings and MET values
+// backendType must match the backend enum: walk or run
 const _kActivities = [
-  _ActivityType('Walking', Icons.directions_walk_rounded, Color(0xFF34C759), 4),
-  _ActivityType('Running', Icons.directions_run_rounded, Color(0xFFFF3B30), 8),
-  _ActivityType('Cycling', Icons.directions_bike_rounded, Color(0xFF32ADE6), 7),
-  _ActivityType('Swimming', Icons.pool_rounded, Color(0xFF5AC8FA), 8),
-  _ActivityType('Football', Icons.sports_soccer_rounded, Color(0xFF4361EE), 8),
-  _ActivityType(
-    'Basketball',
-    Icons.sports_basketball_rounded,
-    Color(0xFFFF6B00),
-    8,
-  ),
-  _ActivityType('Yoga', Icons.self_improvement_rounded, Color(0xFFAF52DE), 3),
-  _ActivityType('Other', Icons.more_horiz_rounded, Color(0xFF00B894), 5),
+  _ActivityType('Walking',    'walk', Icons.directions_walk_rounded,   Color(0xFF34C759), 4),
+  _ActivityType('Running',    'run',  Icons.directions_run_rounded,    Color(0xFFFF3B30), 8),
+  _ActivityType('Cycling',    'run',  Icons.directions_bike_rounded,   Color(0xFF32ADE6), 7),
+  _ActivityType('Swimming',   'run',  Icons.pool_rounded,              Color(0xFF5AC8FA), 8),
+  _ActivityType('Football',   'run',  Icons.sports_soccer_rounded,     Color(0xFF4361EE), 8),
+  _ActivityType('Basketball', 'run',  Icons.sports_basketball_rounded, Color(0xFFFF6B00), 8),
+  _ActivityType('Yoga',       'walk', Icons.self_improvement_rounded,  Color(0xFFAF52DE), 3),
+  _ActivityType('Other',      'walk', Icons.more_horiz_rounded,        Color(0xFF00B894), 5),
 ];
 
 // Show the log activity bottom sheet
@@ -70,10 +73,10 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
 
-  final _durationCtrl = TextEditingController();
-  final _weightCtrl = TextEditingController();
-  final _customNameCtrl = TextEditingController(); // for "Other" activity
-  final _formKey = GlobalKey<FormState>();
+  final _durationCtrl   = TextEditingController();
+  final _weightCtrl     = TextEditingController();
+  final _customNameCtrl = TextEditingController();
+  final _formKey        = GlobalKey<FormState>();
 
   bool get _isOther => _selected?.name == 'Other';
 
@@ -106,7 +109,7 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   void _selectActivity(_ActivityType type) {
     setState(() {
       _selected = type;
-      _step = 1;
+      _step     = 1;
     });
     _animCtrl
       ..reset()
@@ -124,7 +127,7 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   }
 
   int _estimateCalories() {
-    final mins = int.tryParse(_durationCtrl.text) ?? 0;
+    final mins   = int.tryParse(_durationCtrl.text) ?? 0;
     final weight = double.tryParse(_weightCtrl.text) ?? 70;
     return ((_selected?.metValue ?? 5) * weight * mins / 60).round();
   }
@@ -132,17 +135,20 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 
-    // Use custom name for "Other", otherwise use the activity name
+    // Store display name for UI (Running, Football, etc.)
+    // Repository will map it to backend type (run, walk) before sending to API
     final activityName = _isOther
         ? _customNameCtrl.text.trim()
         : _selected!.name;
 
     final activity = ActivityModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: activityName,
+      // Add local_ prefix to distinguish manually logged activities from Health Connect activities
+      // Cubit uses this prefix to decide whether to send to backend or not
+      id:              'local_${DateTime.now().millisecondsSinceEpoch}',
+      type:            activityName,
       durationMinutes: int.parse(_durationCtrl.text),
-      caloriesBurned: _estimateCalories(),
-      timestamp: DateTime.now(),
+      caloriesBurned:  _estimateCalories(),
+      timestamp:       DateTime.now(),
     );
 
     context.read<ActivityCubit>().addActivity(activity);
@@ -153,7 +159,6 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-
     return Container(
       decoration: BoxDecoration(
         color: context.colors.card,
@@ -183,9 +188,9 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             child: Text(
               'What did you do?',
               style: TextStyle(
-                fontSize: 22.sp,
-                fontWeight: FontWeight.w800,
-                color: context.colors.text,
+                fontSize:      22.sp,
+                fontWeight:    FontWeight.w800,
+                color:         context.colors.text,
                 letterSpacing: -0.5,
               ),
             ),
@@ -198,7 +203,10 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             alignment: Alignment.centerLeft,
             child: Text(
               'Choose your activity to log',
-              style: TextStyle(fontSize: 13.sp, color: context.colors.subText),
+              style: TextStyle(
+                fontSize: 13.sp,
+                color:    context.colors.subText,
+              ),
             ),
           ),
         ),
@@ -209,16 +217,16 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 12,
+              crossAxisCount:   4,
+              mainAxisSpacing:  12,
               crossAxisSpacing: 12,
               childAspectRatio: 0.82,
             ),
             itemCount: _kActivities.length,
             itemBuilder: (_, i) => _ActivityTile(
               activity: _kActivities[i],
-              isDark: isDark,
-              onTap: () => _selectActivity(_kActivities[i]),
+              isDark:   isDark,
+              onTap:    () => _selectActivity(_kActivities[i]),
             ),
           ),
         ),
@@ -230,7 +238,6 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   // Step 1: details form
   Widget _buildForm(bool isDark) {
     final act = _selected!;
-
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Form(
@@ -242,7 +249,7 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             _SheetHandle(),
             SizedBox(height: 8.h),
 
-            // Back button + selected activity pill
+            // Back button and selected activity pill
             Row(
               children: [
                 GestureDetector(
@@ -250,12 +257,12 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
                   child: Container(
                     padding: EdgeInsets.all(8.w),
                     decoration: BoxDecoration(
-                      color: act.color.withOpacity(0.1),
+                      color:        act.color.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                     child: Icon(
                       Icons.arrow_back_ios_new_rounded,
-                      size: 16.sp,
+                      size:  16.sp,
                       color: act.color,
                     ),
                   ),
@@ -264,24 +271,25 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 14.w,
-                    vertical: 8.h,
+                    vertical:   8.h,
                   ),
                   decoration: BoxDecoration(
-                    color: act.color.withOpacity(0.12),
+                    color:        act.color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(50.r),
-                    border: Border.all(color: act.color.withOpacity(0.3)),
+                    border:       Border.all(color: act.color.withOpacity(0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(act.icon, color: act.color, size: 18.sp),
                       SizedBox(width: 6.w),
+                      // Show display name to user
                       Text(
                         act.name,
                         style: TextStyle(
-                          fontSize: 14.sp,
+                          fontSize:   14.sp,
                           fontWeight: FontWeight.w700,
-                          color: act.color,
+                          color:      act.color,
                         ),
                       ),
                     ],
@@ -292,21 +300,20 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
 
             SizedBox(height: 22.h),
 
-            // Custom name field — only shown when "Other" is selected
+            // Custom name field shown only when Other is selected
             if (_isOther) ...[
               _FieldLabel('Activity name', context),
               SizedBox(height: 8.h),
               _InputField(
-                controller: _customNameCtrl,
-                hint: 'e.g. Martial arts, Boxing...',
-                keyboardType: TextInputType.text,
+                controller:      _customNameCtrl,
+                hint:            'e.g. Martial arts, Boxing...',
+                keyboardType:    TextInputType.text,
                 inputFormatters: [],
-                prefixIcon: Icons.edit_rounded,
-                accentColor: act.color,
-                isDark: isDark,
+                prefixIcon:      Icons.edit_rounded,
+                accentColor:     act.color,
+                isDark:          isDark,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty)
-                    return 'Enter activity name';
+                  if (v == null || v.trim().isEmpty) return 'Enter activity name';
                   return null;
                 },
               ),
@@ -317,13 +324,13 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             _FieldLabel('Duration (minutes)', context),
             SizedBox(height: 8.h),
             _InputField(
-              controller: _durationCtrl,
-              hint: 'e.g. 30',
-              keyboardType: TextInputType.number,
+              controller:      _durationCtrl,
+              hint:            'e.g. 30',
+              keyboardType:    TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              prefixIcon: Icons.timer_rounded,
-              accentColor: act.color,
-              isDark: isDark,
+              prefixIcon:      Icons.timer_rounded,
+              accentColor:     act.color,
+              isDark:          isDark,
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Enter duration';
                 final n = int.tryParse(v);
@@ -338,17 +345,15 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
             _FieldLabel('Your weight (kg)', context),
             SizedBox(height: 8.h),
             _InputField(
-              controller: _weightCtrl,
-              hint: '70',
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              controller:   _weightCtrl,
+              hint:         '70',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
               ],
-              prefixIcon: Icons.monitor_weight_outlined,
+              prefixIcon:  Icons.monitor_weight_outlined,
               accentColor: act.color,
-              isDark: isDark,
+              isDark:      isDark,
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Enter your weight';
                 final n = double.tryParse(v);
@@ -359,27 +364,27 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
 
             SizedBox(height: 12.h),
 
-            // Live calorie estimate
+            // Live calorie estimate preview
             _CaloriePreview(
               durationCtrl: _durationCtrl,
-              weightCtrl: _weightCtrl,
-              met: act.metValue,
-              color: act.color,
-              isDark: isDark,
+              weightCtrl:   _weightCtrl,
+              met:          act.metValue,
+              color:        act.color,
+              isDark:       isDark,
             ),
 
             SizedBox(height: 22.h),
 
             // Save button
             SizedBox(
-              width: double.infinity,
+              width:  double.infinity,
               height: 52.h,
               child: ElevatedButton(
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: act.color,
                   foregroundColor: Colors.white,
-                  elevation: 0,
+                  elevation:       0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
                   ),
@@ -392,7 +397,7 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
                     Text(
                       'Log Activity',
                       style: TextStyle(
-                        fontSize: 16.sp,
+                        fontSize:   16.sp,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -415,10 +420,10 @@ class _SheetHandle extends StatelessWidget {
       padding: EdgeInsets.only(top: 12.h, bottom: 4.h),
       child: Center(
         child: Container(
-          width: 40.w,
+          width:  40.w,
           height: 4.h,
           decoration: BoxDecoration(
-            color: context.colors.subText.withOpacity(0.25),
+            color:        context.colors.subText.withOpacity(0.25),
             borderRadius: BorderRadius.circular(10.r),
           ),
         ),
@@ -491,8 +496,8 @@ class _ActivityTileState extends State<_ActivityTile>
               Container(
                 padding: EdgeInsets.all(10.w),
                 decoration: BoxDecoration(
-                  color: act.color.withOpacity(0.15),
-                  shape: BoxShape.circle,
+                  color:  act.color.withOpacity(0.15),
+                  shape:  BoxShape.circle,
                 ),
                 child: Icon(act.icon, color: act.color, size: 22.sp),
               ),
@@ -500,9 +505,9 @@ class _ActivityTileState extends State<_ActivityTile>
               Text(
                 act.name,
                 style: TextStyle(
-                  fontSize: 10.sp,
+                  fontSize:   10.sp,
                   fontWeight: FontWeight.w600,
-                  color: context.colors.text,
+                  color:      context.colors.text,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -525,9 +530,9 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 12.sp,
-        fontWeight: FontWeight.w600,
-        color: context.colors.subText,
+        fontSize:      12.sp,
+        fontWeight:    FontWeight.w600,
+        color:         context.colors.subText,
         letterSpacing: 0.2,
       ),
     );
@@ -559,53 +564,56 @@ class _InputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
+      controller:      controller,
+      keyboardType:    keyboardType,
       inputFormatters: inputFormatters,
-      validator: validator,
+      validator:       validator,
       style: TextStyle(
-        fontSize: 15.sp,
+        fontSize:   15.sp,
         fontWeight: FontWeight.w600,
-        color: context.colors.text,
+        color:      context.colors.text,
       ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
-          color: context.colors.subText.withOpacity(0.5),
+          color:    context.colors.subText.withOpacity(0.5),
           fontSize: 14.sp,
         ),
         prefixIcon: Icon(prefixIcon, color: accentColor, size: 20.sp),
-        filled: true,
+        filled:     true,
         fillColor: isDark
             ? accentColor.withOpacity(0.07)
             : accentColor.withOpacity(0.05),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 16.w,
+          vertical:   14.h,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14.r),
-          borderSide: BorderSide(color: accentColor.withOpacity(0.2)),
+          borderSide:   BorderSide(color: accentColor.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14.r),
-          borderSide: BorderSide(color: accentColor.withOpacity(0.2)),
+          borderSide:   BorderSide(color: accentColor.withOpacity(0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14.r),
-          borderSide: BorderSide(color: accentColor, width: 1.8),
+          borderSide:   BorderSide(color: accentColor, width: 1.8),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14.r),
-          borderSide: const BorderSide(color: Color(0xFFFF3B30)),
+          borderSide:   const BorderSide(color: Color(0xFFFF3B30)),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14.r),
-          borderSide: const BorderSide(color: Color(0xFFFF3B30), width: 1.8),
+          borderSide:   const BorderSide(color: Color(0xFFFF3B30), width: 1.8),
         ),
       ),
     );
   }
 }
 
-// Live calorie estimate card — updates on every keystroke
+// Live calorie estimate card that updates on every keystroke
 class _CaloriePreview extends StatefulWidget {
   final TextEditingController durationCtrl;
   final TextEditingController weightCtrl;
@@ -643,7 +651,7 @@ class _CaloriePreviewState extends State<_CaloriePreview> {
   void _rebuild() => setState(() {});
 
   int get _calories {
-    final mins = int.tryParse(widget.durationCtrl.text) ?? 0;
+    final mins   = int.tryParse(widget.durationCtrl.text) ?? 0;
     final weight = double.tryParse(widget.weightCtrl.text) ?? 70;
     return (widget.met * weight * mins / 60).round();
   }
@@ -654,32 +662,35 @@ class _CaloriePreviewState extends State<_CaloriePreview> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      curve:    Curves.easeOut,
+      padding:  EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: widget.color.withOpacity(0.08),
+        color:        widget.color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: widget.color.withOpacity(0.2)),
+        border:       Border.all(color: widget.color.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Icon(
             Icons.local_fire_department_rounded,
             color: widget.color,
-            size: 20.sp,
+            size:  20.sp,
           ),
           SizedBox(width: 10.w),
           Text(
             'Estimated calories burned',
-            style: TextStyle(fontSize: 12.sp, color: context.colors.subText),
+            style: TextStyle(
+              fontSize: 12.sp,
+              color:    context.colors.subText,
+            ),
           ),
           const Spacer(),
           Text(
             '$_calories kcal',
             style: TextStyle(
-              fontSize: 16.sp,
+              fontSize:   16.sp,
               fontWeight: FontWeight.w800,
-              color: widget.color,
+              color:      widget.color,
             ),
           ),
         ],

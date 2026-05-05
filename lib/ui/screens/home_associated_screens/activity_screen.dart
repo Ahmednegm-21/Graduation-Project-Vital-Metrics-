@@ -23,6 +23,7 @@ class ActivityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
+      // ActivityCubit is scoped to this screen only
       create: (context) => ActivityCubit(
         onboardingCubit: context.read<OnboardingCubitAllData>(),
       ),
@@ -37,18 +38,8 @@ class _TodayScreenView extends StatelessWidget {
   String _todayLabel() {
     final now = DateTime.now();
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[now.month - 1]} ${now.day}';
   }
@@ -81,17 +72,19 @@ class _TodayScreenView extends StatelessWidget {
               child: BlocBuilder<ActivityCubit, ActivityState>(
                 builder: (context, state) {
                   if (state is TodayLoading) {
-                    return Center(
+                    return const Center(
                       child: CircularProgressIndicator(
-                        color: const Color(0xFF4361EE),
+                        color: Color(0xFF4361EE),
                         strokeWidth: 2.5,
                       ),
                     );
                   }
-                  if (state is TodayError)
+                  if (state is TodayError) {
                     return _buildError(context, state.message);
-                  if (state is TodayLoaded)
+                  }
+                  if (state is TodayLoaded) {
                     return _buildContent(context, state, isDark);
+                  }
                   return const SizedBox();
                 },
               ),
@@ -108,7 +101,7 @@ class _TodayScreenView extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Date pill
+          // ── Date pill ──
           FadeInDown(
             child: GestureDetector(
               onTap: () => _showDatePicker(context),
@@ -143,10 +136,9 @@ class _TodayScreenView extends StatelessWidget {
             ),
           ),
 
-          // Bell + Settings
+          // ── Bell + Settings ──
           Row(
             children: [
-              // ── Bell ──
               FadeInDown(
                 delay: const Duration(milliseconds: 80),
                 child: GestureDetector(
@@ -207,7 +199,6 @@ class _TodayScreenView extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 8.w),
-              // ── Settings ──
               FadeInDown(
                 delay: const Duration(milliseconds: 140),
                 child: GestureDetector(
@@ -218,7 +209,10 @@ class _TodayScreenView extends StatelessWidget {
                       color: context.colors.card,
                       borderRadius: BorderRadius.circular(14.r),
                       boxShadow: [
-                        BoxShadow(color: context.colors.shadow, blurRadius: 12),
+                        BoxShadow(
+                          color: context.colors.shadow,
+                          blurRadius: 12,
+                        ),
                       ],
                     ),
                     child: const Icon(
@@ -258,7 +252,10 @@ class _TodayScreenView extends StatelessWidget {
             SizedBox(height: 16.h),
             Text(
               message,
-              style: TextStyle(fontSize: 14.sp, color: const Color(0xFFFF3B30)),
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: const Color(0xFFFF3B30),
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 24.h),
@@ -276,10 +273,18 @@ class _TodayScreenView extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, TodayLoaded state, bool isDark) {
+  Widget _buildContent(
+    BuildContext context,
+    TodayLoaded state,
+    bool isDark,
+  ) {
     final stats = state.stats;
+
+    // Capture ActivityCubit before entering the scroll tree
+    final activityCubit = context.read<ActivityCubit>();
+
     return RefreshIndicator(
-      onRefresh: () => context.read<ActivityCubit>().refresh(),
+      onRefresh: () => activityCubit.refresh(),
       color: const Color(0xFF4361EE),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -290,8 +295,11 @@ class _TodayScreenView extends StatelessWidget {
               duration: const Duration(milliseconds: 400),
               child: ActivityLevelCard(
                 activityLevel: stats.activityLevel,
-                onTap: () =>
-                    _showActivityLevelSheet(context, stats.activityLevel),
+                onTap: () => _showActivityLevelSheet(
+                  context,
+                  stats.activityLevel,
+                  activityCubit,
+                ),
               ),
             ),
             SizedBox(height: 8.h),
@@ -306,20 +314,24 @@ class _TodayScreenView extends StatelessWidget {
                   SizedBox(height: 20.h),
                   ActivityStatsRow(
                     caloriesBurned: stats.caloriesBurned,
-                    caloriesGoal: stats.caloriesGoal,
-                    steps: stats.steps,
-                    stepsGoal: stats.stepsGoal,
+                    caloriesGoal:   stats.caloriesGoal,
+                    steps:          stats.steps,
+                    stepsGoal:      stats.stepsGoal,
                     workoutMinutes: stats.workoutMinutes,
-                    workoutGoal: stats.workoutGoal,
+                    workoutGoal:    stats.workoutGoal,
                   ),
                 ],
               ),
             ),
+
+            // ── Empty state ──
             if (!stats.hasActivity)
               FadeInUp(
                 delay: const Duration(milliseconds: 160),
                 child: const EmptyStateWidget(),
               ),
+
+            // ── Tracked activities list ──
             if (stats.trackedActivities.isNotEmpty) ...[
               SizedBox(height: 24.h),
               FadeInUp(
@@ -368,19 +380,21 @@ class _TodayScreenView extends StatelessWidget {
                   final activity = stats.trackedActivities[index];
                   return TrackedActivityCard(
                     activity: activity,
-                    onDelete: () => context
-                        .read<ActivityCubit>()
-                        .removeActivity(activity.id),
+                    // Use captured cubit to avoid context lookup issues
+                    onDelete: () => activityCubit.removeActivity(activity.id),
                   );
                 },
               ),
             ],
+
             SizedBox(height: 28.h),
             FadeInUp(
               delay: const Duration(milliseconds: 200),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: _LogButton(onTap: () => showLogActivitySheet(context)),
+                child: _LogButton(
+                  onTap: () => showLogActivitySheet(context),
+                ),
               ),
             ),
             SizedBox(height: 32.h),
@@ -393,6 +407,7 @@ class _TodayScreenView extends StatelessWidget {
   void _showActivityLevelSheet(
     BuildContext context,
     ActivityLevel currentLevel,
+    ActivityCubit cubit,
   ) {
     showModalBottomSheet(
       context: context,
@@ -430,14 +445,18 @@ class _TodayScreenView extends StatelessWidget {
             SizedBox(height: 4.h),
             Text(
               'This sets your daily calorie & step goals',
-              style: TextStyle(fontSize: 12.sp, color: context.colors.subText),
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: context.colors.subText,
+              ),
             ),
             SizedBox(height: 20.h),
             ...ActivityLevel.values.map((level) {
               final isSelected = level == currentLevel;
               return GestureDetector(
                 onTap: () {
-                  context.read<ActivityCubit>().changeActivityLevel(level);
+                  // Use passed cubit directly — no context.read inside sheet
+                  cubit.changeActivityLevel(level);
                   Navigator.pop(sheetContext);
                 },
                 child: AnimatedContainer(
@@ -448,7 +467,8 @@ class _TodayScreenView extends StatelessWidget {
                     color: isSelected
                         ? const Color(0xFF4361EE).withOpacity(0.08)
                         : context.colors.bg,
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderRadius:
+                        BorderRadius.circular(AppConstants.radiusM),
                     border: Border.all(
                       color: isSelected
                           ? const Color(0xFF4361EE)
@@ -495,7 +515,7 @@ class _TodayScreenView extends StatelessWidget {
                   ),
                 ),
               );
-            }).toList(),
+            }),
             SizedBox(height: 8.h),
           ],
         ),
@@ -504,60 +524,64 @@ class _TodayScreenView extends StatelessWidget {
   }
 }
 
+// ── Rings Section ─────────────────────────────────────────────────────────────
 class _RingsSection extends StatelessWidget {
   final dynamic stats;
   final bool isDark;
+
   const _RingsSection({required this.stats, required this.isDark});
 
   @override
   Widget build(BuildContext context) => Stack(
-    alignment: Alignment.center,
-    children: [
-      Container(
-        width: 230.w,
-        height: 230.h,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4361EE).withOpacity(isDark ? 0.08 : 0.05),
-              blurRadius: 60,
-              spreadRadius: 20,
-            ),
-          ],
-        ),
-      ),
-      CircularProgressRings(
-        caloriesProgress: stats.caloriesProgress,
-        stepsProgress: stats.stepsProgress,
-        workoutProgress: stats.workoutProgress,
-      ),
-      Column(
-        mainAxisSize: MainAxisSize.min,
+        alignment: Alignment.center,
         children: [
-          Text(
-            '${(stats.caloriesProgress * 100).round()}%',
-            style: TextStyle(
-              fontSize: 28.sp,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFFFF9500),
-              letterSpacing: -1,
+          Container(
+            width: 230.w,
+            height: 230.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4361EE)
+                      .withOpacity(isDark ? 0.08 : 0.05),
+                  blurRadius: 60,
+                  spreadRadius: 20,
+                ),
+              ],
             ),
           ),
-          Text(
-            'of goal',
-            style: TextStyle(
-              fontSize: 10.sp,
-              color: context.colors.subText,
-              fontWeight: FontWeight.w500,
-            ),
+          CircularProgressRings(
+            caloriesProgress: stats.caloriesProgress,
+            stepsProgress:    stats.stepsProgress,
+            workoutProgress:  stats.workoutProgress,
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${(stats.caloriesProgress * 100).round()}%',
+                style: TextStyle(
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFFFF9500),
+                  letterSpacing: -1,
+                ),
+              ),
+              Text(
+                'of goal',
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: context.colors.subText,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
-      ),
-    ],
-  );
+      );
 }
 
+// ── Log Button ────────────────────────────────────────────────────────────────
 class _LogButton extends StatefulWidget {
   final VoidCallback onTap;
   const _LogButton({required this.onTap});
@@ -591,55 +615,59 @@ class _LogButtonState extends State<_LogButton>
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTapDown: (_) => _ctrl.forward(),
-    onTapUp: (_) {
-      _ctrl.reverse();
-      widget.onTap();
-    },
-    onTapCancel: () => _ctrl.reverse(),
-    child: ScaleTransition(
-      scale: _scale,
-      child: Container(
-        height: 56.h,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4361EE), Color(0xFF738EFF)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+        onTapDown: (_) => _ctrl.forward(),
+        onTapUp: (_) {
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            height: 56.h,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4361EE), Color(0xFF738EFF)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(18.r),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4361EE).withOpacity(0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(6.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 18.sp,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Text(
+                  'Log Activity',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
-          borderRadius: BorderRadius.circular(18.r),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4361EE).withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(6.w),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.add_rounded, color: Colors.white, size: 18.sp),
-            ),
-            SizedBox(width: 10.w),
-            Text(
-              'Log Activity',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+      );
 }

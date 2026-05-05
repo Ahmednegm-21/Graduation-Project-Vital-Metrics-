@@ -12,10 +12,15 @@ import 'package:vital_metrics/logic/home/theme_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
 import 'package:vital_metrics/router/app_router.dart';
 
-void main() {
+// Mark main as async to allow awaiting initialization
+void main() async {
+  // REQUIRED: Must be called before any plugin (health, shared_prefs, etc.)
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     DevicePreview(
-      enabled: true,
+      //Set to false when testing on a real physical device
+      enabled: false,
       builder: (context) => const MyApp(),
     ),
   );
@@ -41,14 +46,14 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _authCubit          = AuthCubit();
+    _authCubit           = AuthCubit();
     _onboardingGoalCubit = OnboardingGoalCubit();
     _onboardingDataCubit = OnboardingCubitAllData();
-    _homeCubit          = HomeCubit();
-    _waterCubit         = WaterCubit();
-    _calorieCubit       = CalorieCubit();
-    _themeCubit         = ThemeCubit();
-    _personalInfoCubit  = PersonalInfoCubit();
+    _homeCubit           = HomeCubit();
+    _waterCubit          = WaterCubit();
+    _calorieCubit        = CalorieCubit();
+    _themeCubit          = ThemeCubit();
+    _personalInfoCubit   = PersonalInfoCubit();
   }
 
   @override
