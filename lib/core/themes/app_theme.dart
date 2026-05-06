@@ -70,7 +70,6 @@ class AppTheme {
         ),
       ),
 
-      // ✅ هنا التعديل المهم
       cardTheme: CardThemeData(
         color: AppColors.cardBackground,
         elevation: 2,
@@ -163,7 +162,7 @@ class AppTheme {
         centerTitle: true,
       ),
 
-      // ✅ برضه هنا CardThemeData
+      //CardThemeData
       cardTheme: CardThemeData(
         color: const Color(0xFF1E1E1E),
         elevation: 2,

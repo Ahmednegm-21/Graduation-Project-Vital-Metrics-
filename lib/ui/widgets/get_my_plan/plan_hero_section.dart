@@ -31,14 +31,10 @@ class PlanHeroSection extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        border: Border.all(
-          color: AppColors.primaryBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.primaryBorder, width: 1.5),
       ),
       child: Column(
         children: [
-          // Success icon
           Container(
             padding: EdgeInsets.all(AppConstants.paddingXL),
             decoration: BoxDecoration(
@@ -52,16 +48,10 @@ class PlanHeroSection extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(
-              Icons.emoji_events,
-              size: 56.sp,
-              color: AppColors.primary,
-            ),
+            child: Icon(Icons.emoji_events,
+                size: 56.sp, color: AppColors.primary),
           ),
-
           SizedBox(height: AppConstants.spaceXXL),
-
-          // Title
           Text(
             'Your Personalized Plan',
             style: TextStyle(
@@ -71,9 +61,7 @@ class PlanHeroSection extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-
           SizedBox(height: AppConstants.spaceS),
-
           Text(
             'is Ready!',
             style: TextStyle(
@@ -83,10 +71,7 @@ class PlanHeroSection extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-
           SizedBox(height: AppConstants.spaceL),
-
-          // Target date badge
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: AppConstants.paddingXL,
@@ -99,11 +84,7 @@ class PlanHeroSection extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.flag,
-                  color: AppColors.primary,
-                  size: 20.sp,
-                ),
+                Icon(Icons.flag, color: AppColors.primary, size: 20.sp),
                 SizedBox(width: AppConstants.spaceS),
                 Flexible(
                   child: Text(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/user-goal/user_goal_dart_cubit.dart';
@@ -10,14 +9,16 @@ import 'package:vital_metrics/logic/home/home_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
+import 'package:vital_metrics/logic/home/sleep_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
-
 import 'package:vital_metrics/router/app_router.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     DevicePreview(
-      enabled: true,
+      enabled: false,
       builder: (context) => const MyApp(),
     ),
   );
@@ -38,19 +39,21 @@ class _MyAppState extends State<MyApp> {
   late final WaterCubit _waterCubit;
   late final CalorieCubit _calorieCubit;
   late final ThemeCubit _themeCubit;
+  late final SleepCubit _sleepCubit;
   late final PersonalInfoCubit _personalInfoCubit;
 
   @override
   void initState() {
     super.initState();
-    _authCubit = AuthCubit();
+    _authCubit           = AuthCubit();
     _onboardingGoalCubit = OnboardingGoalCubit();
     _onboardingDataCubit = OnboardingCubitAllData();
-    _homeCubit = HomeCubit();
-    _waterCubit = WaterCubit();
-    _calorieCubit = CalorieCubit();
-    _themeCubit = ThemeCubit();
-    _personalInfoCubit = PersonalInfoCubit();
+    _homeCubit           = HomeCubit();
+    _waterCubit          = WaterCubit();
+    _calorieCubit        = CalorieCubit();
+    _themeCubit          = ThemeCubit();
+    _sleepCubit          = SleepCubit();
+    _personalInfoCubit   = PersonalInfoCubit();
   }
 
   @override
@@ -62,6 +65,7 @@ class _MyAppState extends State<MyApp> {
     _waterCubit.close();
     _calorieCubit.close();
     _themeCubit.close();
+    _sleepCubit.close();
     _personalInfoCubit.close();
     super.dispose();
   }
@@ -77,6 +81,7 @@ class _MyAppState extends State<MyApp> {
         BlocProvider.value(value: _waterCubit),
         BlocProvider.value(value: _calorieCubit),
         BlocProvider.value(value: _themeCubit),
+        BlocProvider.value(value: _sleepCubit),
         BlocProvider.value(value: _personalInfoCubit),
       ],
       child: BlocBuilder<ThemeCubit, bool>(
