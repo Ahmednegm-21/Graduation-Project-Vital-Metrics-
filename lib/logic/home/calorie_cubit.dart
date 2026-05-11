@@ -16,7 +16,33 @@ class CalorieCubit extends Cubit<CalorieState> {
     emit(state.copyWith(meals: updated));
   }
 
+  // Add a meal from the recipes screen using name + calories only
+  // (used for local fallback meals that don't have macros from backend)
+  void addMealByName({
+    required String name,
+    required double calories,
+    double protein = 0,
+    double carbs   = 0,
+    double fat     = 0,
+    String mealType = 'lunch',
+  }) {
+    final meal = MealEntry(
+      name:     name,
+      calories: calories.round(),
+      protein:  protein.round(),
+      carbs:    carbs.round(),
+      fat:      fat.round(),
+      mealType: mealType,
+    );
+    addMeal(meal);
+    print('[CalorieCubit] Added meal: $name (${calories.round()} kcal)');
+  }
+
   void updateBudget(int budget) {
     emit(state.copyWith(caloriesBudget: budget));
+  }
+
+  void reset() {
+    emit(const CalorieState());
   }
 }

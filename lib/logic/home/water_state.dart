@@ -1,43 +1,50 @@
 import 'package:equatable/equatable.dart';
+import 'package:vital_metrics/data/models/water_model.dart';
+
+const _mlToOz = 0.033814;
 
 class WaterState extends Equatable {
-  final double consumed; // ml consumed today
-  final double dailyGoal; // ml daily goal
-  final double drinkAmount; // ml per drink action
-  final String unit; // 'ml' or 'oz'
+  final int consumedMl;
+  final int goalMl;
+  final String unit;
+  final int drinkAmountMl;
+  final List<WaterModel> todayIntakes;
+  final bool isLoading;
 
   const WaterState({
-    this.consumed = 0,
-    this.dailyGoal = 3208,
-    this.drinkAmount = 250,
-    this.unit = 'ml',
+    this.consumedMl    = 0,
+    this.goalMl        = 3208,
+    this.unit          = 'ml',
+    this.drinkAmountMl = 240,
+    this.todayIntakes  = const [],
+    this.isLoading     = false,
   });
 
-  double get consumedInUnit =>
-      unit == 'oz' ? consumed / 29.5735 : consumed;
-
-  double get goalInUnit =>
-      unit == 'oz' ? dailyGoal / 29.5735 : dailyGoal;
-
-  double get drinkAmountInUnit =>
-      unit == 'oz' ? drinkAmount / 29.5735 : drinkAmount;
-
-  double get progress => dailyGoal > 0 ? (consumed / dailyGoal).clamp(0, 1) : 0;
+  // Converted values for UI
+  double get consumedInUnit    => unit == 'oz' ? consumedMl * _mlToOz    : consumedMl.toDouble();
+  double get goalInUnit        => unit == 'oz' ? goalMl * _mlToOz        : goalMl.toDouble();
+  double get drinkAmountInUnit => unit == 'oz' ? drinkAmountMl * _mlToOz : drinkAmountMl.toDouble();
+  double get progress          => goalMl > 0 ? (consumedMl / goalMl).clamp(0.0, 1.0) : 0.0;
 
   WaterState copyWith({
-    double? consumed,
-    double? dailyGoal,
-    double? drinkAmount,
+    int? consumedMl,
+    int? goalMl,
     String? unit,
+    int? drinkAmountMl,
+    List<WaterModel>? todayIntakes,
+    bool? isLoading,
   }) {
     return WaterState(
-      consumed: consumed ?? this.consumed,
-      dailyGoal: dailyGoal ?? this.dailyGoal,
-      drinkAmount: drinkAmount ?? this.drinkAmount,
-      unit: unit ?? this.unit,
+      consumedMl:    consumedMl    ?? this.consumedMl,
+      goalMl:        goalMl        ?? this.goalMl,
+      unit:          unit          ?? this.unit,
+      drinkAmountMl: drinkAmountMl ?? this.drinkAmountMl,
+      todayIntakes:  todayIntakes  ?? this.todayIntakes,
+      isLoading:     isLoading     ?? this.isLoading,
     );
   }
 
   @override
-  List<Object> get props => [consumed, dailyGoal, drinkAmount, unit];
+  List<Object> get props =>
+      [consumedMl, goalMl, unit, drinkAmountMl, todayIntakes, isLoading];
 }

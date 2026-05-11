@@ -1,14 +1,12 @@
-// Represents a single food item with nutritional info
 class FoodItem {
   final String id;
   final String name;
   final String emoji;
   final String category;
-  final double calories;  // per 100g
+  final double calories;
   final double protein;
   final double carbs;
   final double fats;
-  final double fiber;
   final List<String> tags;
 
   const FoodItem({
@@ -20,11 +18,9 @@ class FoodItem {
     required this.protein,
     required this.carbs,
     required this.fats,
-    required this.fiber,
     this.tags = const [],
   });
 
-  // Match score against another food (0-100)
   double matchScore(FoodItem other) {
     final calDiff  = (calories - other.calories).abs() / 500;
     final protDiff = (protein  - other.protein ).abs() / 50;
@@ -34,7 +30,6 @@ class FoodItem {
     return (score * 100).clamp(0, 100);
   }
 
-  /// Scale all macros by [grams] / 100
   FoodItem scaledTo(double grams) {
     final factor = grams / 100;
     return FoodItem(
@@ -46,7 +41,6 @@ class FoodItem {
       protein:  protein  * factor,
       carbs:    carbs    * factor,
       fats:     fats     * factor,
-      fiber:    fiber    * factor,
       tags:     tags,
     );
   }
@@ -60,7 +54,6 @@ class FoodItem {
         'protein':  protein,
         'carbs':    carbs,
         'fats':     fats,
-        'fiber':    fiber,
         'tags':     tags,
       };
 
@@ -73,7 +66,6 @@ class FoodItem {
         protein:  (json['protein']  as num).toDouble(),
         carbs:    (json['carbs']    as num).toDouble(),
         fats:     (json['fats']     as num).toDouble(),
-        fiber:    (json['fiber']    as num).toDouble(),
         tags:     List<String>.from(json['tags'] ?? []),
       );
 }
@@ -103,7 +95,6 @@ enum SwapBenefit {
   lowerCalories,
   lowerCarbs,
   lowerFats,
-  higherFiber,
   balanced,
 }
 
@@ -114,7 +105,6 @@ extension SwapBenefitExt on SwapBenefit {
       case SwapBenefit.lowerCalories: return 'Fewer Calories';
       case SwapBenefit.lowerCarbs:    return 'Lower Carbs';
       case SwapBenefit.lowerFats:     return 'Lower Fat';
-      case SwapBenefit.higherFiber:   return 'More Fiber';
       case SwapBenefit.balanced:      return 'Well Balanced';
     }
   }
@@ -125,7 +115,6 @@ extension SwapBenefitExt on SwapBenefit {
       case SwapBenefit.lowerCalories: return '🔥';
       case SwapBenefit.lowerCarbs:    return '⚡';
       case SwapBenefit.lowerFats:     return '✨';
-      case SwapBenefit.higherFiber:   return '🌿';
       case SwapBenefit.balanced:      return '⚖️';
     }
   }

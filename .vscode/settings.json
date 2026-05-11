@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/Bahgat/Desktop/Graduation-Project-Health-Care-/linux"
+    "cmake.sourceDirectory": "C:/Users/Bahgat/Desktop/Graduation-Project-Health-Care-/linux",
+    "cmake.ignoreCMakeListsMissing": true
 }

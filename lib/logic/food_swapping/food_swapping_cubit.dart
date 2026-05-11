@@ -8,7 +8,7 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
   final FoodSwapService _service;
   final String userGoal;
 
-  Set<String> _favoriteIds    = {};
+  Set<String> _favoriteIds   = {};
   String?     _searchCategory;
 
   FoodSwapCubit({
@@ -19,7 +19,8 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
     _loadFavorites();
   }
 
-  // ── Category filter ──────────────────────────────────────────────────────
+  // ── Category filter ───────────────────────────────────────────────────────
+
   void setSearchCategory(String? category) {
     _searchCategory = category;
     final s = state;
@@ -30,26 +31,57 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
     }
   }
 
-  // ── Search ───────────────────────────────────────────────────────────────
+  // ── Search → uses backend first, falls back to local ─────────────────────
+
   void search(String query) {
     if (query.trim().isEmpty) {
       emit(FoodSwapInitial(searchCategory: _searchCategory));
       return;
     }
-    final results = _service.search(query, category: _searchCategory);
+
+    // Emit searching immediately with local results for fast UI
+    final localResults = _service.search(query, category: _searchCategory);
     emit(FoodSwapSearching(
-      query: query,
-      results: results,
+      query:          query,
+      results:        localResults,
       searchCategory: _searchCategory,
     ));
+
+    // Then fetch from backend and update if better results
+    _service.searchFromBackend(query).then((backendResults) {
+      if (backendResults.isNotEmpty && !isClosed) {
+        emit(FoodSwapSearching(
+          query:          query,
+          results:        backendResults,
+          searchCategory: _searchCategory,
+        ));
+      }
+    }).catchError((_) {
+      // Keep local results on error
+    });
   }
 
+  // ── Select food → get swap suggestions from backend ───────────────────────
+
   void selectFood(FoodItem food) {
-    final result = _service.getSwaps(food, userGoal);
+    // Show local swaps immediately
+    final localResult = _service.getSwaps(food, userGoal);
     emit(FoodSwapLoaded(
-      result:      result,
+      result:      localResult,
       favoriteIds: _favoriteIds,
     ));
+
+    // Fetch backend swaps and update
+    _service.getSwapsFromBackend(food, userGoal).then((backendResult) {
+      if (!isClosed && backendResult.alternatives.isNotEmpty) {
+        final current = state;
+        if (current is FoodSwapLoaded) {
+          emit(current.copyWith(result: backendResult));
+        }
+      }
+    }).catchError((_) {
+      // Keep local swaps on error
+    });
   }
 
   void reset() => emit(FoodSwapInitial(searchCategory: _searchCategory));
@@ -59,21 +91,24 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
     emit(const FoodSwapInitial());
   }
 
-  // ── Portion ──────────────────────────────────────────────────────────────
+  // ── Portion ───────────────────────────────────────────────────────────────
+
   void updatePortion(double grams) {
     final s = state;
     if (s is! FoodSwapLoaded) return;
     emit(s.copyWith(portionGrams: grams));
   }
 
-  // ── Goal filter ──────────────────────────────────────────────────────────
+  // ── Goal filter ───────────────────────────────────────────────────────────
+
   void setFilter(SwapGoalFilter filter) {
     final s = state;
     if (s is! FoodSwapLoaded) return;
     emit(s.copyWith(activeFilter: filter));
   }
 
-  // ── Favorites ────────────────────────────────────────────────────────────
+  // ── Favorites ─────────────────────────────────────────────────────────────
+
   Future<void> toggleFavorite(String foodId) async {
     final updated = Set<String>.from(_favoriteIds);
     updated.contains(foodId) ? updated.remove(foodId) : updated.add(foodId);
@@ -91,7 +126,6 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
       .whereType<FoodItem>()
       .toList();
 
-  /// Public method so screens can await initial load
   Future<void> loadFavorites() => _loadFavorites();
 
   Future<void> _loadFavorites() async {

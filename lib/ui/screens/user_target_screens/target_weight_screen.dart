@@ -9,7 +9,6 @@ import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_header.dart';
-import 'package:vital_metrics/ui/widgets/target_weight/target_weight_icon_section.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_display_card.dart';
 import 'package:vital_metrics/ui/widgets/target_weight/target_weight_slider_section.dart';
 
@@ -25,11 +24,9 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Get current weight from cubit
     final currentWeight =
         context.read<OnboardingCubitAllData>().currentData.weight ?? 70.0;
 
-    // Check if goal is weight loss
     final isLose = context
             .read<OnboardingCubitAllData>()
             .currentData
@@ -39,15 +36,12 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
             .contains('lose') ==
         true;
 
-    // Calculate min/max weight range
     final double minWeight = isLose ? currentWeight - 50 : currentWeight;
     final double maxWeight = isLose ? currentWeight : currentWeight + 50;
 
-    // Ensure target weight is within range
     if (_targetWeight < minWeight) _targetWeight = minWeight;
     if (_targetWeight > maxWeight) _targetWeight = maxWeight;
 
-    // Calculate weight difference
     final difference = (_targetWeight - currentWeight).abs();
 
     return Scaffold(
@@ -55,7 +49,6 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Back button
             Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: AppConstants.paddingL,
@@ -74,13 +67,11 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
               ),
             ),
 
-            // Scrollable content
             Expanded(
               child: SingleChildScrollView(
                 padding: EdgeInsets.only(bottom: AppConstants.spaceXL),
                 child: Column(
                   children: [
-                    // Title section
                     FadeInDown(
                       duration: Duration(milliseconds: AppConstants.animationSlow),
                       child: TargetWeightHeader(),
@@ -88,7 +79,6 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
                     SizedBox(height: AppConstants.spaceXXL),
 
-                    // Goal icon section
                     FadeInUp(
                       duration: Duration(milliseconds: AppConstants.animationSlow),
                       delay: Duration(milliseconds: AppConstants.animationFast),
@@ -97,7 +87,6 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
                     SizedBox(height: AppConstants.spaceXXL),
 
-                    // Weight display card
                     FadeInUp(
                       duration: Duration(milliseconds: AppConstants.animationSlow),
                       delay: Duration(milliseconds: AppConstants.animationNormal),
@@ -110,18 +99,15 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
 
                     SizedBox(height: AppConstants.spaceXXL),
 
-                    // Weight slider
                     FadeInUp(
                       duration: Duration(milliseconds: AppConstants.animationSlow),
-                      delay: Duration(milliseconds: 400),
+                      delay: const Duration(milliseconds: 400),
                       child: TargetWeightSliderSection(
                         targetWeight: _targetWeight,
                         minWeight: minWeight,
                         maxWeight: maxWeight,
                         onWeightChanged: (value) {
-                          setState(() {
-                            _targetWeight = value;
-                          });
+                          setState(() => _targetWeight = value);
                         },
                       ),
                     ),
@@ -132,7 +118,6 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
               ),
             ),
 
-            // Next button
             FadeInUp(
               duration: Duration(milliseconds: AppConstants.animationSlow),
               delay: Duration(milliseconds: AppConstants.animationSlow),
@@ -142,7 +127,6 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
                 child: CustomButton(
                   text: 'Next',
                   onPressed: () {
-                    // Save target weight and navigate
                     context
                         .read<OnboardingCubitAllData>()
                         .setTargetWeight(_targetWeight);
@@ -155,6 +139,52 @@ class _TargetWeightScreenState extends State<TargetWeightScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TargetWeightIconSection
+// ══════════════════════════════════════════════════════════════════════════════
+class TargetWeightIconSection extends StatelessWidget {
+  final bool isLose;
+
+  const TargetWeightIconSection({super.key, required this.isLose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 150.h,
+      margin: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppColors.primaryGradient,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        border: Border.all(color: AppColors.primaryBorder, width: 1.5),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isLose ? Icons.trending_down : Icons.trending_up,
+            size: 50.sp,
+            color: AppColors.primary,
+          ),
+          SizedBox(height: AppConstants.spaceS),
+          Text(
+            isLose ? 'Weight Loss Goal' : 'Weight Gain Goal',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
