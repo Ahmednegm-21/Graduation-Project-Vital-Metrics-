@@ -3,10 +3,10 @@ import 'package:equatable/equatable.dart';
 class MealEntry extends Equatable {
   final String name;
   final int calories;
-  final int protein; // grams
-  final int carbs;   // grams
-  final int fat;     // grams
-  final String mealType; // breakfast, lunch, dinner, snacks
+  final int protein;
+  final int carbs;
+  final int fat;
+  final String mealType;
 
   const MealEntry({
     required this.name,
@@ -18,7 +18,14 @@ class MealEntry extends Equatable {
   });
 
   @override
-  List<Object> get props => [name, calories, mealType, protein, carbs, fat];
+  List<Object> get props => [
+        name,
+        calories,
+        mealType,
+        protein,
+        carbs,
+        fat,
+      ];
 }
 
 class CalorieState extends Equatable {
@@ -30,32 +37,70 @@ class CalorieState extends Equatable {
     this.meals = const [],
   });
 
-  // ── Goals ──────────────────────────────────────────────────────────────────
-  int get proteinGoal => 245;
-  int get carbsGoal   => 345;
-  int get fatGoal     => 145;
+  // =====================================================
+  // DYNAMIC MACROS
+  // =====================================================
 
-  // ── Consumed totals (محسوبة من الوجبات الفعلية) ────────────────────────────
-  int get totalCaloriesConsumed => meals.fold(0, (s, m) => s + m.calories);
-  int get totalProtein          => meals.fold(0, (s, m) => s + m.protein);
-  int get totalCarbs            => meals.fold(0, (s, m) => s + m.carbs);
-  int get totalFat              => meals.fold(0, (s, m) => s + m.fat);
+  /// 30% Protein
+  int get proteinGoal =>
+      ((caloriesBudget * 0.30) / 4).round();
 
-  int get caloriesRemaining => caloriesBudget - totalCaloriesConsumed;
+  /// 40% Carbs
+  int get carbsGoal =>
+      ((caloriesBudget * 0.40) / 4).round();
+
+  /// 30% Fat
+  int get fatGoal =>
+      ((caloriesBudget * 0.30) / 9).round();
+
+  // =====================================================
+  // CONSUMED TOTALS
+  // =====================================================
+
+  int get totalCaloriesConsumed =>
+      meals.fold(0, (s, m) => s + m.calories);
+
+  int get totalProtein =>
+      meals.fold(0, (s, m) => s + m.protein);
+
+  int get totalCarbs =>
+      meals.fold(0, (s, m) => s + m.carbs);
+
+  int get totalFat =>
+      meals.fold(0, (s, m) => s + m.fat);
+
+  // =====================================================
+  // REMAINING
+  // =====================================================
+
+  int get caloriesRemaining =>
+      caloriesBudget - totalCaloriesConsumed;
+
+  // =====================================================
+  // MEALS FILTER
+  // =====================================================
 
   List<MealEntry> mealsFor(String type) =>
       meals.where((m) => m.mealType == type).toList();
+
+  // =====================================================
+  // COPY
+  // =====================================================
 
   CalorieState copyWith({
     int? caloriesBudget,
     List<MealEntry>? meals,
   }) {
     return CalorieState(
-      caloriesBudget: caloriesBudget ?? this.caloriesBudget,
+      caloriesBudget:
+          caloriesBudget ?? this.caloriesBudget,
       meals: meals ?? this.meals,
     );
   }
 
   @override
-  List<Object> get props => [caloriesBudget, meals];
+  List<Object> get props => [
+        caloriesBudget,
+        meals,
+      ];
 }

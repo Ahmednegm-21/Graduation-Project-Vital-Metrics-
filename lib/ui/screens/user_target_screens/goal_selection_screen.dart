@@ -8,8 +8,8 @@ import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import '../../../data/models/user_goal.dart';
-import '../../widgets/goal_selction/goal_card.dart';
 import '../../widgets/goal_selction/custom_button.dart';
+import '../../widgets/goal_selction/goal_card.dart';
 
 class GoalSelectionScreen extends StatelessWidget {
   const GoalSelectionScreen({super.key});
@@ -34,16 +34,16 @@ class GoalSelectionScreen extends StatelessWidget {
               );
             }
           },
-          builder: (context, state) {
-            final isLoading = state is OnboardingLoading;
 
-            // Get selected goal
-            final selectedGoal =
-                context.read<OnboardingCubitAllData>().currentData.goal;
+          builder: (context, state) {
+            final cubit = context.read<OnboardingCubitAllData>();
+
+            final selectedGoal = cubit.currentData.goal;
+
+            final isLoading = state is OnboardingLoading;
 
             return Column(
               children: [
-                // Back button
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: AppConstants.paddingL,
@@ -63,9 +63,10 @@ class GoalSelectionScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Title
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppConstants.paddingXXL,
+                  ),
                   child: Text(
                     'What is your main goal?',
                     style: TextStyle(
@@ -80,19 +81,18 @@ class GoalSelectionScreen extends StatelessWidget {
 
                 SizedBox(height: AppConstants.spaceL),
 
-                // Goal cards list
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXXL),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppConstants.paddingXXL,
+                    ),
                     child: Column(
                       children: UserGoal.allGoals.map((goal) {
                         return GoalCard(
                           goal: goal,
                           isSelected: selectedGoal?.type == goal.type,
                           onTap: () {
-                            context
-                                .read<OnboardingCubitAllData>()
-                                .selectGoal(goal);
+                            cubit.selectGoal(goal);
                           },
                         );
                       }).toList(),
@@ -100,18 +100,19 @@ class GoalSelectionScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Continue button
                 Container(
                   padding: EdgeInsets.all(15.w),
                   decoration: AppDecorations.buttonContainer,
                   child: CustomButton(
                     text: 'Continue',
                     enabled: selectedGoal != null,
-                    onPressed: () {
-                      context.read<OnboardingCubitAllData>().saveGoal();
-                    },
                     isLoading: isLoading,
                     height: 45.h,
+                    onPressed: () {
+                      if (selectedGoal == null) return;
+
+                      cubit.saveGoal();
+                    },
                   ),
                 ),
               ],

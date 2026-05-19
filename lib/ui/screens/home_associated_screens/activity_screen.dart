@@ -8,6 +8,7 @@ import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';
+import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/ui/widgets/activity/activity_level_card.dart';
@@ -106,137 +107,211 @@ class _TodayScreenView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 10.h),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // ── Date pill ──
-          FadeInDown(
-            child: GestureDetector(
-              onTap: () => _showDatePicker(context),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  borderRadius: BorderRadius.circular(14.r),
-                  boxShadow: [
-                    BoxShadow(color: context.colors.shadow, blurRadius: 12),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_month_rounded,
-                      color: Color(0xFF4361EE),
-                      size: 18,
-                    ),
-                    SizedBox(width: 7.w),
-                    Text(
-                      _todayLabel(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.sp,
-                        color: context.colors.text,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ── Bell + Settings ──
-          Row(
+Widget _buildHeader(BuildContext context, bool isDark) {
+  return Padding(
+    padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 10.h),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // ── Date + Health Status ──
+        FadeInDown(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FadeInDown(
-                delay: const Duration(milliseconds: 80),
-                child: GestureDetector(
-                  onTap: () => context.push('/notifications'),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(10.w),
-                        decoration: BoxDecoration(
-                          color: context.colors.card,
-                          borderRadius: BorderRadius.circular(14.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: context.colors.shadow,
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          CupertinoIcons.bell_fill,
-                          color: isDark
-                              ? const Color(0xFFFFA94D)
-                              : const Color(0xFF4361EE),
-                          size: 20,
-                        ),
+              GestureDetector(
+                onTap: () => _showDatePicker(context),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 9.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.colors.card,
+                    borderRadius: BorderRadius.circular(14.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.colors.shadow,
+                        blurRadius: 12,
                       ),
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF4757),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFF0F1221)
-                                  : const Color(0xFFF0F3FF),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Text(
-                            '3',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        color: Color(0xFF4361EE),
+                        size: 18,
+                      ),
+                      SizedBox(width: 7.w),
+                      Text(
+                        _todayLabel(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.sp,
+                          color: context.colors.text,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              SizedBox(width: 8.w),
-              FadeInDown(
-                delay: const Duration(milliseconds: 140),
-                child: GestureDetector(
-                  onTap: () => context.push('/settings'),
-                  child: Container(
-                    padding: EdgeInsets.all(10.w),
+
+              SizedBox(height: 8.h),
+
+              BlocBuilder<FitnessSnapshotCubit, FitnessSnapshotState>(
+                builder: (context, fitnessState) {
+                  final connected =
+                      fitnessState is FitnessSnapshotLoaded;
+
+                  return Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.w,
+                      vertical: 5.h,
+                    ),
                     decoration: BoxDecoration(
-                      color: context.colors.card,
-                      borderRadius: BorderRadius.circular(14.r),
-                      boxShadow: [
-                        BoxShadow(color: context.colors.shadow, blurRadius: 12),
+                      color: connected
+                          ? const Color(0xFF63E6BE).withOpacity(0.12)
+                          : const Color(0xFFFFA94D).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(
+                        color: connected
+                            ? const Color(0xFF63E6BE).withOpacity(0.3)
+                            : const Color(0xFFFFA94D).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7.w,
+                          height: 7.w,
+                          decoration: BoxDecoration(
+                            color: connected
+                                ? const Color(0xFF63E6BE)
+                                : const Color(0xFFFFA94D),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+
+                        SizedBox(width: 6.w),
+
+                        Text(
+                          connected
+                              ? 'Health Connected'
+                              : 'Local Tracking',
+                          style: TextStyle(
+                            color: connected
+                                ? const Color(0xFF63E6BE)
+                                : const Color(0xFFFFA94D),
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.settings_rounded,
-                      color: Color(0xFF4361EE),
-                      size: 20,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+
+        // ── Bell + Settings ──
+        Row(
+          children: [
+            FadeInDown(
+              delay: const Duration(milliseconds: 80),
+              child: GestureDetector(
+                onTap: () => context.push('/notifications'),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        color: context.colors.card,
+                        borderRadius: BorderRadius.circular(14.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.colors.shadow,
+                            blurRadius: 12,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        CupertinoIcons.bell_fill,
+                        color: isDark
+                            ? const Color(0xFFFFA94D)
+                            : const Color(0xFF4361EE),
+                        size: 20,
+                      ),
+                    ),
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF4757),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF0F1221)
+                                : const Color(0xFFF0F3FF),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Text(
+                          '3',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(width: 8.w),
+
+            FadeInDown(
+              delay: const Duration(milliseconds: 140),
+              child: GestureDetector(
+                onTap: () => context.push('/settings'),
+                child: Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: context.colors.card,
+                    borderRadius: BorderRadius.circular(14.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.colors.shadow,
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.settings_rounded,
+                    color: Color(0xFF4361EE),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildError(BuildContext context, String message) {
     return Center(

@@ -1,59 +1,124 @@
 import 'dart:async';
+
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/services/google_fit_service.dart';
 
 class StepsSyncService {
+  final ProgressCubit _progressCubit;
+
   final GoogleFitService _fitService;
-  final ProgressCubit    _progressCubit;
 
   Timer? _timer;
-  bool   _syncing = false;
 
-  static const _interval = Duration(minutes: 30);
+  bool _syncing = false;
+
+  // Sync every 15 minutes
+  static const Duration _interval =
+      Duration(minutes: 15);
 
   StepsSyncService({
     required ProgressCubit progressCubit,
-    GoogleFitService?      fitService,
+    GoogleFitService? fitService,
   })  : _progressCubit = progressCubit,
-        _fitService    = fitService ?? GoogleFitService();
+        _fitService =
+            fitService ?? GoogleFitService();
+
+  // =====================================================
+  // START SERVICE
+  // =====================================================
 
   void start() {
-    print('[StepsSync] Service started');
-    _syncNow();
-    _timer = Timer.periodic(_interval, (_) => _syncNow());
+    // Prevent duplicate timers
+    _timer?.cancel();
+
+    // First sync
+    syncNow();
+
+    // Periodic sync
+    _timer = Timer.periodic(
+      _interval,
+      (_) => syncNow(),
+    );
+
+    print(
+      '[StepsSyncService] started',
+    );
   }
 
-  Future<void> syncNow() => _syncNow();
+  // =====================================================
+  // MANUAL SYNC
+  // =====================================================
 
-  Future<void> _syncNow() async {
+  Future<void> syncNow() async {
+    // Prevent duplicate executions
     if (_syncing) {
-      print('[StepsSync] Already syncing — skipped');
+      print(
+        '[StepsSyncService] already syncing',
+      );
       return;
     }
+
     _syncing = true;
-    print('[StepsSync] Starting sync...');
+
     try {
-      final snapshot = await _fitService.getTodaySnapshot();
-      print('[StepsSync] Steps from Health Connect: ${snapshot.steps}');
+      print(
+        '[StepsSyncService] syncing...',
+      );
+
+      // =========================
+      // FETCH HEALTH DATA
+      // =========================
+
+      final snapshot =
+          await _fitService
+              .getTodaySnapshot();
+
+      print(
+        '[StepsSyncService] '
+        'steps=${snapshot.steps}',
+      );
+
+      // =========================
+      // SYNC STEPS ONLY
+      // =========================
 
       if (snapshot.steps > 0) {
-        print('[StepsSync] Syncing ${snapshot.steps} steps to backend...');
-        await _progressCubit.syncStepsToBackend(snapshot.steps);
-        print('[StepsSync] Sync complete');
-      } else {
-        print('[StepsSync] Steps = 0, skipping backend call');
+        await _progressCubit
+            .syncStepsToBackend(
+          snapshot.steps,
+        );
       }
-    } catch (e, stack) {
-      print('[StepsSync] ERROR: $e');
-      print('[StepsSync] STACK: $stack');
+
+      // =========================
+      // LOAD UI DATA ONCE
+      // =========================
+
+      await _progressCubit
+          .loadWeeklyMetrics();
+
+      print(
+        '[StepsSyncService] sync completed',
+      );
+    } catch (e) {
+      print(
+        '[StepsSyncService] error => $e',
+      );
     } finally {
       _syncing = false;
     }
   }
 
+  // =====================================================
+  // STOP SERVICE
+  // =====================================================
+
   void dispose() {
     _timer?.cancel();
+
     _timer = null;
-    print('[StepsSync] Service disposed');
+
+    print(
+      '[StepsSyncService] disposed',
+    );
   }
 }

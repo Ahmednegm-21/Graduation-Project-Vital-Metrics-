@@ -2,63 +2,93 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet and Location -->
+    <!-- INTERNET -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- LOCATION -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- ACTIVITY -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
-    <!-- Health Connect — Steps -->
-    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <!-- FOREGROUND -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
-    <!-- Health Connect — Calories -->
+    <!-- HEALTH CONNECT -->
+    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
+    <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/>
 
-    <!-- Health Connect — Exercise / Workout -->
-    <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
-
-    <!-- Health Connect — Sleep -->
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.WRITE_SLEEP"/>
 
-    <!-- Health Connect — Water / Hydration -->
     <uses-permission android:name="android.permission.health.READ_HYDRATION"/>
     <uses-permission android:name="android.permission.health.WRITE_HYDRATION"/>
 
-    <!-- Required so Android 11+ can see Health Connect app -->
+    <!-- Android 14+ -->
+    <uses-permission
+        android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
+
+    <!-- REQUIRED FOR HEALTH CONNECT -->
     <queries>
+
         <package android:name="com.google.android.apps.healthdata"/>
+
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
         </intent>
+
     </queries>
 
     <application
-        android:label="Vital Metrics"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:label="Vital Metrics"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
 
-        <!-- Required by Health Connect to show permission usage screen -->
+        <!-- HEALTH CONNECT PERMISSION RATIONALE -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"
             android:targetActivity=".MainActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
             </intent-filter>
+
         </activity-alias>
 
-        <!-- Main Activity -->
+        <!-- HEALTH PERMISSION ACTIVITY -->
+        <activity
+            android:name="dev.fluttercommunity.plus.health.HealthPermissionActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+
+        <!-- MAIN ACTIVITY -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="
+                orientation|
+                keyboardHidden|
+                keyboard|
+                screenSize|
+                smallestScreenSize|
+                locale|
+                layoutDirection|
+                fontScale|
+                screenLayout|
+                density|
+                uiMode">
 
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
@@ -66,11 +96,8 @@
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
 
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
         </activity>
@@ -80,4 +107,5 @@
             android:value="2"/>
 
     </application>
+
 </manifest>

@@ -1,149 +1,451 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:vital_metrics/data/models/daily_metric_model.dart';
 import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
+
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
+import 'package:vital_metrics/logic/home/water_cubit.dart';
+
 import 'package:vital_metrics/services/google_fit_service.dart';
 
 part 'progress_state.dart';
 
 class ProgressCubit extends Cubit<ProgressState> {
   final DailyMetricsRepository _repository;
-  final GoogleFitService       _fitService;
+
+  final GoogleFitService _fitService;
+
   CalorieCubit? _calorieCubit;
 
-  // Local burned calories set from ActivityCubit
+  WaterCubit? _waterCubit;
+
   int _localBurnedCalories = 0;
+
+  bool _loading = false;
+
+  StreamSubscription? _waterSubscription;
+
+  StreamSubscription? _calorieSubscription;
 
   ProgressCubit({
     DailyMetricsRepository? repository,
-    GoogleFitService?       fitService,
-    CalorieCubit?           calorieCubit,
-  })  : _repository   = repository   ?? DailyMetricsRepository(),
-        _fitService    = fitService    ?? GoogleFitService(),
+    GoogleFitService? fitService,
+    CalorieCubit? calorieCubit,
+    WaterCubit? waterCubit,
+  })  : _repository = repository ?? DailyMetricsRepository(),
+        _fitService = fitService ?? GoogleFitService(),
         _calorieCubit = calorieCubit,
-        super(const ProgressInitial());
+        _waterCubit = waterCubit,
+        super(const ProgressInitial()) {
 
-  void setCalorieCubit(CalorieCubit cubit) => _calorieCubit = cubit;
+    // =================================================
+    // LISTEN WATER CHANGES
+    // =================================================
 
-  // Called from ActivityCubit whenever local activities change
+    _waterSubscription =
+        _waterCubit?.stream.listen((_) async {
+      await refresh();
+    });
+
+    // =================================================
+    // LISTEN CALORIES CHANGES
+    // =================================================
+
+    _calorieSubscription =
+        _calorieCubit?.stream.listen((_) async {
+      await refresh();
+    });
+  }
+
+  // =====================================================
+  // SET CUBITS
+  // =====================================================
+
+  void setCalorieCubit(CalorieCubit cubit) {
+    _calorieCubit = cubit;
+
+    _calorieSubscription?.cancel();
+
+    _calorieSubscription =
+        cubit.stream.listen((_) async {
+      await refresh();
+    });
+  }
+
+  void setWaterCubit(WaterCubit cubit) {
+    _waterCubit = cubit;
+
+    _waterSubscription?.cancel();
+
+    _waterSubscription =
+        cubit.stream.listen((_) async {
+      await refresh();
+    });
+  }
+
+  // =====================================================
+  // UPDATE LOCAL BURNED CALORIES
+  // =====================================================
+
   void updateLocalBurned(int calories) {
     _localBurnedCalories = calories;
   }
 
-  Future<void> loadWeeklyMetrics() async {
-    emit(const ProgressLoading());
-    try {
-      final results = await Future.wait([
-        _repository.getWeeklyMetrics(),
-        _fitService.getTodaySnapshot(),
-      ]);
+  // =====================================================
+  // LOAD WEEKLY METRICS
+  // =====================================================
 
-      final raw      = results[0] as List<DailyMetricModel>;
-      final snapshot = results[1] as FitnessSnapshot;
-      final now      = DateTime.now();
-      final today    = _fmt(now);
+  Future<void> loadWeeklyMetrics({
+    bool silent = false,
+    FitnessSnapshot? snapshot,
+  }) async {
+    if (_loading) return;
+
+    _loading = true;
+
+    if (!silent) {
+      emit(const ProgressLoading());
+    }
+
+    try {
+      // =================================================
+      // GET BACKEND DATA
+      // =================================================
+
+      final raw =
+          await _repository.getWeeklyMetrics();
+
+      // =================================================
+      // CURRENT DATE
+      // =================================================
+
+      final now = DateTime.now();
+
+      final today = _fmt(now);
 
       final weekday = now.weekday;
-      final int daysSinceSat;
+
+      final int daysSinceSaturday;
+
       switch (weekday) {
-        case 6: daysSinceSat = 0; break;
-        case 7: daysSinceSat = 1; break;
-        case 1: daysSinceSat = 2; break;
-        case 2: daysSinceSat = 3; break;
-        case 3: daysSinceSat = 4; break;
-        case 4: daysSinceSat = 5; break;
-        case 5: daysSinceSat = 6; break;
-        default: daysSinceSat = 0;
+        case DateTime.saturday:
+          daysSinceSaturday = 0;
+          break;
+
+        case DateTime.sunday:
+          daysSinceSaturday = 1;
+          break;
+
+        case DateTime.monday:
+          daysSinceSaturday = 2;
+          break;
+
+        case DateTime.tuesday:
+          daysSinceSaturday = 3;
+          break;
+
+        case DateTime.wednesday:
+          daysSinceSaturday = 4;
+          break;
+
+        case DateTime.thursday:
+          daysSinceSaturday = 5;
+          break;
+
+        default:
+          daysSinceSaturday = 6;
       }
 
-      final weekStart = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: daysSinceSat));
+      final weekStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(
+        Duration(days: daysSinceSaturday),
+      );
 
-      final localCalories  = _calorieCubit?.state.totalCaloriesConsumed ?? 0;
-      final localBurned    = _localBurnedCalories;
+      // =================================================
+      // MAP BACKEND DATA
+      // =================================================
 
-      final metricMap = <String, DailyMetricModel>{};
-      for (final m in raw) {
-        final key = m.date.length >= 10 ? m.date.substring(0, 10) : m.date;
-        metricMap[key] = m;
+      final metricMap =
+          <String, DailyMetricModel>{};
+
+      for (final metric in raw) {
+        final key =
+            metric.date.length >= 10
+                ? metric.date.substring(0, 10)
+                : metric.date;
+
+        metricMap[key] = metric;
       }
 
-      print('[ProgressCubit] today=$today localBurned=$localBurned snapshot.burned=${snapshot.caloriesBurned}');
+      // =================================================
+      // LIVE LOCAL DATA
+      // =================================================
 
-      final filled = List.generate(7, (i) {
-        final day     = weekStart.add(Duration(days: i));
-        final dateStr = _fmt(day);
-        final isToday = dateStr == today;
-        final metric  = metricMap[dateStr];
+      final localCalories =
+          _calorieCubit
+                  ?.state
+                  .totalCaloriesConsumed ??
+              0;
 
-        if (metric != null) {
-          if (isToday) {
-            final burned = snapshot.caloriesBurned > 0
-                ? snapshot.caloriesBurned + localBurned
-                : (metric.burnedTotal > 0
-                    ? metric.burnedTotal + localBurned
-                    : localBurned);
+      final localWater =
+          _waterCubit
+                  ?.state
+                  .consumedMl ??
+              0;
 
+      final localBurned =
+          _localBurnedCalories;
+
+      final liveSteps =
+          snapshot?.steps ?? 0;
+
+      final liveBurned =
+          (snapshot?.caloriesBurned ?? 0) +
+              localBurned;
+
+      // =================================================
+      // GENERATE WEEK DATA
+      // =================================================
+
+      final filled = List.generate(
+        7,
+        (index) {
+          final day = weekStart.add(
+            Duration(days: index),
+          );
+
+          final dateStr = _fmt(day);
+
+          final metric =
+              metricMap[dateStr];
+
+          final isToday =
+              dateStr == today;
+
+          // =============================================
+          // EXISTING METRIC
+          // =============================================
+
+          if (metric != null) {
             return DailyMetricModel(
-              metricId:          metric.metricId,
-              date:              metric.date,
-              totalSteps:        snapshot.steps > 0
-                  ? snapshot.steps
+              metricId: metric.metricId,
+
+              date: metric.date,
+
+              // =========================
+              // STEPS
+              // =========================
+
+              totalSteps: isToday
+                  ? (liveSteps > 0
+                      ? liveSteps
+                      : metric.totalSteps)
                   : metric.totalSteps,
-              caloriesConsumed:  metric.caloriesConsumed > 0
-                  ? metric.caloriesConsumed
-                  : localCalories,
-              burnedTotal:       burned,
-              totalWaterMl:      metric.totalWaterMl,
-              totalSleepMinutes: metric.totalSleepMinutes,
+
+              // =========================
+              // CALORIES CONSUMED
+              // =========================
+
+              caloriesConsumed: isToday
+                  ? localCalories
+                  : metric.caloriesConsumed,
+
+              // =========================
+              // BURNED
+              // =========================
+
+              burnedTotal: isToday
+                  ? (liveBurned > 0
+                      ? liveBurned
+                      : metric.burnedTotal)
+                  : metric.burnedTotal,
+
+              // =========================
+              // WATER
+              // =========================
+
+              totalWaterMl: isToday
+                  ? localWater
+                  : metric.totalWaterMl,
+
+              totalSleepMinutes:
+                  metric.totalSleepMinutes,
             );
           }
-          return metric;
-        }
 
-        if (isToday) {
+          // =============================================
+          // TODAY FALLBACK
+          // =============================================
+
+          if (isToday) {
+            return DailyMetricModel(
+              metricId: 0,
+
+              date: dateStr,
+
+              totalSteps: liveSteps,
+
+              caloriesConsumed:
+                  localCalories,
+
+              burnedTotal:
+                  liveBurned,
+
+              totalWaterMl:
+                  localWater,
+
+              totalSleepMinutes: 0,
+            );
+          }
+
+          // =============================================
+          // EMPTY DAY
+          // =============================================
+
           return DailyMetricModel(
-            metricId:          0,
-            date:              dateStr,
-            totalSteps:        snapshot.steps,
-            caloriesConsumed:  localCalories,
-            burnedTotal:       snapshot.caloriesBurned + localBurned,
-            totalWaterMl:      0,
+            metricId: 0,
+
+            date: dateStr,
+
+            totalSteps: 0,
+
+            caloriesConsumed: 0,
+
+            burnedTotal: 0,
+
+            totalWaterMl: 0,
+
             totalSleepMinutes: 0,
           );
-        }
+        },
+      );
 
-        return DailyMetricModel(
-          metricId: 0, date: dateStr,
-          totalSteps: 0, caloriesConsumed: 0,
-          burnedTotal: 0, totalWaterMl: 0, totalSleepMinutes: 0,
-        );
-      });
+      // =================================================
+      // DEBUG
+      // =================================================
 
-      emit(ProgressLoaded(weeklyMetrics: filled));
+      print(
+        '[ProgressCubit] FINAL CALORIES => '
+        '${filled.map((e) => e.caloriesConsumed).toList()}',
+      );
+
+      print(
+        '[ProgressCubit] FINAL STEPS => '
+        '${filled.map((e) => e.totalSteps).toList()}',
+      );
+
+      print(
+        '[ProgressCubit] FINAL BURNED => '
+        '${filled.map((e) => e.burnedTotal).toList()}',
+      );
+
+      print(
+        '[ProgressCubit] FINAL WATER => '
+        '${filled.map((e) => e.totalWaterMl).toList()}',
+      );
+
+      // =================================================
+      // EMIT
+      // =================================================
+
+      emit(
+        ProgressLoaded(
+          weeklyMetrics: filled,
+        ),
+      );
     } catch (e) {
-      print('[ProgressCubit] loadWeeklyMetrics ERROR: $e');
-      emit(ProgressError(e.toString()));
+      print(
+        '[ProgressCubit] ERROR => $e',
+      );
+
+      emit(
+        ProgressError(
+          e.toString(),
+        ),
+      );
+    } finally {
+      _loading = false;
     }
   }
 
-  Future<void> syncStepsToBackend(int totalSteps) async {
+  // =====================================================
+  // SYNC STEPS TO BACKEND
+  // =====================================================
+
+  Future<void> syncStepsToBackend(
+    int totalSteps,
+  ) async {
     try {
-      final today = await _repository.getTodayMetric();
-      if (today == null || today.metricId == 0) return;
+      final today =
+          await _repository.getTodayMetric();
+
+      if (today == null ||
+          today.metricId == 0) {
+        return;
+      }
+
       await _repository.updateSteps(
-        metricsId:  today.metricId,
+        metricsId: today.metricId,
         totalSteps: totalSteps,
       );
-      await loadWeeklyMetrics();
     } catch (e) {
-      print('[ProgressCubit] syncStepsToBackend ERROR: $e');
+      print(
+        '[ProgressCubit] syncStepsToBackend ERROR => $e',
+      );
     }
   }
 
-  void refresh() => loadWeeklyMetrics();
+  // =====================================================
+  // REFRESH
+  // =====================================================
 
-  String _fmt(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  Future<void> refresh() async {
+    try {
+      FitnessSnapshot? snapshot;
+
+      final granted =
+          await _fitService.requestPermissions();
+
+      if (granted) {
+        snapshot =
+            await _fitService.getTodaySnapshot();
+      }
+
+      await loadWeeklyMetrics(
+        snapshot: snapshot,
+        silent: true,
+      );
+    } catch (e) {
+      print(
+        '[ProgressCubit] refresh ERROR => $e',
+      );
+    }
+  }
+
+  // =====================================================
+  // FORMAT DATE
+  // =====================================================
+
+  String _fmt(DateTime d) {
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  // =====================================================
+  // CLOSE
+  // =====================================================
+
+  @override
+  Future<void> close() {
+    _waterSubscription?.cancel();
+
+    _calorieSubscription?.cancel();
+
+    return super.close();
+  }
 }

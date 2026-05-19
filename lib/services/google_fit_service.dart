@@ -1,13 +1,30 @@
 import 'package:health/health.dart';
 import 'package:vital_metrics/data/models/activity_model.dart';
 
+class FitnessActivity {
+  final String name;
+
+  final int caloriesBurned;
+
+  final int durationMinutes;
+
+  FitnessActivity({
+    required this.name,
+    required this.caloriesBurned,
+    required this.durationMinutes,
+  });
+}
+
 class FitnessSnapshot {
   final int steps;
+
   final int caloriesBurned;
+
   final int workoutMinutes;
+
   final List<ActivityModel> activities;
 
-  const FitnessSnapshot({
+  FitnessSnapshot({
     required this.steps,
     required this.caloriesBurned,
     required this.workoutMinutes,
@@ -15,213 +32,360 @@ class FitnessSnapshot {
   });
 }
 
-abstract class GoogleFitService {
-  Future<FitnessSnapshot> getTodaySnapshot();
-  Future<void> writeWater(int amountMl);
-  Future<void> writeSleep(int durationMinutes);
-  factory GoogleFitService() => RealGoogleFitService();
-}
-
-class MockGoogleFitService implements GoogleFitService {
-  @override
-  Future<FitnessSnapshot> getTodaySnapshot() async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    return const FitnessSnapshot(
-      steps: 5420, caloriesBurned: 320, workoutMinutes: 45, activities: [],
-    );
-  }
-  @override Future<void> writeWater(int amountMl) async {}
-  @override Future<void> writeSleep(int durationMinutes) async {}
-}
-
-class RealGoogleFitService implements GoogleFitService {
+class GoogleFitService {
   final Health _health = Health();
 
-  static const _readTypes = [
-    HealthDataType.STEPS,
-    HealthDataType.ACTIVE_ENERGY_BURNED,
-    HealthDataType.WORKOUT,
-  ];
+  bool? _cachedPermission;
 
-  static const _writeTypes = [
-    HealthDataType.WATER,
-    HealthDataType.SLEEP_ASLEEP,
-  ];
+  bool _configured = false;
 
-  static final _allTypes = [..._readTypes, ..._writeTypes];
+  // =====================================================
+  // CONFIGURE
+  // =====================================================
 
-  static final _permissions = [
-    ..._readTypes.map((_) => HealthDataAccess.READ),
-    ..._writeTypes.map((_) => HealthDataAccess.READ_WRITE),
-  ];
+  Future<void> _ensureConfigured() async {
+    if (_configured) return;
 
-  Future<bool> _requestPermissions() async {
+    await _health.configure();
+
+    _configured = true;
+  }
+
+  // =====================================================
+  // PERMISSIONS
+  // =====================================================
+
+  Future<bool> requestPermissions() async {
     try {
-      final sdkStatus = await _health.getHealthConnectSdkStatus();
-      print('Health Connect SDK status: $sdkStatus');
-
-      if (sdkStatus != HealthConnectSdkStatus.sdkAvailable) {
-        print('Health Connect not available: $sdkStatus');
-        return false;
+      if (_cachedPermission == true) {
+        return true;
       }
 
-      await _health.configure();
+      await _ensureConfigured();
 
-      final alreadyGranted = await _health.hasPermissions(
-        _allTypes,
-        permissions: _permissions,
-      );
+      final types = [
+        HealthDataType.STEPS,
+        HealthDataType.ACTIVE_ENERGY_BURNED,
+        HealthDataType.WATER,
+        HealthDataType.SLEEP_ASLEEP,
+        HealthDataType.WORKOUT,
+      ];
 
-      if (alreadyGranted == true) {
-        print('Health Connect permissions already granted');
+      final permissions = [
+        HealthDataAccess.READ,
+        HealthDataAccess.READ,
+        HealthDataAccess.READ_WRITE,
+        HealthDataAccess.READ_WRITE,
+        HealthDataAccess.READ,
+      ];
+
+      final hasPermissions =
+          await _health.hasPermissions(types, permissions: permissions) ??
+          false;
+
+      if (hasPermissions) {
+        _cachedPermission = true;
+
+        print('[Health] permissions already granted');
+
         return true;
       }
 
       final granted = await _health.requestAuthorization(
-        _allTypes,
-        permissions: _permissions,
+        types,
+        permissions: permissions,
       );
 
-      print('Health Connect permissions granted: $granted');
+      _cachedPermission = granted;
+
+      print('[Health] permission granted = $granted');
+
       return granted;
     } catch (e) {
-      print('Error requesting Health Connect permissions: $e');
+      print('[Health] permission error: $e');
+
       return false;
     }
   }
 
-  @override
+  // =====================================================
+  // TODAY SNAPSHOT
+  // =====================================================
+
   Future<FitnessSnapshot> getTodaySnapshot() async {
     try {
-      final granted = await _requestPermissions();
+      final granted = await requestPermissions();
+
       if (!granted) {
-        return const FitnessSnapshot(
-          steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: [],
+        return FitnessSnapshot(
+          steps: 0,
+          caloriesBurned: 0,
+          workoutMinutes: 0,
+          activities: [],
         );
       }
 
-      final now      = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
+      final now = DateTime.now();
 
-      final data = await _health.getHealthDataFromTypes(
-        types:     _readTypes,
-        startTime: midnight,
-        endTime:   now,
-      );
+      final start = DateTime(now.year, now.month, now.day);
 
-      final cleaned = _health.removeDuplicates(data);
+      int steps = 0;
 
-      int steps       = 0;
-      int calories    = 0;
-      int workoutMins = 0;
-      final activities = <ActivityModel>[];
+      int calories = 0;
 
-      for (final point in cleaned) {
-        try {
-          switch (point.type) {
-            case HealthDataType.STEPS:
-              steps += (point.value as NumericHealthValue).numericValue.toInt();
+      int workoutMinutes = 0;
 
-            case HealthDataType.ACTIVE_ENERGY_BURNED:
-              calories += (point.value as NumericHealthValue).numericValue.toInt();
+      final List<ActivityModel> activities = [];
 
-            case HealthDataType.WORKOUT:
-              final mins = point.dateTo.difference(point.dateFrom).inMinutes;
-              workoutMins += mins;
+      // =====================================================
+      // STEPS
+      // =====================================================
 
-              String workoutType = 'Workout';
-              if (point.value is WorkoutHealthValue) {
-                workoutType = (point.value as WorkoutHealthValue).workoutActivityType.name;
-              }
+      try {
+        final totalSteps = await _health.getTotalStepsInInterval(start, now);
 
-              int workoutCalories = 0;
-              if (point.value is NumericHealthValue) {
-                workoutCalories = (point.value as NumericHealthValue).numericValue.toInt();
-              }
+        steps = totalSteps ?? 0;
 
-              activities.add(ActivityModel(
-                id:              '${point.dateFrom.millisecondsSinceEpoch}',
-                type:            _formatWorkoutType(workoutType),
-                durationMinutes: mins,
-                caloriesBurned:  workoutCalories,
-                timestamp:       point.dateFrom,
-              ));
-
-            default:
-              break;
-          }
-        } catch (e) {
-          print('Error processing health point: $e');
-          continue;
+        if (steps < 0) {
+          steps = 0;
         }
+      } catch (e) {
+        print('[Health] steps error: $e');
       }
 
-      // If Health Connect has no active energy burned data,
-      // estimate calories from steps (avg 0.04 kcal per step)
-      final estimatedCalories = calories > 0 ? calories : (steps * 0.04).round();
+      // =====================================================
+      // CALORIES
+      // =====================================================
+
+      try {
+        final caloriesData = await _health.getHealthDataFromTypes(
+          startTime: start,
+          endTime: now,
+          types: [HealthDataType.ACTIVE_ENERGY_BURNED],
+        );
+
+        double total = 0;
+
+        for (final point in caloriesData) {
+          try {
+            final value = point.value;
+
+            if (value is NumericHealthValue) {
+              total += value.numericValue.toDouble();
+            }
+          } catch (_) {}
+        }
+
+        calories = total.round();
+
+        if (calories < 0) {
+          calories = 0;
+        }
+      } catch (e) {
+        print('[Health] calories error: $e');
+      }
+
+      // =====================================================
+      // WORKOUTS
+      // =====================================================
+
+      try {
+        final workouts = await _health.getHealthDataFromTypes(
+          startTime: start,
+          endTime: now,
+          types: [HealthDataType.WORKOUT],
+        );
+
+        final uniqueWorkouts = <String, HealthDataPoint>{};
+
+        for (final workout in workouts) {
+          final key =
+              '${workout.dateFrom.millisecondsSinceEpoch}_${workout.dateTo.millisecondsSinceEpoch}';
+
+          uniqueWorkouts[key] = workout;
+        }
+
+        for (final workout in uniqueWorkouts.values) {
+          final duration = workout.dateTo.difference(workout.dateFrom);
+
+          final mins = duration.inMinutes;
+
+          // Ignore invalid workouts
+          if (mins <= 0 || mins > 600) {
+            continue;
+          }
+
+          workoutMinutes += mins;
+
+          int workoutCalories = 0;
+
+          try {
+            final value = workout.value;
+
+            if (value is NumericHealthValue) {
+              workoutCalories = value.numericValue.round();
+            }
+          } catch (_) {}
+
+          String workoutType = 'Workout';
+
+          try {
+            workoutType = workout.value.toString();
+          } catch (_) {
+            workoutType = 'Workout';
+          }
+
+          activities.add(
+            ActivityModel(
+              id: 'hc_${workout.dateFrom.millisecondsSinceEpoch}',
+
+              type: _formatWorkoutName(workoutType),
+
+              durationMinutes: mins,
+
+              caloriesBurned: workoutCalories,
+
+              timestamp: workout.dateFrom,
+            ),
+          );
+        }
+      } catch (e) {
+        print('[Health] workouts error: $e');
+      }
+
+      print(
+        '[Health] SUCCESS => '
+        'steps=$steps '
+        'calories=$calories '
+        'workouts=$workoutMinutes '
+        'activities=${activities.length}',
+      );
 
       return FitnessSnapshot(
-        steps:          steps,
-        caloriesBurned: estimatedCalories,
-        workoutMinutes: workoutMins,
-        activities:     activities,
+        steps: steps,
+        caloriesBurned: calories,
+        workoutMinutes: workoutMinutes,
+        activities: activities,
       );
     } catch (e) {
-      print('Error fetching health data: $e');
-      return const FitnessSnapshot(
-        steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: [],
+      print('[Health] snapshot fatal error: $e');
+
+      return FitnessSnapshot(
+        steps: 0,
+        caloriesBurned: 0,
+        workoutMinutes: 0,
+        activities: [],
       );
     }
   }
 
-  @override
-  Future<void> writeWater(int amountMl) async {
+  // =====================================================
+  // FORMAT WORKOUT NAME
+  // =====================================================
+
+  String _formatWorkoutName(String raw) {
+    final cleaned = raw
+        .replaceAll('_', ' ')
+        .replaceAll('HealthWorkoutActivityType.', '')
+        .toLowerCase();
+
+    return cleaned
+        .split(' ')
+        .map((e) => e.isEmpty ? e : '${e[0].toUpperCase()}${e.substring(1)}')
+        .join(' ');
+  }
+
+  // =====================================================
+  // WRITE WATER
+  // =====================================================
+
+  Future<bool> writeWater(int ml) async {
     try {
-      final granted = await _requestPermissions();
-      if (!granted) return;
+      final granted = await requestPermissions();
+
+      if (!granted) {
+        print('[Health] unavailable on this device');
+
+        return false;
+      }
+
+      if (ml <= 0) {
+        return false;
+      }
 
       final now = DateTime.now();
-      await _health.writeHealthData(
-        value:     amountMl / 1000.0,
-        type:      HealthDataType.WATER,
+
+      final end = now.add(const Duration(seconds: 1));
+
+      final liters = ml / 1000;
+
+      print(
+        '[Health] Writing WATER '
+        'from=$now '
+        'to=$end '
+        'value=$liters L',
+      );
+
+      final result = await _health.writeHealthData(
+        value: liters,
+        type: HealthDataType.WATER,
         startTime: now,
-        endTime:   now,
-        unit:      HealthDataUnit.LITER,
+        endTime: end,
       );
-      print('Water written: $amountMl ml');
+
+      print('[Health] writeWater result = $result');
+
+      return result;
     } catch (e) {
-      print('Failed to write water: $e');
+      print('[Health] writeWater error: $e');
+
+      return false;
     }
   }
 
-  @override
-  Future<void> writeSleep(int durationMinutes) async {
+  // =====================================================
+  // WRITE SLEEP
+  // =====================================================
+
+  Future<bool> writeSleep({
+    required DateTime start,
+    required DateTime end,
+  }) async {
     try {
-      final granted = await _requestPermissions();
-      if (!granted) return;
+      final granted = await requestPermissions();
 
-      final now        = DateTime.now();
-      final sleepStart = now.subtract(Duration(minutes: durationMinutes));
+      if (!granted) {
+        return false;
+      }
 
-      await _health.writeHealthData(
-        value:     durationMinutes.toDouble(),
-        type:      HealthDataType.SLEEP_ASLEEP,
-        startTime: sleepStart,
-        endTime:   now,
-        unit:      HealthDataUnit.MINUTE,
+      if (!end.isAfter(start)) {
+        print('[Health] invalid sleep range');
+
+        return false;
+      }
+
+      final result = await _health.writeHealthData(
+        value: 1,
+        type: HealthDataType.SLEEP_ASLEEP,
+        startTime: start,
+        endTime: end,
       );
-      print('Sleep written: $durationMinutes minutes');
+
+      print('[Health] writeSleep result = $result');
+
+      return result;
     } catch (e) {
-      print('Failed to write sleep: $e');
+      print('[Health] writeSleep error: $e');
+
+      return false;
     }
   }
 
-  String _formatWorkoutType(String type) {
-    return type
-        .replaceAll('_', ' ')
-        .toLowerCase()
-        .split(' ')
-        .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
-        .join(' ');
+  // =====================================================
+  // CLEAR PERMISSION CACHE
+  // =====================================================
+
+  void clearPermissionCache() {
+    _cachedPermission = null;
   }
 }

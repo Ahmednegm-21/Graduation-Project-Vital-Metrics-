@@ -5,32 +5,43 @@ plugins {
 }
 
 android {
-    namespace = "com.example.healthfy"
-    // ✅ Updated to 36 — required by health, image_picker, shared_preferences plugins
+    namespace = "com.example.vital_metrics"
+
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
+    defaultConfig {
+        applicationId = "com.example.vital_metrics"
+
+        minSdk = 26
+        targetSdk = 36
+
+        versionCode = 1
+        versionName = "1.0"
+
+        multiDexEnabled = true
+    }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
-    defaultConfig {
-        applicationId = "com.example.vital_metrics"
-        minSdk = 26        // Required by health package
-        // ✅ Updated targetSdk to 36 to match compileSdk
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        jvmTarget = "17"
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
