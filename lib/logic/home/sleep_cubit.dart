@@ -5,6 +5,7 @@ import 'package:vital_metrics/data/models/sleep_model.dart';
 import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
 import 'package:vital_metrics/data/repositories/sleep_repository.dart';
 import 'package:vital_metrics/logic/home/sleep_state.dart';
+import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/services/google_fit_service.dart';
 
 export 'sleep_state.dart';
@@ -15,10 +16,11 @@ const _kSleepDate = 'cached_sleep_date';
 
 class SleepCubit extends Cubit<SleepState> {
   final SleepRepository _repo;
-
   final GoogleFitService _fitService;
-
   final DailyMetricsRepository _metricsRepo;
+
+  // ← ProgressCubit reference (اختياري، يتربط بعد الإنشاء)
+  ProgressCubit? _progressCubit;
 
   SleepCubit({
     SleepRepository? repository,
@@ -32,25 +34,22 @@ class SleepCubit extends Cubit<SleepState> {
   }
 
   // =====================================================
+  // ربط ProgressCubit — يُستدعى من main.dart أو providers
+  // =====================================================
+
+  void setProgressCubit(ProgressCubit cubit) {
+    _progressCubit = cubit;
+  }
+
+  // =====================================================
   // INIT
   // =====================================================
 
   Future<void> _init() async {
-    emit(
-      state.copyWith(
-        isLoading: true,
-      ),
-    );
-
+    emit(state.copyWith(isLoading: true));
     await _loadLocalCache();
-
     await _fetchFromBackend();
-
-    emit(
-      state.copyWith(
-        isLoading: false,
-      ),
-    );
+    emit(state.copyWith(isLoading: false));
   }
 
   // =====================================================
@@ -60,49 +59,21 @@ class SleepCubit extends Cubit<SleepState> {
   Future<void> _loadLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now().toIso8601String().split('T').first;
+      final savedDate = prefs.getString(_kSleepDate);
 
-      final today =
-          DateTime.now().toIso8601String().split('T').first;
-
-      final savedDate =
-          prefs.getString(_kSleepDate);
-
-      // يوم جديد
+      // يوم جديد — صفّر الكاش
       if (savedDate != today) {
-        await prefs.setString(
-          _kSleepDate,
-          today,
-        );
-
-        await prefs.setDouble(
-          _kSleepHours,
-          0,
-        );
-
+        await prefs.setString(_kSleepDate, today);
+        await prefs.setDouble(_kSleepHours, 0);
         await prefs.remove(_kSleepId);
-
-        emit(
-          state.copyWith(
-            sleepHours: 0,
-            sleepId: null,
-          ),
-        );
-
+        emit(state.copyWith(sleepHours: 0, sleepId: null));
         return;
       }
 
-      final cachedHours =
-          prefs.getDouble(_kSleepHours) ?? 0;
-
-      final cachedId =
-          prefs.getInt(_kSleepId);
-
-      emit(
-        state.copyWith(
-          sleepHours: cachedHours,
-          sleepId: cachedId,
-        ),
-      );
+      final cachedHours = prefs.getDouble(_kSleepHours) ?? 0;
+      final cachedId = prefs.getInt(_kSleepId);
+      emit(state.copyWith(sleepHours: cachedHours, sleepId: cachedId));
     } catch (e) {
       print('[SleepCubit] load cache error: $e');
     }
@@ -115,25 +86,11 @@ class SleepCubit extends Cubit<SleepState> {
   Future<void> _saveLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      final today =
-          DateTime.now().toIso8601String().split('T').first;
-
-      await prefs.setString(
-        _kSleepDate,
-        today,
-      );
-
-      await prefs.setDouble(
-        _kSleepHours,
-        state.sleepHours,
-      );
-
+      final today = DateTime.now().toIso8601String().split('T').first;
+      await prefs.setString(_kSleepDate, today);
+      await prefs.setDouble(_kSleepHours, state.sleepHours);
       if (state.sleepId != null) {
-        await prefs.setInt(
-          _kSleepId,
-          state.sleepId!,
-        );
+        await prefs.setInt(_kSleepId, state.sleepId!);
       }
     } catch (e) {
       print('[SleepCubit] save cache error: $e');
@@ -146,162 +103,85 @@ class SleepCubit extends Cubit<SleepState> {
 
   Future<void> _fetchFromBackend() async {
     try {
-      final todayMetric =
-          await _metricsRepo.getTodayMetric();
+      final todayMetric = await _metricsRepo.getTodayMetric();
+      final todayMetricsId = todayMetric?.metricId;
+      if (todayMetricsId == null || todayMetricsId == 0) return;
 
-      final todayMetricsId =
-          todayMetric?.metricId;
+      final allSleeps = await _repo.getSleeps();
+      final todaySleeps =
+          allSleeps.where((s) => s.metricsId == todayMetricsId).toList();
+      if (todaySleeps.isEmpty) return;
 
-      if (todayMetricsId == null ||
-          todayMetricsId == 0) {
-        return;
-      }
-
-      final allSleeps =
-          await _repo.getSleeps();
-
-      final todaySleeps = allSleeps.where((s) {
-        return s.metricsId ==
-            todayMetricsId;
-      }).toList();
-
-      if (todaySleeps.isEmpty) {
-        return;
-      }
-
-      final firstSession =
-          todaySleeps.first;
-
+      final firstSession = todaySleeps.first;
       final totalMinutes =
-          todaySleeps.fold<int>(
-        0,
-        (sum, s) =>
-            sum + s.durationMinutes,
-      );
+          todaySleeps.fold<int>(0, (sum, s) => sum + s.durationMinutes);
+      final cappedMinutes = totalMinutes.clamp(0, 12 * 60);
+      final hours = _roundToHalf(cappedMinutes / 60.0);
 
-      final cappedMinutes =
-          totalMinutes.clamp(
-        0,
-        12 * 60,
-      );
-
-      final hours =
-          _roundToHalf(
-        cappedMinutes / 60.0,
-      );
-
-      emit(
-        state.copyWith(
-          sleepHours: hours,
-          sleepId: firstSession.id,
-        ),
-      );
-
+      emit(state.copyWith(sleepHours: hours, sleepId: firstSession.id));
       await _saveLocalCache();
 
-      print(
-        '[SleepCubit] synced from backend',
-      );
+      // ← بلّغ ProgressCubit بالقيمة الجديدة
+      _progressCubit?.updateTodaySleep(cappedMinutes);
+
+      print('[SleepCubit] synced from backend: ${hours}h');
     } catch (e) {
-      print(
-        '[SleepCubit] backend error: $e',
-      );
+      print('[SleepCubit] backend error: $e');
     }
   }
 
   // =====================================================
-  // UPDATE HOURS
+  // UPDATE HOURS (من الـ slider — بدون حفظ للباك)
   // =====================================================
 
   void updateHours(double hours) {
-    emit(
-      state.copyWith(
-        sleepHours: hours,
-      ),
-    );
-
+    emit(state.copyWith(sleepHours: hours));
     _saveLocalCache();
   }
 
   // =====================================================
-  // SAVE SLEEP
+  // SAVE SLEEP (بعد ما المستخدم يرفع إيده عن الـ slider)
   // =====================================================
 
   Future<void> saveSleep() async {
     if (state.isSaving) return;
 
-    emit(
-      state.copyWith(
-        isSaving: true,
-      ),
-    );
-
+    emit(state.copyWith(isSaving: true));
     await _saveLocalCache();
 
     try {
       SleepModel result;
 
       if (state.hasTodaySleep) {
-        result =
-            await _repo.updateSleep(
+        result = await _repo.updateSleep(
           id: state.sleepId!,
-          durationMinutes:
-              state.durationMinutes,
+          durationMinutes: state.durationMinutes,
           quality: state.quality,
         );
-
-        print(
-          '[SleepCubit] updated sleep',
-        );
+        print('[SleepCubit] updated sleep');
       } else {
-        result =
-            await _repo.createSleep(
-          durationMinutes:
-              state.durationMinutes,
+        result = await _repo.createSleep(
+          durationMinutes: state.durationMinutes,
           quality: state.quality,
         );
-
-        print(
-          '[SleepCubit] created sleep',
-        );
+        print('[SleepCubit] created sleep');
       }
 
-      // =====================================================
-      // HEALTH CONNECT
-      // =====================================================
-
+      // Health Connect
       final end = DateTime.now();
+      final start = end.subtract(Duration(minutes: state.durationMinutes));
+      await _fitService.writeSleep(start: start, end: end);
 
-      final start = end.subtract(
-        Duration(
-          minutes:
-              state.durationMinutes,
-        ),
-      );
-
-      await _fitService.writeSleep(
-        start: start,
-        end: end,
-      );
-
-      emit(
-        state.copyWith(
-          sleepId: result.id,
-          isSaving: false,
-        ),
-      );
-
+      emit(state.copyWith(sleepId: result.id, isSaving: false));
       await _saveLocalCache();
-    } catch (e) {
-      print(
-        '[SleepCubit] save error: $e',
-      );
 
-      emit(
-        state.copyWith(
-          isSaving: false,
-        ),
-      );
+      // ← بلّغ ProgressCubit بعد الحفظ الناجح
+      _progressCubit?.updateTodaySleep(state.durationMinutes);
+
+      print('[SleepCubit] sleep saved & progress updated');
+    } catch (e) {
+      print('[SleepCubit] save error: $e');
+      emit(state.copyWith(isSaving: false));
     }
   }
 
@@ -310,27 +190,16 @@ class SleepCubit extends Cubit<SleepState> {
   // =====================================================
 
   Future<void> resetSleep() async {
-    emit(
-      state.copyWith(
-        sleepHours: 0,
-        sleepId: null,
-      ),
-    );
+    emit(state.copyWith(sleepHours: 0, sleepId: null));
 
-    final prefs =
-        await SharedPreferences.getInstance();
-
+    final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kSleepHours);
-
     await prefs.remove(_kSleepId);
+    final today = DateTime.now().toIso8601String().split('T').first;
+    await prefs.setString(_kSleepDate, today);
 
-    final today =
-        DateTime.now().toIso8601String().split('T').first;
-
-    await prefs.setString(
-      _kSleepDate,
-      today,
-    );
+    // ← صفّر النوم في الـ progress كمان
+    _progressCubit?.updateTodaySleep(0);
   }
 
   // =====================================================
@@ -345,9 +214,7 @@ class SleepCubit extends Cubit<SleepState> {
   // HELPERS
   // =====================================================
 
-  double _roundToHalf(
-    double value,
-  ) {
+  double _roundToHalf(double value) {
     return (value * 2).round() / 2.0;
   }
 }

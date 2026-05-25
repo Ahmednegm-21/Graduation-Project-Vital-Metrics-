@@ -1,12 +1,16 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../data/repositories/auth_repository.dart';
-import '../../data/exceptions/api_exception.dart';
-import 'auth_state.dart';
+import 'package:vital_metrics/data/repositories/auth_repository.dart';
+import 'package:vital_metrics/data/exceptions/api_exception.dart';
+import 'package:vital_metrics/logic/auth/auth_state.dart';
+import 'package:vital_metrics/services/local_data_clear_service.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepository;
 
   bool _isSignInFlow = false;
+
+  // آخر email سجل دخول — عشان نكتشف لو اليوزر اتغير
+  String? _lastSignedInEmail;
 
   AuthCubit({AuthRepository? authRepository})
       : _authRepository = authRepository ?? AuthRepository(),
@@ -19,9 +23,6 @@ class AuthCubit extends Cubit<AuthState> {
       name.trim().isNotEmpty && name.trim().length >= 3;
 
   // ── Sign In ───────────────────────────────────────────────────────────────
-  // true  → email verified → token saved → AuthSuccess → home
-  // false → email not verified (403) → AuthSignInOTPSent → OTP screen
-  // throws ApiException(401) → invalid credentials → AuthError
 
   Future<void> signIn({
     required String email,
@@ -56,11 +57,16 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       if (isVerified) {
-        // Email already verified → fetch profile → go home
+        // ← لو اليوزر اتغير، امسح الداتا القديمة
+        if (_lastSignedInEmail != null && _lastSignedInEmail != email) {
+          await LocalDataClearService.clearAll();
+          print('[AuthCubit] user changed — local data cleared');
+        }
+        _lastSignedInEmail = email;
+
         final user = await _authRepository.getUserProfile();
         emit(AuthSuccess(user));
       } else {
-        // Email not verified → go to OTP screen
         _isSignInFlow = true;
         emit(AuthSignInOTPSent(email));
       }
@@ -78,8 +84,6 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Sign Up ───────────────────────────────────────────────────────────────
-  // 201 → OTP sent → AuthRegistrationSuccess
-  // 409 → email exists → AuthError with clear message
 
   Future<void> signUp({
     required String name,
@@ -120,6 +124,10 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
+      // ← امسح الداتا القديمة عند تسجيل يوزر جديد
+      await LocalDataClearService.clearAll();
+      print('[AuthCubit] new user signup — local data cleared');
+
       final resultEmail = await _authRepository.signUp(
         name:        name,
         email:       email,
@@ -131,6 +139,7 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       _isSignInFlow = false;
+      _lastSignedInEmail = email;
       emit(AuthRegistrationSuccess(email: resultEmail, tempToken: ''));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
@@ -147,8 +156,6 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Verify OTP ────────────────────────────────────────────────────────────
-  // signin flow → fetch profile → AuthSuccess → home
-  // signup flow → AuthOTPVerified → goal selection
 
   Future<void> verifyOTP({
     required String email,
@@ -163,6 +170,13 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       if (_isSignInFlow) {
+        // ← لو اليوزر اتغير، امسح الداتا القديمة
+        if (_lastSignedInEmail != null && _lastSignedInEmail != email) {
+          await LocalDataClearService.clearAll();
+          print('[AuthCubit] user changed via OTP — local data cleared');
+        }
+        _lastSignedInEmail = email;
+
         final user = await _authRepository.getUserProfile();
         _isSignInFlow = false;
         emit(AuthSuccess(user));
@@ -177,7 +191,6 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // ── Resend OTP ────────────────────────────────────────────────────────────
-  // No resend endpoint → UI shows message to go back and try again
 
   Future<void> resendOTP(String email) async {
     emit(AuthOTPResent(email));
@@ -189,6 +202,11 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
     try {
       await _authRepository.signOut();
+
+      // ← امسح كل الداتا المحلية عند الـ logout
+      await LocalDataClearService.clearAll();
+      _lastSignedInEmail = null;
+
       emit(AuthInitial());
     } on ApiException catch (e) {
       emit(AuthError(e.message));
@@ -204,6 +222,7 @@ class AuthCubit extends Cubit<AuthState> {
       final isLoggedIn = await _authRepository.isLoggedIn();
       if (isLoggedIn) {
         final user = await _authRepository.getUserProfile();
+        _lastSignedInEmail = user.email;
         emit(AuthSuccess(user));
       } else {
         emit(AuthInitial());

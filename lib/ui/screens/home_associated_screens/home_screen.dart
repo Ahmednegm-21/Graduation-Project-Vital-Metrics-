@@ -10,6 +10,7 @@ import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/water_details_sheet.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/water_tracker_card.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/meal_section.dart';
+import 'package:vital_metrics/ui/widgets/home_widgets/health_connect_toggle.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
+    // Pulse animation for the calorie ring
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -48,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
+    // Float animation for the calorie card vertical movement
     _floatCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3200),
@@ -57,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut),
     );
 
+    // Particle animation for the floating dots around the calorie card
     _particleCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 6000),
@@ -81,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           : const Color(0xFFF3F7FF),
       body: Stack(
         children: [
-          // Background top-right glow
+          // Top-right background glow circle
           Positioned(
             top: -120,
             right: -80,
@@ -100,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Background bottom-left glow
+          // Bottom-left background glow circle
           Positioned(
             bottom: -140,
             left: -100,
@@ -119,12 +123,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Grid background painter
+          // Subtle dot grid painted across the full background
           Positioned.fill(
             child: CustomPaint(painter: _HomeGridPainter()),
           ),
 
-          // Main scrollable content
+          // Main scrollable content area
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -138,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _buildMealRow(context, isDark),
                   const SizedBox(height: 24),
 
-                  // Health badge above Water card
+                  // Health Connect badge above the water tracker card
                   _buildHealthBadge(context),
                   const SizedBox(height: 8),
                   const WaterTrackerCard(),
@@ -155,59 +159,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // Health Connect badge shown above the water card
-  // Green when Health Connect is connected, orange otherwise
+  // Uses HealthConnectToggle widget instead of inline BlocBuilder
   Widget _buildHealthBadge(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Align(
         alignment: AlignmentDirectional.centerStart,
-        child: BlocBuilder<FitnessSnapshotCubit, FitnessSnapshotState>(
-          builder: (context, fitnessState) {
-            final connected = fitnessState is FitnessSnapshotLoaded;
-
-            final color = connected
-                ? const Color(0xFF63E6BE)
-                : const Color(0xFFFFA94D);
-
-            final label = connected ? 'Health Connected' : 'Local Tracking';
-
-            return Container(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: color.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7.w,
-                    height: 7.w,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 6.w),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        child: HealthConnectToggle(),
       ),
     );
   }
 
-  // Top header row with date picker, notifications, and settings
+  // Top header row with date picker, notification bell, and settings button
   Widget _buildHeader(BuildContext context, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
     final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
@@ -270,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
           const Spacer(),
 
+          // Notification bell with red dot indicator
           FadeInDown(
             delay: const Duration(milliseconds: 80),
             child: GestureDetector(
@@ -365,6 +329,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
+                // Card floats up and down using the float animation
                 AnimatedBuilder(
                   animation: _floatAnim,
                   builder: (_, child) => Transform.translate(
@@ -398,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Food image on the left side of the card
+                        // Food image filling the left side of the card
                         Positioned(
                           left: 0,
                           top: 0,
@@ -418,12 +383,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        // Right side content: calorie ring and macro bars
+                        // Right side: calorie ring and macro progress bars
                         Padding(
                           padding: const EdgeInsets.fromLTRB(156, 16, 14, 16),
                           child: Column(
                             children: [
-                              // Pulsing circular calorie progress ring
+                              // Pulsing circular progress ring showing calorie usage
                               AnimatedBuilder(
                                 animation: _pulseAnim,
                                 builder: (_, child) => Transform.scale(
@@ -436,6 +401,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
+                                      // Background ring track
                                       SizedBox(
                                         width: 108,
                                         height: 108,
@@ -447,6 +413,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                               : const Color(0xFF4361EE).withOpacity(0.12),
                                         ),
                                       ),
+                                      // Foreground ring showing consumed progress
                                       SizedBox(
                                         width: 108,
                                         height: 108,
@@ -459,6 +426,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                           ),
                                         ),
                                       ),
+                                      // Center label showing remaining calories
                                       Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -493,6 +461,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                               const SizedBox(height: 10),
 
+                              // Macro progress bars for protein, carbs, and fat
                               _MacroBar(
                                 label: 'Protein',
                                 consumed: state.totalProtein,
@@ -521,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        // Budget label badge at the bottom-left over the food image
+                        // Calorie budget label badge overlaid at the bottom-left
                         Positioned(
                           left: 0,
                           bottom: 0,
@@ -555,6 +524,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
+                // Floating animated particle dots around the card
                 ..._buildParticles(isDark),
               ],
             ),
@@ -564,7 +534,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Floating animated particles around the calorie card
+  // Builds the list of floating particle dots around the calorie card
   List<Widget> _buildParticles(bool isDark) {
     final particles = [
       _Particle(top: -10, right: 28, size: 6.0, speed: 1.00, color: 0xFF4361EE),
@@ -611,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }).toList();
   }
 
-  // 2x2 grid of meal cards (breakfast, lunch, dinner, snacks)
+  // 2x2 grid of meal cards for breakfast, lunch, dinner, and snacks
   Widget _buildMealRow(BuildContext context, bool isDark) {
     return BlocBuilder<CalorieCubit, CalorieState>(
       builder: (context, state) {
@@ -641,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Single meal card with emoji, calorie badge, macros, and action buttons
+  // Single meal card with emoji, calorie badge, macro rows, and action buttons
   Widget _buildMealCard(BuildContext context, CalorieState state, int index) {
     final isDark = context.isDark;
     final item = _meals[index];
@@ -701,6 +671,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
               SizedBox(height: 8.h),
 
+              // Calorie badge showing total kcal for this meal
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                 decoration: BoxDecoration(
@@ -721,6 +692,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
               SizedBox(height: 10.h),
 
+              // Compact macro rows for protein, carbs, and fat
               _compactMacro('Protein', protein, const Color(0xFFFF9A3C), isDark),
               SizedBox(height: 4.h),
               _compactMacro('Carbs', carbs, const Color(0xFF2ECC9A), isDark),
@@ -731,6 +703,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
               Row(
                 children: [
+                  // Add meal button opens the MealSection bottom sheet
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
@@ -774,6 +747,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                   SizedBox(width: 6.w),
 
+                  // Reset button clears all meals for this type
                   GestureDetector(
                     onTap: () => context.read<CalorieCubit>().resetMeal(type),
                     child: Container(
@@ -799,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Compact single-line macro row used inside meal cards
+  // Compact single-line macro row with colored dot, label, and value
   Widget _compactMacro(String label, int value, Color color, bool isDark) {
     return Row(
       children: [
@@ -838,7 +812,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Sleep insights card with weekly bar chart, slider, and tip section
+  // Sleep insights card with weekly bar chart, hours slider, and tip section
   Widget _buildSleepCard(BuildContext context, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
     final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
@@ -875,13 +849,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             currentDayIndex = 6;
         }
 
+        // Only the current day has a value; all others default to 0
         final weekData = List.generate(
           7,
           (index) => {'day': days[index], 'hours': 0.0},
         );
         weekData[currentDayIndex]['hours'] = hours;
 
-        // Sleep quality color, emoji, insight text, and tip based on hours slept
+        // Determine color, emoji, insight, and tip based on hours slept
         Color mainColor;
         String insight;
         String sleepEmoji;
@@ -889,22 +864,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
         if (hours < 6) {
           mainColor = const Color(0xFFFF6B6B);
-          insight = '😴 Not enough sleep';
+          insight = 'Not enough sleep';
           sleepEmoji = '😴';
           sleepTip = 'Try sleeping earlier tonight for better recovery.';
         } else if (hours < 7) {
           mainColor = const Color(0xFFFFB84D);
-          insight = '🌙 Almost there';
+          insight = 'Almost there';
           sleepEmoji = '🌙';
           sleepTip = 'You are close to the recommended sleep range.';
         } else if (hours <= 9) {
           mainColor = const Color(0xFF63E6BE);
-          insight = '✨ Optimal sleep';
+          insight = 'Optimal sleep';
           sleepEmoji = '✨';
           sleepTip = 'Your sleep today looks healthy and balanced.';
         } else {
           mainColor = const Color(0xFF4CC9F0);
-          insight = '💤 Too much sleep';
+          insight = 'Too much sleep';
           sleepEmoji = '💤';
           sleepTip = 'You slept longer than usual. Try balancing your sleep schedule.';
         }
@@ -916,52 +891,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Health Connect badge shown above the sleep card
-                BlocBuilder<FitnessSnapshotCubit, FitnessSnapshotState>(
-                  builder: (context, fitnessState) {
-                    final connected = fitnessState is FitnessSnapshotLoaded;
-                    final color = connected
-                        ? const Color(0xFF63E6BE)
-                        : const Color(0xFFFFA94D);
-                    final label = connected ? 'Health Connected' : 'Local Tracking';
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10.w,
-                          vertical: 5.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20.r),
-                          border: Border.all(color: color.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 7.w,
-                              height: 7.w,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            Text(
-                              label,
-                              style: TextStyle(
-                                color: color,
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                // Health Connect badge above the sleep card
+                // Uses HealthConnectToggle widget instead of inline BlocBuilder
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: HealthConnectToggle(),
                 ),
 
                 // Sleep card main container
@@ -987,7 +921,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header row with emoji icon, title, insight, and hours badge
+                      // Header row with emoji, title, insight text, and hours badge
                       Row(
                         children: [
                           Container(
@@ -1034,7 +968,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                           ),
 
-                          // Hours badge on the right
+                          // Hours badge showing current sleep duration
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -1068,7 +1002,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                       const SizedBox(height: 24),
 
-                      // Weekly bar chart showing sleep per day
+                      // Weekly bar chart showing sleep hours per day
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1167,7 +1101,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                       const SizedBox(height: 12),
 
-                      // Sleep hours slider from 0 to 12
+                      // Slider for manually adjusting sleep hours from 0 to 12
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 5,
@@ -1195,6 +1129,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       ),
 
+                      // Min and max labels for the sleep slider
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1217,7 +1152,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                       const SizedBox(height: 20),
 
-                      // Bottom tip card with lightbulb emoji and advice text
+                      // Tip card with lightbulb icon and sleep advice text
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -1262,7 +1197,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Returns formatted date label like "Jan 5"
+  // Returns a formatted date label like "Jan 5"
   String _todayLabel() {
     final now = DateTime.now();
     const m = [
@@ -1273,7 +1208,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-// Particle data model used for the floating dots animation
+// Data model for a single floating particle dot
 class _Particle {
   final double top;
   final double? left;
@@ -1292,7 +1227,7 @@ class _Particle {
   });
 }
 
-// Animated macro progress bar with fill animation and slide-in effect
+// Animated macro progress bar with slide-in entrance and fill animation
 class _MacroBar extends StatefulWidget {
   final String label;
   final int consumed;
@@ -1330,14 +1265,19 @@ class _MacroBarState extends State<_MacroBar>
       duration: const Duration(milliseconds: 900),
     );
 
+    // Fill animates the bar width after the fade-in starts
     _fillAnim = CurvedAnimation(
       parent: _ctrl,
       curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
     );
+
+    // Fade-in covers the first 40% of the animation duration
     _fadeAnim = CurvedAnimation(
       parent: _ctrl,
       curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
     );
+
+    // Slide-in moves the bar from right to its final position
     _slideAnim = Tween(begin: 16.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _ctrl,
@@ -1345,6 +1285,7 @@ class _MacroBarState extends State<_MacroBar>
       ),
     );
 
+    // Delay the animation start to stagger bars
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.forward();
     });
@@ -1383,6 +1324,7 @@ class _MacroBarState extends State<_MacroBar>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Colored dot and macro label on the left
                     Row(
                       children: [
                         Container(
@@ -1412,6 +1354,7 @@ class _MacroBarState extends State<_MacroBar>
                         ),
                       ],
                     ),
+                    // Consumed vs goal badge on the right
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 7,
@@ -1456,7 +1399,7 @@ class _MacroBarState extends State<_MacroBar>
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        // Filled progress bar
+                        // Filled portion of the progress bar
                         if (fillW > 2)
                           Container(
                             height: 7,
@@ -1478,7 +1421,7 @@ class _MacroBarState extends State<_MacroBar>
                               ],
                             ),
                           ),
-                        // Glowing dot at the end of the filled bar
+                        // Glowing dot at the leading edge of the filled bar
                         if (fillW > 8)
                           Positioned(
                             left: fillW - 5,
@@ -1517,7 +1460,7 @@ class _MacroBarState extends State<_MacroBar>
   }
 }
 
-// Subtle dot grid painter for the screen background
+// Paints a subtle dot grid across the screen background
 class _HomeGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

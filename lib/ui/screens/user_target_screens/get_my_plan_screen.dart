@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/styles/decorations.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
+import 'package:vital_metrics/data/models/activity_level.dart';
+import 'package:vital_metrics/data/models/user_goal.dart';
+import 'package:vital_metrics/logic/home/calorie_cubit.dart';
+import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
@@ -25,35 +29,93 @@ class GetMyPlanScreen extends StatelessWidget {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  double _calculateBMR({
-    required String gender,
+  // =====================================================
+  // نفس المعادلة اللي في CalorieCubit.calculateAndSetBudget
+  // =====================================================
+  int _calculateDailyCalories({
     required double weight,
     required double height,
     required double age,
-  }) {
-    if (gender == 'male') {
-      return (10 * weight) + (6.25 * height) - (5 * age) + 5;
-    } else {
-      return (10 * weight) + (6.25 * height) - (5 * age) - 161;
-    }
-  }
-
-  int _calculateDailyCalories({
-    required double bmr,
+    required String gender,
     required String goalType,
-    required double weightPerWeek,
+    required ActivityLevel activityLevel,
   }) {
-    final tdee = bmr * AppConstants.activityMultiplier;
-    if (goalType.contains('lose')) {
-      return (tdee - weightPerWeek * AppConstants.caloriesPerKg).round();
-    } else if (goalType.contains('gain')) {
-      return (tdee + weightPerWeek * AppConstants.caloriesPerKg).round();
+    double bmr;
+    if (gender.toLowerCase() == 'male') {
+      bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+    } else {
+      bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
     }
-    return tdee.round();
+
+    double multiplier;
+    switch (activityLevel) {
+      case ActivityLevel.low:
+        multiplier = 1.2;
+        break;
+      case ActivityLevel.moderate:
+        multiplier = 1.55;
+        break;
+      case ActivityLevel.high:
+        multiplier = 1.75;
+        break;
+    }
+
+    double targetCalories = bmr * multiplier;
+
+    if (goalType.contains('lose')) {
+      targetCalories -= 500;
+    } else if (goalType.contains('gain')) {
+      targetCalories += 300;
+    }
+
+    if (targetCalories < 1200) targetCalories = 1200;
+
+    return targetCalories.round();
   }
 
-  int _calculateWaterIntake(double weight) =>
-      (weight * AppConstants.waterPerKg).round();
+  // =====================================================
+  // نفس المعادلة اللي في ActivityLevel.waterGoalMl
+  // =====================================================
+  int _calculateWaterMl({
+    required double weight,
+    required ActivityLevel activityLevel,
+  }) {
+    return activityLevel.waterGoalMl(weight: weight);
+  }
+
+  String _goalTypeString(UserGoal? goal) {
+    if (goal == null) return 'maintain';
+    switch (goal.type) {
+      case GoalType.loseWeight:
+        return 'lose_weight';
+      case GoalType.gainWeight:
+        return 'gain_weight';
+    }
+  }
+
+  void _applyPlanToCubits(
+    BuildContext context, {
+    required double weight,
+    required double height,
+    required double age,
+    required String gender,
+    required String goalType,
+    required ActivityLevel activityLevel,
+  }) {
+    context.read<CalorieCubit>().calculateAndSetBudget(
+      weight: weight,
+      height: height,
+      age: age,
+      gender: gender,
+      goal: goalType,
+      activityLevel: activityLevel.name,
+    );
+
+    context.read<WaterCubit>().setGoalFromProfile(
+      weight: weight,
+      activityLevel: activityLevel,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,21 +126,50 @@ class GetMyPlanScreen extends StatelessWidget {
     final height        = data.height ?? 170.0;
     final age           = data.age ?? 25.0;
     final targetDate    = data.targetDate ?? DateTime.now().add(const Duration(days: 90));
-    final goalType      = data.goal?.type.toString() ?? 'maintain';
-    final weightPerWeek = data.weightPerWeek ?? 0.5;
-
-    final bmr           = _calculateBMR(gender: gender, weight: currentWeight, height: height, age: age);
-    final dailyCalories = _calculateDailyCalories(bmr: bmr, goalType: goalType, weightPerWeek: weightPerWeek);
-    final waterIntake   = _calculateWaterIntake(currentWeight);
+    final activityLevel = data.activityLevel ?? ActivityLevel.moderate;
+    final goalType      = _goalTypeString(data.goal);
     final weightDiff    = (targetWeight - currentWeight).abs();
 
-    final workoutFrequency = goalType.contains('lose') ? 5 : goalType.contains('gain') ? 4 : 3;
-    final goalLabel = goalType.contains('lose') ? 'Lose Weight' : goalType.contains('gain') ? 'Gain Weight' : 'Maintain Weight';
+    // ← نفس الحسابات اللي هتروح للهوم
+    final dailyCalories = _calculateDailyCalories(
+      weight: currentWeight,
+      height: height,
+      age: age,
+      gender: gender,
+      goalType: goalType,
+      activityLevel: activityLevel,
+    );
+
+    final waterMl = _calculateWaterMl(
+      weight: currentWeight,
+      activityLevel: activityLevel,
+    );
+
+    // Workout frequency من الـ activityLevel
+    final workoutFrequency = activityLevel == ActivityLevel.low
+        ? 3
+        : activityLevel == ActivityLevel.moderate
+            ? 4
+            : 5;
+
+    final goalLabel = goalType.contains('lose')
+        ? 'Lose Weight'
+        : goalType.contains('gain')
+            ? 'Gain Weight'
+            : 'Maintain Weight';
 
     return BlocListener<OnboardingCubitAllData, OnboardingState>(
       listener: (context, state) {
         if (state is OnboardingComplete) {
-          // Onboarding done → go to home
+          _applyPlanToCubits(
+            context,
+            weight: currentWeight,
+            height: height,
+            age: age,
+            gender: gender,
+            goalType: goalType,
+            activityLevel: activityLevel,
+          );
           context.go('/home');
         } else if (state is OnboardingError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -139,10 +230,10 @@ class GetMyPlanScreen extends StatelessWidget {
                         duration: Duration(milliseconds: AppConstants.animationSlow),
                         delay: const Duration(milliseconds: 400),
                         child: PlanDailyGoalsGrid(
-                          goalLabel:         goalLabel,
-                          dailyCalories:     dailyCalories,
-                          workoutFrequency:  workoutFrequency,
-                          waterIntake:       waterIntake,
+                          goalLabel:        goalLabel,
+                          dailyCalories:    dailyCalories,
+                          workoutFrequency: workoutFrequency,
+                          waterIntake:      waterMl,
                         ),
                       ),
 
@@ -152,7 +243,6 @@ class GetMyPlanScreen extends StatelessWidget {
                 ),
               ),
 
-              // "Get Your Plan" button → completeOnboarding
               FadeInUp(
                 duration: Duration(milliseconds: AppConstants.animationSlow),
                 delay: const Duration(milliseconds: 500),

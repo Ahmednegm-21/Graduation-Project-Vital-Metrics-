@@ -4,19 +4,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
+import 'package:vital_metrics/data/models/activity_level_card.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';
 import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
-import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
-import 'package:vital_metrics/ui/widgets/activity/activity_level_card.dart';
+import 'package:vital_metrics/ui/widgets/activity/activity_level_card.dart' hide ActivityLevelCard;
 import 'package:vital_metrics/ui/widgets/activity/activity_stats_row.dart';
 import 'package:vital_metrics/ui/widgets/activity/circular_progress_rings.dart';
 import 'package:vital_metrics/ui/widgets/activity/empty_state_widget.dart';
 import 'package:vital_metrics/ui/widgets/activity/tracked_activity_card.dart';
 import 'package:vital_metrics/ui/widgets/activity/log_activity_sheet.dart';
+import 'package:vital_metrics/ui/widgets/home_widgets/health_connect_toggle.dart';
 import 'package:vital_metrics/data/models/activity_level.dart';
 
 class ActivityScreen extends StatelessWidget {
@@ -24,11 +24,10 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Set ProgressCubit on the global ActivityCubit
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ActivityCubit>().setProgressCubit(
-        context.read<ProgressCubit>(),
-      );
+            context.read<ProgressCubit>(),
+          );
     });
     return const _TodayScreenView();
   }
@@ -40,18 +39,8 @@ class _TodayScreenView extends StatelessWidget {
   String _todayLabel() {
     final now = DateTime.now();
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[now.month - 1]} ${now.day}';
   }
@@ -107,211 +96,160 @@ class _TodayScreenView extends StatelessWidget {
     );
   }
 
-Widget _buildHeader(BuildContext context, bool isDark) {
-  return Padding(
-    padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 10.h),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // ── Date + Health Status ──
-        FadeInDown(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () => _showDatePicker(context),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical: 9.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.colors.card,
-                    borderRadius: BorderRadius.circular(14.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: context.colors.shadow,
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.calendar_month_rounded,
-                        color: Color(0xFF4361EE),
-                        size: 18,
-                      ),
-                      SizedBox(width: 7.w),
-                      Text(
-                        _todayLabel(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13.sp,
-                          color: context.colors.text,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 8.h),
-
-              BlocBuilder<FitnessSnapshotCubit, FitnessSnapshotState>(
-                builder: (context, fitnessState) {
-                  final connected =
-                      fitnessState is FitnessSnapshotLoaded;
-
-                  return Container(
+  Widget _buildHeader(BuildContext context, bool isDark) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 10.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          FadeInDown(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date picker button
+                GestureDetector(
+                  onTap: () => _showDatePicker(context),
+                  child: Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: 10.w,
-                      vertical: 5.h,
+                      horizontal: 14.w,
+                      vertical: 9.h,
                     ),
                     decoration: BoxDecoration(
-                      color: connected
-                          ? const Color(0xFF63E6BE).withOpacity(0.12)
-                          : const Color(0xFFFFA94D).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(
-                        color: connected
-                            ? const Color(0xFF63E6BE).withOpacity(0.3)
-                            : const Color(0xFFFFA94D).withOpacity(0.3),
-                      ),
+                      color: context.colors.card,
+                      borderRadius: BorderRadius.circular(14.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.colors.shadow,
+                          blurRadius: 12,
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 7.w,
-                          height: 7.w,
-                          decoration: BoxDecoration(
-                            color: connected
-                                ? const Color(0xFF63E6BE)
-                                : const Color(0xFFFFA94D),
-                            shape: BoxShape.circle,
-                          ),
+                        const Icon(
+                          Icons.calendar_month_rounded,
+                          color: Color(0xFF4361EE),
+                          size: 18,
                         ),
-
-                        SizedBox(width: 6.w),
-
+                        SizedBox(width: 7.w),
                         Text(
-                          connected
-                              ? 'Health Connected'
-                              : 'Local Tracking',
+                          _todayLabel(),
                           style: TextStyle(
-                            color: connected
-                                ? const Color(0xFF63E6BE)
-                                : const Color(0xFFFFA94D),
-                            fontSize: 10.sp,
                             fontWeight: FontWeight.w700,
+                            fontSize: 13.sp,
+                            color: context.colors.text,
                           ),
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // ── Bell + Settings ──
-        Row(
-          children: [
-            FadeInDown(
-              delay: const Duration(milliseconds: 80),
-              child: GestureDetector(
-                onTap: () => context.push('/notifications'),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(10.w),
-                      decoration: BoxDecoration(
-                        color: context.colors.card,
-                        borderRadius: BorderRadius.circular(14.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: context.colors.shadow,
-                            blurRadius: 12,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        CupertinoIcons.bell_fill,
-                        color: isDark
-                            ? const Color(0xFFFFA94D)
-                            : const Color(0xFF4361EE),
-                        size: 20,
-                      ),
-                    ),
-                    Positioned(
-                      top: -4,
-                      right: -4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF4757),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF0F1221)
-                                : const Color(0xFFF0F3FF),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Text(
-                          '3',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+
+                SizedBox(height: 8.h),
+
+                // Health Connect badge using shared HealthConnectToggle widget
+                const HealthConnectToggle(),
+              ],
             ),
+          ),
 
-            SizedBox(width: 8.w),
-
-            FadeInDown(
-              delay: const Duration(milliseconds: 140),
-              child: GestureDetector(
-                onTap: () => context.push('/settings'),
-                child: Container(
-                  padding: EdgeInsets.all(10.w),
-                  decoration: BoxDecoration(
-                    color: context.colors.card,
-                    borderRadius: BorderRadius.circular(14.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: context.colors.shadow,
-                        blurRadius: 12,
+          Row(
+            children: [
+              // Notification bell with unread count badge
+              FadeInDown(
+                delay: const Duration(milliseconds: 80),
+                child: GestureDetector(
+                  onTap: () => context.push('/notifications'),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(
+                          color: context.colors.card,
+                          borderRadius: BorderRadius.circular(14.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: context.colors.shadow,
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          CupertinoIcons.bell_fill,
+                          color: isDark
+                              ? const Color(0xFFFFA94D)
+                              : const Color(0xFF4361EE),
+                          size: 20,
+                        ),
+                      ),
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF4757),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF0F1221)
+                                  : const Color(0xFFF0F3FF),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Text(
+                            '3',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.settings_rounded,
-                    color: Color(0xFF4361EE),
-                    size: 20,
+                ),
+              ),
+
+              SizedBox(width: 8.w),
+
+              // Settings button
+              FadeInDown(
+                delay: const Duration(milliseconds: 140),
+                child: GestureDetector(
+                  onTap: () => context.push('/settings'),
+                  child: Container(
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(
+                      color: context.colors.card,
+                      borderRadius: BorderRadius.circular(14.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.colors.shadow,
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.settings_rounded,
+                      color: Color(0xFF4361EE),
+                      size: 20,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildError(BuildContext context, String message) {
     return Center(
@@ -335,7 +273,10 @@ Widget _buildHeader(BuildContext context, bool isDark) {
             SizedBox(height: 16.h),
             Text(
               message,
-              style: TextStyle(fontSize: 14.sp, color: const Color(0xFFFF3B30)),
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: const Color(0xFFFF3B30),
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 24.h),
@@ -355,8 +296,6 @@ Widget _buildHeader(BuildContext context, bool isDark) {
 
   Widget _buildContent(BuildContext context, TodayLoaded state, bool isDark) {
     final stats = state.stats;
-
-    // Capture ActivityCubit before entering the scroll tree
     final activityCubit = context.read<ActivityCubit>();
 
     return RefreshIndicator(
@@ -378,7 +317,9 @@ Widget _buildHeader(BuildContext context, bool isDark) {
                 ),
               ),
             ),
+
             SizedBox(height: 8.h),
+
             FadeInUp(
               duration: const Duration(milliseconds: 450),
               delay: const Duration(milliseconds: 80),
@@ -400,14 +341,13 @@ Widget _buildHeader(BuildContext context, bool isDark) {
               ),
             ),
 
-            // ── Empty state ──
+            // Show empty state when no activities have been logged yet
             if (!stats.hasActivity)
               FadeInUp(
                 delay: const Duration(milliseconds: 160),
                 child: const EmptyStateWidget(),
               ),
 
-            // ── Tracked activities list ──
             if (stats.trackedActivities.isNotEmpty) ...[
               SizedBox(height: 24.h),
               FadeInUp(
@@ -416,6 +356,7 @@ Widget _buildHeader(BuildContext context, bool isDark) {
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   child: Row(
                     children: [
+                      // Vertical accent bar before the section title
                       Container(
                         width: 3.w,
                         height: 18.h,
@@ -456,7 +397,6 @@ Widget _buildHeader(BuildContext context, bool isDark) {
                   final activity = stats.trackedActivities[index];
                   return TrackedActivityCard(
                     activity: activity,
-                    // Use captured cubit to avoid context lookup issues
                     onDelete: () => activityCubit.removeActivity(activity.id),
                   );
                 },
@@ -478,6 +418,7 @@ Widget _buildHeader(BuildContext context, bool isDark) {
     );
   }
 
+  // Shows the activity level detail sheet with level selector and tips
   void _showActivityLevelSheet(
     BuildContext context,
     ActivityLevel currentLevel,
@@ -486,115 +427,19 @@ Widget _buildHeader(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: context.colors.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: EdgeInsets.all(AppConstants.paddingXXL),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: context.colors.subText.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-              ),
-            ),
-            SizedBox(height: 20.h),
-            Text(
-              'Change Activity Level',
-              style: TextStyle(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w800,
-                color: context.colors.text,
-                letterSpacing: -0.4,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'This sets your daily calorie & step goals',
-              style: TextStyle(fontSize: 12.sp, color: context.colors.subText),
-            ),
-            SizedBox(height: 20.h),
-            ...ActivityLevel.values.map((level) {
-              final isSelected = level == currentLevel;
-              return GestureDetector(
-                onTap: () {
-                  // Use passed cubit directly — no context.read inside sheet
-                  cubit.changeActivityLevel(level);
-                  Navigator.pop(sheetContext);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: EdgeInsets.only(bottom: AppConstants.spaceM),
-                  padding: EdgeInsets.all(AppConstants.paddingL),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF4361EE).withOpacity(0.08)
-                        : context.colors.bg,
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF4361EE)
-                          : context.colors.subText.withOpacity(0.15),
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        color: isSelected
-                            ? const Color(0xFF4361EE)
-                            : context.colors.subText,
-                        size: 22.sp,
-                      ),
-                      SizedBox(width: AppConstants.paddingL),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              level.label,
-                              style: TextStyle(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w700,
-                                color: context.colors.text,
-                              ),
-                            ),
-                            SizedBox(height: AppConstants.spaceXS),
-                            Text(
-                              level.description,
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                color: context.colors.subText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            SizedBox(height: 8.h),
-          ],
-        ),
+      isScrollControlled: true,
+      builder: (_) => ActivityLevelDetailSheet(
+        currentLevel: currentLevel,
+        onLevelSelected: (level) {
+          cubit.changeActivityLevel(level);
+          Navigator.pop(context);
+        },
       ),
     );
   }
 }
 
-// ── Rings Section ─────────────────────────────────────────────────────────────
+// Centered rings section showing calorie, steps, and workout progress
 class _RingsSection extends StatelessWidget {
   final dynamic stats;
   final bool isDark;
@@ -603,54 +448,57 @@ class _RingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Stack(
-    alignment: Alignment.center,
-    children: [
-      Container(
-        width: 230.w,
-        height: 230.h,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4361EE).withOpacity(isDark ? 0.08 : 0.05),
-              blurRadius: 60,
-              spreadRadius: 20,
-            ),
-          ],
-        ),
-      ),
-      CircularProgressRings(
-        caloriesProgress: stats.caloriesProgress,
-        stepsProgress: stats.stepsProgress,
-        workoutProgress: stats.workoutProgress,
-      ),
-      Column(
-        mainAxisSize: MainAxisSize.min,
+        alignment: Alignment.center,
         children: [
-          Text(
-            '${(stats.caloriesProgress * 100).round()}%',
-            style: TextStyle(
-              fontSize: 28.sp,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFFFF9500),
-              letterSpacing: -1,
+          // Soft glow behind the rings
+          Container(
+            width: 230.w,
+            height: 230.h,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4361EE)
+                      .withOpacity(isDark ? 0.08 : 0.05),
+                  blurRadius: 60,
+                  spreadRadius: 20,
+                ),
+              ],
             ),
           ),
-          Text(
-            'of goal',
-            style: TextStyle(
-              fontSize: 10.sp,
-              color: context.colors.subText,
-              fontWeight: FontWeight.w500,
-            ),
+          CircularProgressRings(
+            caloriesProgress: stats.caloriesProgress,
+            stepsProgress: stats.stepsProgress,
+            workoutProgress: stats.workoutProgress,
+          ),
+          // Center label showing overall calorie goal percentage
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${(stats.caloriesProgress * 100).round()}%',
+                style: TextStyle(
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFFFF9500),
+                  letterSpacing: -1,
+                ),
+              ),
+              Text(
+                'of goal',
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: context.colors.subText,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
-      ),
-    ],
-  );
+      );
 }
 
-// ── Log Button ────────────────────────────────────────────────────────────────
+// Animated log activity button with press scale effect
 class _LogButton extends StatefulWidget {
   final VoidCallback onTap;
   const _LogButton({required this.onTap});
@@ -684,55 +532,59 @@ class _LogButtonState extends State<_LogButton>
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTapDown: (_) => _ctrl.forward(),
-    onTapUp: (_) {
-      _ctrl.reverse();
-      widget.onTap();
-    },
-    onTapCancel: () => _ctrl.reverse(),
-    child: ScaleTransition(
-      scale: _scale,
-      child: Container(
-        height: 56.h,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4361EE), Color(0xFF738EFF)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+        onTapDown: (_) => _ctrl.forward(),
+        onTapUp: (_) {
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            height: 56.h,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4361EE), Color(0xFF738EFF)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(18.r),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4361EE).withOpacity(0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(6.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 18.sp,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Text(
+                  'Log Activity',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
-          borderRadius: BorderRadius.circular(18.r),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4361EE).withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(6.w),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.add_rounded, color: Colors.white, size: 18.sp),
-            ),
-            SizedBox(width: 10.w),
-            Text(
-              'Log Activity',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+      );
 }

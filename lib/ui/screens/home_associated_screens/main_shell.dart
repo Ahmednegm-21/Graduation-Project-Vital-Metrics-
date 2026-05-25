@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,20 +24,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  // =====================================================
-  // SCREENS
-  // =====================================================
-
   final List<Widget> _screens = const [
     HomeScreen(),
     ActivityScreen(),
     RecipesScreen(),
     ProgressScreen(),
   ];
-
-  // =====================================================
-  // NAV ICONS
-  // =====================================================
 
   static const List<IconData> _icons = [
     Icons.home_outlined,
@@ -61,10 +52,6 @@ class _MainShellState extends State<MainShell> {
     'Progress',
   ];
 
-  // =====================================================
-  // FAB ACTION
-  // =====================================================
-
   void _onFabTap() {
     HapticFeedback.lightImpact();
 
@@ -75,44 +62,39 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final navBg = isDark ? const Color(0xFF1E2235) : Colors.white;
+    final navBg = isDark
+        ? const Color(0xFF171B2E)
+        : Colors.white;
 
     return Scaffold(
       extendBody: true,
-
       backgroundColor: context.colors.bg,
-
-      body: IndexedStack(index: _currentIndex, children: _screens),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
-      floatingActionButton: _AnimatedFab(onTap: _onFabTap),
-
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _AnimatedFab(
+        onTap: _onFabTap,
+      ),
       bottomNavigationBar: AnimatedBottomNavigationBar.builder(
         itemCount: 4,
-
         activeIndex: _currentIndex,
-
         gapLocation: GapLocation.center,
-
         notchSmoothness: NotchSmoothness.verySmoothEdge,
-
-        leftCornerRadius: 24,
-
-        rightCornerRadius: 24,
-
+        leftCornerRadius: 28.r,
+        rightCornerRadius: 28.r,
         backgroundColor: navBg,
-
-        height: 66.h,
-
+        height: 72.h,
+        splashColor: Colors.transparent,
         shadow: BoxShadow(
-          color: Colors.black.withOpacity(isDark ? 0.35 : 0.10),
-
-          blurRadius: 24,
-
+          color: Colors.black.withOpacity(
+            isDark ? 0.35 : 0.08,
+          ),
+          blurRadius: 22,
           offset: const Offset(0, -4),
         ),
-
         onTap: (index) {
           HapticFeedback.selectionClick();
 
@@ -120,17 +102,12 @@ class _MainShellState extends State<MainShell> {
             _currentIndex = index;
           });
         },
-
         tabBuilder: (int index, bool isActive) {
           return _NavTab(
             icon: _icons[index],
-
             activeIcon: _activeIcons[index],
-
             label: _labels[index],
-
             isActive: isActive,
-
             isDark: isDark,
           );
         },
@@ -139,19 +116,11 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-// =====================================================
-// NAVIGATION TAB
-// =====================================================
-
 class _NavTab extends StatefulWidget {
   final IconData icon;
-
   final IconData activeIcon;
-
   final String label;
-
   final bool isActive;
-
   final bool isDark;
 
   const _NavTab({
@@ -166,10 +135,11 @@ class _NavTab extends StatefulWidget {
   State<_NavTab> createState() => _NavTabState();
 }
 
-class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
+class _NavTabState extends State<_NavTab>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
-  late Animation<double> _bounceAnim;
+  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
@@ -177,28 +147,31 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
 
     _ctrl = AnimationController(
       vsync: this,
-
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 420),
     );
 
-    // Bounce animation
-    _bounceAnim = TweenSequence<double>([
+    _scaleAnim = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(
-          begin: 1.0,
-          end: 1.18,
-        ).chain(CurveTween(curve: Curves.easeOut)),
-
-        weight: 35,
+        tween: Tween<double>(
+          begin: 1,
+          end: 1.16,
+        ).chain(
+          CurveTween(
+            curve: Curves.easeOut,
+          ),
+        ),
+        weight: 40,
       ),
-
       TweenSequenceItem(
-        tween: Tween(
-          begin: 1.18,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.elasticOut)),
-
-        weight: 65,
+        tween: Tween<double>(
+          begin: 1.16,
+          end: 1,
+        ).chain(
+          CurveTween(
+            curve: Curves.elasticOut,
+          ),
+        ),
+        weight: 60,
       ),
     ]).animate(_ctrl);
 
@@ -229,91 +202,97 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF4361EE);
+    const activeColor = Color(0xFF5B6CFF);
 
     final inactiveColor = widget.isDark
         ? Colors.white.withOpacity(0.38)
-        : Colors.black.withOpacity(0.35);
+        : Colors.black.withOpacity(0.38);
 
     return AnimatedBuilder(
       animation: _ctrl,
-
       builder: (_, __) {
         final t = _ctrl.value;
 
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
-
-          mainAxisSize: MainAxisSize.min,
-
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-
-              curve: Curves.easeOut,
-
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-
-              decoration: BoxDecoration(
-                color: Color.lerp(
-                  Colors.transparent,
-
-                  activeColor.withOpacity(widget.isDark ? 0.18 : 0.10),
-
-                  t,
+            Transform.translate(
+              offset: Offset(0, -2 * t),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 13.w,
+                  vertical: 7.h,
                 ),
-
-                borderRadius: BorderRadius.circular(14.r),
-              ),
-
-              child: ScaleTransition(
-                scale: _bounceAnim,
-
-                child: Stack(
-                  alignment: Alignment.center,
-
-                  children: [
-                    Opacity(
-                      opacity: (1 - t).clamp(0.0, 1.0),
-
-                      child: Icon(
-                        widget.icon,
-
-                        size: 22.sp,
-
-                        color: inactiveColor,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18.r),
+                  gradient: t > 0
+                      ? LinearGradient(
+                          colors: [
+                            activeColor.withOpacity(0.26),
+                            activeColor.withOpacity(0.10),
+                          ],
+                        )
+                      : null,
+                  border: Border.all(
+                    color: Color.lerp(
+                      Colors.transparent,
+                      activeColor.withOpacity(0.35),
+                      t,
+                    )!,
+                    width: 1,
+                  ),
+                ),
+                child: ScaleTransition(
+                  scale: _scaleAnim,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Opacity(
+                        opacity: 1 - t,
+                        child: Icon(
+                          widget.icon,
+                          size: 22.sp,
+                          color: inactiveColor,
+                        ),
                       ),
-                    ),
-
-                    Opacity(
-                      opacity: t.clamp(0.0, 1.0),
-
-                      child: Icon(
-                        widget.activeIcon,
-
-                        size: 22.sp,
-
-                        color: activeColor,
+                      Opacity(
+                        opacity: t,
+                        child: ShaderMask(
+                          shaderCallback: (bounds) {
+                            return const LinearGradient(
+                              colors: [
+                                Color(0xFF7B8CFF),
+                                Color(0xFF4CC9F0),
+                              ],
+                            ).createShader(bounds);
+                          },
+                          child: Icon(
+                            widget.activeIcon,
+                            size: 22.sp,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-
             SizedBox(height: 4.h),
-
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 250),
-
               style: TextStyle(
                 fontSize: 10.sp,
-
-                fontWeight: t > 0.5 ? FontWeight.w700 : FontWeight.w400,
-
-                color: Color.lerp(inactiveColor, activeColor, t),
+                fontWeight:
+                    t > 0.5 ? FontWeight.w700 : FontWeight.w400,
+                color: Color.lerp(
+                  inactiveColor,
+                  activeColor,
+                  t,
+                ),
               ),
-
               child: Text(widget.label),
             ),
           ],
@@ -323,14 +302,12 @@ class _NavTabState extends State<_NavTab> with SingleTickerProviderStateMixin {
   }
 }
 
-// =====================================================
-// ANIMATED CENTER FAB
-// =====================================================
-
 class _AnimatedFab extends StatefulWidget {
   final VoidCallback onTap;
 
-  const _AnimatedFab({required this.onTap});
+  const _AnimatedFab({
+    required this.onTap,
+  });
 
   @override
   State<_AnimatedFab> createState() => _AnimatedFabState();
@@ -338,164 +315,139 @@ class _AnimatedFab extends StatefulWidget {
 
 class _AnimatedFabState extends State<_AnimatedFab>
     with TickerProviderStateMixin {
-  late AnimationController _outCtrl;
+  late AnimationController _switchCtrl;
 
-  late AnimationController _inCtrl;
+  late AnimationController _pulseCtrl;
 
   late AnimationController _tapCtrl;
 
-  late Animation<Offset> _outSlide;
+  late Animation<double> _rotationAnim;
 
-  late Animation<double> _outFade;
+  late Animation<double> _scaleAnim;
 
-  late Animation<Offset> _inSlide;
+  late Animation<double> _pulseAnim;
 
-  late Animation<double> _inFade;
-
-  late Animation<double> _inScale;
-
-  late Animation<double> _tapScale;
+  late Animation<double> _tapAnim;
 
   Timer? _cycleTimer;
 
   int _currentIndex = 0;
 
-  bool _animating = false;
-
-  static const List<IconData> _icons = [
-    Icons.smart_toy_rounded,
-    Icons.swap_horiz_rounded,
+  static const List<String> _labels = [
+    'AI',
+    'SWAP',
   ];
 
-  static const List<Color> _colors = [Color(0xFF4361EE), Color(0xFF34C759)];
-
-  static const List<Color> _colors2 = [Color(0xFF4CC9F0), Color(0xFF30D158)];
+  static const List<List<Color>> _gradients = [
+    [
+      Color(0xFF6D5BFF),
+      Color(0xFF46C2FF),
+    ],
+    [
+      Color(0xFF00C896),
+      Color(0xFF00E676),
+    ],
+  ];
 
   @override
   void initState() {
     super.initState();
 
-    _initializeAnimations();
+    _switchCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _tapCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+    );
+
+    _rotationAnim = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(
+      CurvedAnimation(
+        parent: _switchCtrl,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+
+    _scaleAnim = Tween<double>(
+      begin: 0.85,
+      end: 1,
+    ).animate(
+      CurvedAnimation(
+        parent: _switchCtrl,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    _pulseAnim = Tween<double>(
+      begin: 1,
+      end: 1.08,
+    ).animate(
+      CurvedAnimation(
+        parent: _pulseCtrl,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _tapAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1,
+          end: 0.92,
+        ).chain(
+          CurveTween(
+            curve: Curves.easeOut,
+          ),
+        ),
+        weight: 30,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 0.92,
+          end: 1,
+        ).chain(
+          CurveTween(
+            curve: Curves.elasticOut,
+          ),
+        ),
+        weight: 70,
+      ),
+    ]).animate(_tapCtrl);
 
     _startCycle();
   }
 
-  // =====================================================
-  // INITIALIZE ANIMATIONS
-  // =====================================================
-
-  void _initializeAnimations() {
-    _outCtrl = AnimationController(
-      vsync: this,
-
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _inCtrl = AnimationController(
-      vsync: this,
-
-      duration: const Duration(milliseconds: 320),
-    );
-
-    _tapCtrl = AnimationController(
-      vsync: this,
-
-      duration: const Duration(milliseconds: 380),
-    );
-
-    // Exit animation
-    _outSlide = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-1.2, 0),
-    ).animate(CurvedAnimation(parent: _outCtrl, curve: Curves.easeIn));
-
-    _outFade = Tween<double>(
-      begin: 1,
-      end: 0,
-    ).animate(CurvedAnimation(parent: _outCtrl, curve: Curves.easeIn));
-
-    // Enter animation
-    _inSlide = Tween<Offset>(
-      begin: const Offset(1.2, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _inCtrl, curve: Curves.easeOutCubic));
-
-    _inFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _inCtrl, curve: Curves.easeOut));
-
-    _inScale = Tween<double>(
-      begin: 0.6,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _inCtrl, curve: Curves.easeOutBack));
-
-    // Tap bounce
-    _tapScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 1.0,
-          end: 1.18,
-        ).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 35,
-      ),
-
-      TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 1.18,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.elasticOut)),
-        weight: 65,
-      ),
-    ]).animate(_tapCtrl);
-  }
-
-  // =====================================================
-  // START AUTO CYCLE
-  // =====================================================
-
   void _startCycle() {
     _cycleTimer?.cancel();
 
-    _cycleTimer = Timer.periodic(const Duration(seconds: 3), (_) => _cycle());
+    _cycleTimer = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => _changeFab(),
+    );
   }
 
-  // =====================================================
-  // ICON CYCLE
-  // =====================================================
-
-  Future<void> _cycle() async {
-    if (!mounted || _animating) {
-      return;
-    }
-
-    _animating = true;
-
-    // Exit old icon
-    _outCtrl.reset();
-
-    await _outCtrl.forward();
-
+  Future<void> _changeFab() async {
     if (!mounted) {
       return;
     }
 
-    // Change icon
+    await _switchCtrl.forward();
+
     setState(() {
-      _currentIndex = (_currentIndex + 1) % _icons.length;
+      _currentIndex = (_currentIndex + 1) % 2;
     });
 
-    // Enter new icon
-    _inCtrl.reset();
-
-    await _inCtrl.forward();
-
-    _animating = false;
+    _switchCtrl.reset();
   }
-
-  // =====================================================
-  // FAB TAP
-  // =====================================================
 
   void _handleTap() {
     HapticFeedback.lightImpact();
@@ -509,9 +461,9 @@ class _AnimatedFabState extends State<_AnimatedFab>
   void dispose() {
     _cycleTimer?.cancel();
 
-    _outCtrl.dispose();
+    _switchCtrl.dispose();
 
-    _inCtrl.dispose();
+    _pulseCtrl.dispose();
 
     _tapCtrl.dispose();
 
@@ -522,96 +474,119 @@ class _AnimatedFabState extends State<_AnimatedFab>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _handleTap,
-
       child: AnimatedBuilder(
-        animation: Listenable.merge([_outCtrl, _inCtrl, _tapCtrl]),
-
+        animation: Listenable.merge([
+          _switchCtrl,
+          _pulseCtrl,
+          _tapCtrl,
+        ]),
         builder: (_, __) {
-          Widget iconWidget;
-
-          if (_outCtrl.isAnimating) {
-            iconWidget = SlideTransition(
-              position: _outSlide,
-
-              child: FadeTransition(
-                opacity: _outFade,
-
-                child: Icon(
-                  _icons[_currentIndex],
-
-                  size: 26,
-
-                  color: Colors.white,
-                ),
-              ),
-            );
-          } else if (_inCtrl.isAnimating) {
-            iconWidget = SlideTransition(
-              position: _inSlide,
-
-              child: FadeTransition(
-                opacity: _inFade,
-
-                child: ScaleTransition(
-                  scale: _inScale,
-
-                  child: Icon(
-                    _icons[_currentIndex],
-
-                    size: 26,
-
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            );
-          } else {
-            iconWidget = Icon(
-              _icons[_currentIndex],
-
-              size: 26,
-
-              color: Colors.white,
-            );
-          }
-
           return Transform.scale(
-            scale: _tapScale.value,
-
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-
-              curve: Curves.easeInOut,
-
-              width: 58.w,
-
-              height: 58.h,
-
+            scale: _pulseAnim.value * _tapAnim.value,
+            child: Container(
+              width: 78.w,
+              height: 78.h,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-
                 gradient: LinearGradient(
-                  colors: [_colors[_currentIndex], _colors2[_currentIndex]],
-
+                  colors: _gradients[_currentIndex],
                   begin: Alignment.topLeft,
-
                   end: Alignment.bottomRight,
                 ),
-
                 boxShadow: [
                   BoxShadow(
-                    color: _colors[_currentIndex].withOpacity(0.45),
-
-                    blurRadius: 22,
-
-                    spreadRadius: 1,
-
-                    offset: const Offset(0, 6),
+                    color: _gradients[_currentIndex][0]
+                        .withOpacity(0.55),
+                    blurRadius: 30,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
-
-              child: ClipOval(child: Center(child: iconWidget)),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 64.w,
+                    height: 64.h,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.10),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.16),
+                        width: 1.2,
+                      ),
+                    ),
+                  ),
+                  Transform.rotate(
+                    angle: _rotationAnim.value * 6.2,
+                    child: Transform.scale(
+                      scale: _scaleAnim.value,
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          _currentIndex == 0
+                              ? Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: 34.w,
+                                      height: 34.h,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white
+                                              .withOpacity(0.20),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons
+                                          .psychology_alt_rounded,
+                                      color: Colors.white,
+                                      size: 22.sp,
+                                    ),
+                                  ],
+                                )
+                              : Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Transform.rotate(
+                                      angle: 0.7,
+                                      child: Icon(
+                                        Icons.sync_alt_rounded,
+                                        color: Colors.white
+                                            .withOpacity(0.18),
+                                        size: 38.sp,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons
+                                          .restaurant_menu_rounded,
+                                      color: Colors.white,
+                                      size: 18.sp,
+                                    ),
+                                  ],
+                                ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            _labels[_currentIndex],
+                            style: TextStyle(
+                              color:
+                                  Colors.white.withOpacity(0.92),
+                              fontSize: 8.5.sp,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

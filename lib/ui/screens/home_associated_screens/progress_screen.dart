@@ -12,7 +12,7 @@ import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/services/google_fit_service.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
-import 'package:vital_metrics/data/models/user_goal.dart';
+import 'package:vital_metrics/data/models/activity_level.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';
 
@@ -23,38 +23,43 @@ const _orange = Color(0xFFFFA94D);
 const _red = Color(0xFFFF8787);
 const _purple = Color(0xFF7B5EA7);
 
-// Returns the grid index (0=Sat ... 6=Fri) for today
-// Dart weekday: Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6 Sun=7
 int _todayIndex() {
   switch (DateTime.now().weekday) {
     case 6:
-      return 0; // Saturday
+      return 0;
     case 7:
-      return 1; // Sunday
+      return 1;
     case 1:
-      return 2; // Monday
+      return 2;
     case 2:
-      return 3; // Tuesday
+      return 3;
     case 3:
-      return 4; // Wednesday
+      return 4;
     case 4:
-      return 5; // Thursday
+      return 5;
     case 5:
-      return 6; // Friday
+      return 6;
     default:
       return 0;
   }
 }
 
-int _stepsGoalFor(OnboardingCubitAllData onboarding) {
-  final goal = onboarding.currentData.goal;
-  if (goal == null) return 10000;
-  switch (goal.type) {
-    case GoalType.loseWeight:
-      return 12000;
-    case GoalType.gainWeight:
-      return 8000;
+int _stepsGoalFor(ActivityLevel? activityLevel) =>
+    activityLevel?.stepsGoal ?? 10000;
+
+int _burnedGoalFor(ActivityLevel? activityLevel) =>
+    activityLevel?.caloriesGoal ?? 500;
+
+String _weekLabel(DateTime weekStart) {
+  final weekEnd = weekStart.add(const Duration(days: 6));
+  const months = [
+    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  if (weekStart.month == weekEnd.month) {
+    return '${months[weekStart.month]} ${weekStart.day} - ${weekEnd.day}';
   }
+  return '${months[weekStart.month]} ${weekStart.day} - ${months[weekEnd.month]} ${weekEnd.day}';
 }
 
 class ProgressScreen extends StatefulWidget {
@@ -118,261 +123,215 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ),
         ],
       ),
-body: RefreshIndicator(
-  color: _blue,
+      body: RefreshIndicator(
+        color: _blue,
+        onRefresh: () async {
+          await Future.wait([
+            context.read<ProgressCubit>().loadWeeklyMetrics(),
+            context.read<FitnessSnapshotCubit>().load(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              const SizedBox(height: 4),
 
-  onRefresh: () async {
-    await Future.wait([
-      context.read<ProgressCubit>().loadWeeklyMetrics(),
-      context.read<FitnessSnapshotCubit>().load(),
-    ]);
-  },
-
-  child: SingleChildScrollView(
-    physics: const AlwaysScrollableScrollPhysics(),
-
-    child: Column(
-      children: [
-        const SizedBox(height: 4),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: FadeInDown(
-            child: BlocSelector<
-                PersonalInfoCubit,
-                PersonalInfoState,
-                PersonalInfoState>(
-              selector: (state) => state,
-
-              builder: (_, info) {
-                return _BmiCard(info: info);
-              },
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: FadeInDown(
-            delay: const Duration(milliseconds: 70),
-
-            child: BlocBuilder<ActivityCubit, ActivityState>(
-              builder: (_, activity) {
-                return _ActivitySummaryCard(
-                  activityState: activity,
-
-                  stepsGoal: _stepsGoalFor(
-                    context.read<OnboardingCubitAllData>(),
+              // BMI Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FadeInDown(
+                  child: BlocSelector<PersonalInfoCubit, PersonalInfoState,
+                      PersonalInfoState>(
+                    selector: (state) => state,
+                    builder: (_, info) => _BmiCard(info: info),
                   ),
-                );
-              },
-            ),
-          ),
-        ),
+                ),
+              ),
 
-        const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-        BlocBuilder<ProgressCubit, ProgressState>(
-          builder: (_, progress) {
-            final isLoading = progress is ProgressLoading;
-
-            final loaded = progress is ProgressLoaded
-                ? progress
-                : null;
-
-            return FadeInDown(
-              delay: const Duration(milliseconds: 120),
-
-              child: BlocBuilder<CalorieCubit, CalorieState>(
-                builder: (_, cal) {
-                  return _ChartsSection(
-                    pageCtrl: _pageCtrl,
-
-                    chartPage: _chartPage,
-
-                    onPageChanged: (i) {
-                      setState(() {
-                        _chartPage = i;
-                      });
+              // Activity Summary Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FadeInDown(
+                  delay: const Duration(milliseconds: 70),
+                  child: BlocBuilder<ActivityCubit, ActivityState>(
+                    builder: (_, activity) {
+                      ActivityLevel? activityLevel;
+                      if (activity is TodayLoaded) {
+                        activityLevel = activity.stats.activityLevel;
+                      }
+                      return _ActivitySummaryCard(
+                        activityState: activity,
+                        stepsGoal: _stepsGoalFor(activityLevel),
+                        burnedGoal: _burnedGoalFor(activityLevel),
+                        activityLevel: activityLevel,
+                      );
                     },
-
-                    isLoading: isLoading,
-
-                    loaded: loaded,
-
-                    cal: cal,
-
-                    stepsGoal: _stepsGoalFor(
-                      context.read<OnboardingCubitAllData>(),
-                    ),
-
-                    todayIndex: _todayIndex(),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-
-        const SizedBox(height: 20),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: Column(
-            children: [
-              FadeInDown(
-                delay: const Duration(milliseconds: 200),
-
-                child: const _SectionTitle(
-                  title: 'Body Stats',
+                  ),
                 ),
               ),
 
-              BlocSelector<
-                  PersonalInfoCubit,
-                  PersonalInfoState,
-                  PersonalInfoState>(
-                selector: (state) => state,
+              const SizedBox(height: 20),
 
-                builder: (_, info) {
-                  return FadeInDown(
-                    delay: const Duration(milliseconds: 220),
+              // Charts section
+              // ← هنا بنجيب waterGoalL من WaterCubit مباشرة
+              FadeInDown(
+                delay: const Duration(milliseconds: 120),
+                child: BlocBuilder<WaterCubit, WaterState>(
+                  builder: (_, water) {
+                    final waterGoalL = water.goalMl / 1000.0;
 
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            label: 'Weight',
-                            value:
-                                '${info.weight.toStringAsFixed(1)} kg',
+                    return BlocBuilder<ProgressCubit, ProgressState>(
+                      builder: (_, progress) {
+                        final isLoading = progress is ProgressLoading;
+                        final loaded =
+                            progress is ProgressLoaded ? progress : null;
 
-                            icon:
-                                Icons.monitor_weight_outlined,
+                        return BlocBuilder<ActivityCubit, ActivityState>(
+                          builder: (_, activity) {
+                            ActivityLevel? activityLevel;
+                            if (activity is TodayLoaded) {
+                              activityLevel = activity.stats.activityLevel;
+                            }
 
-                            color: _blue,
-                          ),
+                            return BlocBuilder<CalorieCubit, CalorieState>(
+                              builder: (_, cal) => _ChartsSection(
+                                pageCtrl: _pageCtrl,
+                                chartPage: _chartPage,
+                                onPageChanged: (i) =>
+                                    setState(() => _chartPage = i),
+                                isLoading: isLoading,
+                                loaded: loaded,
+                                cal: cal,
+                                stepsGoal: _stepsGoalFor(activityLevel),
+                                burnedGoal: _burnedGoalFor(activityLevel),
+                                todayIndex: _todayIndex(),
+                                waterGoalL: waterGoalL, // ← من WaterCubit
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Body Stats
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    FadeInDown(
+                      delay: const Duration(milliseconds: 200),
+                      child: const _SectionTitle(title: 'Body Stats'),
+                    ),
+                    BlocSelector<PersonalInfoCubit, PersonalInfoState,
+                        PersonalInfoState>(
+                      selector: (state) => state,
+                      builder: (_, info) => FadeInDown(
+                        delay: const Duration(milliseconds: 220),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _StatCard(
+                                label: 'Weight',
+                                value:
+                                    '${info.weight.toStringAsFixed(1)} kg',
+                                icon: Icons.monitor_weight_outlined,
+                                color: _blue,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _StatCard(
+                                label: 'Height',
+                                value:
+                                    '${info.height.toStringAsFixed(0)} cm',
+                                icon: Icons.height,
+                                color: _purple,
+                              ),
+                            ),
+                          ],
                         ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: _StatCard(
-                            label: 'Height',
-
-                            value:
-                                '${info.height.toStringAsFixed(0)} cm',
-
-                            icon: Icons.height,
-
-                            color: _purple,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: Column(
-            children: [
-              FadeInDown(
-                delay: const Duration(milliseconds: 260),
-
-                child: const _SectionTitle(
-                  title: "Today's Nutrition",
+                  ],
                 ),
               ),
 
-              BlocBuilder<CalorieCubit, CalorieState>(
-                builder: (_, cal) {
-                  return FadeInDown(
-                    delay: const Duration(milliseconds: 280),
+              const SizedBox(height: 20),
 
-                    child: _NutritionCard(cal: cal),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: Column(
-            children: [
-              FadeInDown(
-                delay: const Duration(milliseconds: 300),
-
-                child: const _SectionTitle(
-                  title: 'Water Progress',
-                ),
-              ),
-
-              BlocBuilder<WaterCubit, WaterState>(
-                builder: (_, water) {
-                  return FadeInDown(
-                    delay: const Duration(milliseconds: 320),
-
-                    child: _WaterProgressCard(
-                      water: water,
+              // Today's Nutrition
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    FadeInDown(
+                      delay: const Duration(milliseconds: 260),
+                      child: const _SectionTitle(title: "Today's Nutrition"),
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-
-          child: Column(
-            children: [
-              FadeInDown(
-                delay: const Duration(milliseconds: 340),
-
-                child: const _SectionTitle(
-                  title: 'Macros Breakdown',
+                    BlocBuilder<CalorieCubit, CalorieState>(
+                      builder: (_, cal) => FadeInDown(
+                        delay: const Duration(milliseconds: 280),
+                        child: _NutritionCard(cal: cal),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
-              BlocBuilder<CalorieCubit, CalorieState>(
-                builder: (_, cal) {
-                  return FadeInDown(
-                    delay: const Duration(milliseconds: 360),
+              const SizedBox(height: 20),
 
-                    child: _MacrosCard(cal: cal),
-                  );
-                },
+              // Water Progress
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    FadeInDown(
+                      delay: const Duration(milliseconds: 300),
+                      child: const _SectionTitle(title: 'Water Progress'),
+                    ),
+                    BlocBuilder<WaterCubit, WaterState>(
+                      builder: (_, water) => FadeInDown(
+                        delay: const Duration(milliseconds: 320),
+                        child: _WaterProgressCard(water: water),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+
+              const SizedBox(height: 20),
+
+              // Macros Breakdown
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    FadeInDown(
+                      delay: const Duration(milliseconds: 340),
+                      child: const _SectionTitle(title: 'Macros Breakdown'),
+                    ),
+                    BlocBuilder<CalorieCubit, CalorieState>(
+                      builder: (_, cal) => FadeInDown(
+                        delay: const Duration(milliseconds: 360),
+                        child: _MacrosCard(cal: cal),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
             ],
           ),
         ),
-
-        const SizedBox(height: 30),
-      ],
-    ),
-  ),
-),
-
+      ),
     );
   }
 }
@@ -380,7 +339,6 @@ body: RefreshIndicator(
 // ---------------------------------------------------------------------------
 // Charts section
 // ---------------------------------------------------------------------------
-
 
 class _ChartsSection extends StatelessWidget {
   final PageController pageCtrl;
@@ -390,17 +348,11 @@ class _ChartsSection extends StatelessWidget {
   final ProgressLoaded? loaded;
   final CalorieState cal;
   final int stepsGoal;
+  final int burnedGoal;
   final int todayIndex;
+  final double waterGoalL; // ← جديد
 
-  static const _days = [
-    'Sat',
-    'Sun',
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-  ];
+  static const _days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
   static const _charts = [
     _ChartMeta('Calories', '🔥', _blue),
@@ -418,13 +370,16 @@ class _ChartsSection extends StatelessWidget {
     required this.loaded,
     required this.cal,
     required this.stepsGoal,
+    required this.burnedGoal,
     required this.todayIndex,
+    required this.waterGoalL, // ← جديد
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Tab pills
         SizedBox(
           height: 36,
           child: ListView.builder(
@@ -433,16 +388,12 @@ class _ChartsSection extends StatelessWidget {
             itemCount: _charts.length,
             itemBuilder: (_, i) {
               final active = i == chartPage;
-
               return GestureDetector(
-                onTap: () {
-                  pageCtrl.animateToPage(
-                    i,
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeInOut,
-                  );
-                },
-
+                onTap: () => pageCtrl.animateToPage(
+                  i,
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeInOut,
+                ),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.only(right: 8),
@@ -450,26 +401,18 @@ class _ChartsSection extends StatelessWidget {
                     horizontal: 14,
                     vertical: 6,
                   ),
-
                   decoration: BoxDecoration(
                     color: active
                         ? _charts[i].color
-                        : _charts[i]
-                              .color
-                              .withOpacity(0.10),
-
+                        : _charts[i].color.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
-
                   child: Text(
                     '${_charts[i].emoji} ${_charts[i].title}',
-
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: active
-                          ? Colors.white
-                          : _charts[i].color,
+                      color: active ? Colors.white : _charts[i].color,
                     ),
                   ),
                 ),
@@ -481,36 +424,34 @@ class _ChartsSection extends StatelessWidget {
         const SizedBox(height: 12),
 
         SizedBox(
-          height: 240,
-
+          height: 280,
           child: PageView.builder(
             controller: pageCtrl,
-
             onPageChanged: onPageChanged,
-
             itemCount: _charts.length,
-
             physics: const BouncingScrollPhysics(),
-
             itemBuilder: (_, index) {
               switch (index) {
                 case 0:
                   return _pad(
                     RepaintBoundary(
-                      child: _CaloriesBarChart(
-                        values:
-                            loaded?.calories
-                                .map((e) => e.toDouble())
-                                .toList() ??
-                            List.filled(7, 0),
-
-                        goal: cal.caloriesBudget.toDouble(),
-
-                        days: _days,
-
+                      child: _ChartWithWeekNav(
+                        chartColor: _blue,
                         isLoading: isLoading,
-
-                        todayIndex: todayIndex,
+                        weekStart: loaded?.weekStart,
+                        currentWeekOffset: loaded?.weekOffset ?? 0,
+                        builder: (weekOffset, weekStart, isChartLoading) =>
+                            _CaloriesBarChart(
+                          values: loaded?.weekOffset == weekOffset
+                              ? loaded!.calories
+                                  .map((e) => e.toDouble())
+                                  .toList()
+                              : List.filled(7, 0),
+                          goal: cal.caloriesBudget.toDouble(),
+                          days: _days,
+                          isLoading: isChartLoading,
+                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                        ),
                       ),
                     ),
                   );
@@ -518,20 +459,23 @@ class _ChartsSection extends StatelessWidget {
                 case 1:
                   return _pad(
                     RepaintBoundary(
-                      child: _StepsLineChart(
-                        values:
-                            loaded?.steps
-                                .map((e) => e.toDouble())
-                                .toList() ??
-                            List.filled(7, 0),
-
-                        days: _days,
-
+                      child: _ChartWithWeekNav(
+                        chartColor: _green,
                         isLoading: isLoading,
-
-                        stepsGoal: stepsGoal,
-
-                        todayIndex: todayIndex,
+                        weekStart: loaded?.weekStart,
+                        currentWeekOffset: loaded?.weekOffset ?? 0,
+                        builder: (weekOffset, weekStart, isChartLoading) =>
+                            _StepsLineChart(
+                          values: loaded?.weekOffset == weekOffset
+                              ? loaded!.steps
+                                  .map((e) => e.toDouble())
+                                  .toList()
+                              : List.filled(7, 0),
+                          days: _days,
+                          isLoading: isChartLoading,
+                          stepsGoal: stepsGoal,
+                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                        ),
                       ),
                     ),
                   );
@@ -539,18 +483,23 @@ class _ChartsSection extends StatelessWidget {
                 case 2:
                   return _pad(
                     RepaintBoundary(
-                      child: _BurnedHorizontalChart(
-                        values:
-                            loaded?.burned
-                                .map((e) => e.toDouble())
-                                .toList() ??
-                            List.filled(7, 0),
-
-                        days: _days,
-
+                      child: _ChartWithWeekNav(
+                        chartColor: _red,
                         isLoading: isLoading,
-
-                        todayIndex: todayIndex,
+                        weekStart: loaded?.weekStart,
+                        currentWeekOffset: loaded?.weekOffset ?? 0,
+                        builder: (weekOffset, weekStart, isChartLoading) =>
+                            _BurnedHorizontalChart(
+                          values: loaded?.weekOffset == weekOffset
+                              ? loaded!.burned
+                                  .map((e) => e.toDouble())
+                                  .toList()
+                              : List.filled(7, 0),
+                          days: _days,
+                          isLoading: isChartLoading,
+                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                          burnedGoal: burnedGoal,
+                        ),
                       ),
                     ),
                   );
@@ -558,18 +507,23 @@ class _ChartsSection extends StatelessWidget {
                 case 3:
                   return _pad(
                     RepaintBoundary(
-                      child: _WaterAreaChart(
-                        values:
-                            loaded?.waterMl
-                                .map((e) => e / 1000.0)
-                                .toList() ??
-                            List.filled(7, 0),
-
-                        days: _days,
-
+                      child: _ChartWithWeekNav(
+                        chartColor: _cyan,
                         isLoading: isLoading,
-
-                        todayIndex: todayIndex,
+                        weekStart: loaded?.weekStart,
+                        currentWeekOffset: loaded?.weekOffset ?? 0,
+                        builder: (weekOffset, weekStart, isChartLoading) =>
+                            _WaterAreaChart(
+                          values: loaded?.weekOffset == weekOffset
+                              ? loaded!.waterMl
+                                  .map((e) => e / 1000.0)
+                                  .toList()
+                              : List.filled(7, 0),
+                          days: _days,
+                          isLoading: isChartLoading,
+                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                          waterGoalL: waterGoalL, // ← من WaterCubit
+                        ),
                       ),
                     ),
                   );
@@ -577,16 +531,20 @@ class _ChartsSection extends StatelessWidget {
                 case 4:
                   return _pad(
                     RepaintBoundary(
-                      child: _SleepBarChart(
-                        values:
-                            loaded?.sleepHrs ??
-                            List.filled(7, 0),
-
-                        days: _days,
-
+                      child: _ChartWithWeekNav(
+                        chartColor: _purple,
                         isLoading: isLoading,
-
-                        todayIndex: todayIndex,
+                        weekStart: loaded?.weekStart,
+                        currentWeekOffset: loaded?.weekOffset ?? 0,
+                        builder: (weekOffset, weekStart, isChartLoading) =>
+                            _SleepBarChart(
+                          values: loaded?.weekOffset == weekOffset
+                              ? loaded!.sleepHrs
+                              : List.filled(7, 0),
+                          days: _days,
+                          isLoading: isChartLoading,
+                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                        ),
                       ),
                     ),
                   );
@@ -600,53 +558,247 @@ class _ChartsSection extends StatelessWidget {
 
         const SizedBox(height: 10),
 
+        // Page indicator dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-
-          children: List.generate(
-            _charts.length,
-            (i) {
-              final active = i == chartPage;
-
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 3,
-                ),
-
-                width: active ? 18 : 6,
-                height: 6,
-
-                decoration: BoxDecoration(
-                  color: active
-                      ? _charts[i].color
-                      : _charts[i]
-                            .color
-                            .withOpacity(0.3),
-
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            },
-          ),
+          children: List.generate(_charts.length, (i) {
+            final active = i == chartPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? _charts[i].color
+                    : _charts[i].color.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
         ),
       ],
     );
   }
 
-  Widget _pad(Widget child) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: child,
-    );
-  }
+  Widget _pad(Widget child) =>
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: child);
 }
 
 class _ChartMeta {
   final String title, emoji;
   final Color color;
   const _ChartMeta(this.title, this.emoji, this.color);
+}
+
+// ---------------------------------------------------------------------------
+// Week navigation wrapper
+// ---------------------------------------------------------------------------
+
+typedef ChartBuilder = Widget Function(
+  int weekOffset,
+  DateTime? weekStart,
+  bool isLoading,
+);
+
+class _ChartWithWeekNav extends StatefulWidget {
+  final Color chartColor;
+  final bool isLoading;
+  final DateTime? weekStart;
+  final int currentWeekOffset;
+  final ChartBuilder builder;
+
+  const _ChartWithWeekNav({
+    required this.chartColor,
+    required this.isLoading,
+    required this.weekStart,
+    required this.currentWeekOffset,
+    required this.builder,
+  });
+
+  @override
+  State<_ChartWithWeekNav> createState() => _ChartWithWeekNavState();
+}
+
+class _ChartWithWeekNavState extends State<_ChartWithWeekNav> {
+  int _localWeekOffset = 0;
+  bool _isNavigating = false;
+
+  DateTime _calcWeekStart(int offset) {
+    final now = DateTime.now();
+    final weekday = now.weekday;
+    final int daysSinceSaturday;
+    switch (weekday) {
+      case DateTime.saturday:
+        daysSinceSaturday = 0;
+        break;
+      case DateTime.sunday:
+        daysSinceSaturday = 1;
+        break;
+      case DateTime.monday:
+        daysSinceSaturday = 2;
+        break;
+      case DateTime.tuesday:
+        daysSinceSaturday = 3;
+        break;
+      case DateTime.wednesday:
+        daysSinceSaturday = 4;
+        break;
+      case DateTime.thursday:
+        daysSinceSaturday = 5;
+        break;
+      default:
+        daysSinceSaturday = 6;
+    }
+    final current = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: daysSinceSaturday));
+    return current.add(Duration(days: offset * 7));
+  }
+
+  Future<void> _navigate(int newOffset) async {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+      _localWeekOffset = newOffset;
+    });
+    await context.read<ProgressCubit>().loadWeeklyMetrics(
+          weekOffset: newOffset,
+          silent: true,
+        );
+    if (mounted) setState(() => _isNavigating = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final weekStartForOffset = _calcWeekStart(_localWeekOffset);
+    final label = _localWeekOffset == 0
+        ? 'This Week'
+        : _localWeekOffset == -1
+            ? 'Last Week'
+            : _weekLabel(weekStartForOffset);
+
+    final isThisChartLoading = widget.isLoading ||
+        (_isNavigating && widget.currentWeekOffset != _localWeekOffset);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavArrowButton(
+                icon: Icons.chevron_left_rounded,
+                color: widget.chartColor,
+                onTap: () => _navigate(_localWeekOffset - 1),
+                enabled: !_isNavigating,
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Row(
+                  key: ValueKey(_localWeekOffset),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isNavigating)
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: widget.chartColor,
+                        ),
+                      ),
+                    if (_isNavigating) const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _localWeekOffset == 0
+                            ? widget.chartColor
+                            : context.colors.subText,
+                      ),
+                    ),
+                    if (_localWeekOffset == 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: widget.chartColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _NavArrowButton(
+                icon: Icons.chevron_right_rounded,
+                color: widget.chartColor,
+                onTap: _localWeekOffset < 0
+                    ? () => _navigate(_localWeekOffset + 1)
+                    : null,
+                enabled: _localWeekOffset < 0 && !_isNavigating,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: widget.builder(
+            _localWeekOffset,
+            weekStartForOffset,
+            isThisChartLoading,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Navigation arrow button
+// ---------------------------------------------------------------------------
+
+class _NavArrowButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  const _NavArrowButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: enabled
+              ? color.withOpacity(0.12)
+              : context.colors.card.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled ? color.withOpacity(0.25) : Colors.transparent,
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? color : context.colors.subText.withOpacity(0.3),
+        ),
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -669,63 +821,66 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: context.colors.card,
-      borderRadius: BorderRadius.circular(22),
-      boxShadow: [
-        BoxShadow(
-          color: context.colors.shadow,
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: context.colors.text,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-              ),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.colors.card,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: context.colors.shadow,
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: isLoading
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: color,
-                    strokeWidth: 2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: context.colors.text,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                )
-              : child,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: color,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : child,
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -747,146 +902,102 @@ class _CaloriesBarChart extends StatelessWidget {
     required this.todayIndex,
   });
 
-@override
-Widget build(BuildContext context) {
-  // Detect repeated values
-  final allSame =
-      values.toSet().length <= 1;
+  @override
+  Widget build(BuildContext context) {
+    final allSame = values.toSet().length <= 1;
+    final normalizedValues = allSame
+        ? List.generate(values.length, (i) => values[i] * (0.82 + (i * 0.03)))
+        : values;
 
-  // Fake slight variation so chart doesn't look broken
-  final normalizedValues = allSame
-      ? List.generate(
-          values.length,
-          (i) => values[i] * (0.82 + (i * 0.03)),
-        )
-      : values;
+    final maxValue = normalizedValues.isEmpty
+        ? goal
+        : math.max(goal, normalizedValues.reduce(math.max));
 
-  final maxValue = normalizedValues.isEmpty
-      ? goal
-      : math.max(
-          goal,
-          normalizedValues.reduce(math.max),
-        );
+    return _ChartCard(
+      title: 'Weekly Calories',
+      subtitle: 'Goal: ${goal.toInt()} kcal',
+      color: _blue,
+      isLoading: isLoading,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(7, (i) {
+          final v = normalizedValues[i];
+          final pct = maxValue > 0 ? (v / maxValue).clamp(0.0, 1.0) : 0.0;
+          final isToday = i == todayIndex;
+          final color = v > goal * 1.2
+              ? _red
+              : isToday
+                  ? _blue
+                  : _blue.withOpacity(0.55);
 
-  return _ChartCard(
-    title: 'Weekly Calories',
-    subtitle: 'Goal: ${goal.toInt()} kcal',
-    color: _blue,
-    isLoading: isLoading,
-
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-
-      children: List.generate(7, (i) {
-        final v = normalizedValues[i];
-
-        final pct = maxValue > 0
-            ? (v / maxValue).clamp(0.0, 1.0)
-            : 0.0;
-
-        final isToday = i == todayIndex;
-
-        final color = v > goal * 1.2
-            ? _red
-            : isToday
-                ? _blue
-                : _blue.withOpacity(0.55);
-
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-
-              children: [
-                if (values[i] > 0)
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (values[i] > 0)
+                    Text(
+                      values[i] >= 1000
+                          ? '${(values[i] / 1000).toStringAsFixed(1)}k'
+                          : '${values[i].toInt()}',
+                      style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                        color: isToday ? _blue : context.colors.subText,
+                      ),
+                    ),
+                  const SizedBox(height: 3),
+                  Stack(
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      Container(
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: context.isDark
+                              ? Colors.white.withOpacity(0.07)
+                              : const Color(0xFFF0F0F8),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: Duration(milliseconds: 500 + i * 80),
+                        curve: Curves.easeOut,
+                        height: 90 * pct,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: isToday
+                              ? [
+                                  BoxShadow(
+                                    color: _blue.withOpacity(0.35),
+                                    blurRadius: 6,
+                                  ),
+                                ]
+                              : [],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
                   Text(
-                    values[i] >= 1000
-                        ? '${(values[i] / 1000).toStringAsFixed(1)}k'
-                        : '${values[i].toInt()}',
-
+                    days[i],
                     style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: isToday
-                          ? _blue
-                          : context.colors.subText,
+                      fontSize: 9,
+                      fontWeight:
+                          isToday ? FontWeight.bold : FontWeight.normal,
+                      color: isToday ? _blue : context.colors.subText,
                     ),
                   ),
-
-                const SizedBox(height: 3),
-
-                Stack(
-                  alignment: Alignment.bottomCenter,
-
-                  children: [
-                    Container(
-                      height: 90,
-
-                      decoration: BoxDecoration(
-                        color: context.isDark
-                            ? Colors.white.withOpacity(0.07)
-                            : const Color(0xFFF0F0F8),
-
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-
-                    AnimatedContainer(
-                      duration: Duration(
-                        milliseconds: 500 + i * 80,
-                      ),
-
-                      curve: Curves.easeOut,
-
-                      height: 90 * pct,
-
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(6),
-
-                        boxShadow: isToday
-                            ? [
-                                BoxShadow(
-                                  color: _blue.withOpacity(0.35),
-                                  blurRadius: 6,
-                                ),
-                              ]
-                            : [],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 5),
-
-                Text(
-                  days[i],
-
-                  style: TextStyle(
-                    fontSize: 9,
-
-                    fontWeight: isToday
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-
-                    color: isToday
-                        ? _blue
-                        : context.colors.subText,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      }),
-    ),
-  );
+          );
+        }),
+      ),
+    );
+  }
 }
-
-}
-
 
 // ---------------------------------------------------------------------------
 // Steps line chart
@@ -909,9 +1020,8 @@ class _StepsLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxV = values.isEmpty
-        ? stepsGoal.toDouble()
-        : values.reduce(math.max);
+    final maxV =
+        values.isEmpty ? stepsGoal.toDouble() : values.reduce(math.max);
     final goalLabel = stepsGoal >= 1000
         ? '${(stepsGoal / 1000).toStringAsFixed(0)}k'
         : '$stepsGoal';
@@ -944,8 +1054,8 @@ class _StepsLineChart extends StatelessWidget {
               final label = steps >= 1000
                   ? '${(steps / 1000).toStringAsFixed(1)}k'
                   : steps > 0
-                  ? '$steps'
-                  : '';
+                      ? '$steps'
+                      : '';
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -962,7 +1072,8 @@ class _StepsLineChart extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       color: isToday ? _green : context.colors.subText,
-                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isToday ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -974,7 +1085,6 @@ class _StepsLineChart extends StatelessWidget {
     );
   }
 }
-
 
 class _LinePainter extends CustomPainter {
   final List<double> values;
@@ -996,29 +1106,19 @@ class _LinePainter extends CustomPainter {
     if (values.every((v) => v == 0)) return;
 
     final pts = <Offset>[];
-
     for (int i = 0; i < values.length; i++) {
-      pts.add(
-        Offset(
-          i / (values.length - 1) * size.width,
-          size.height -
-              (values[i] / maxValue).clamp(0, 1) *
-                  size.height,
-        ),
-      );
+      pts.add(Offset(
+        i / (values.length - 1) * size.width,
+        size.height - (values[i] / maxValue).clamp(0, 1) * size.height,
+      ));
     }
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
-        colors: [
-          color.withOpacity(0.35),
-          color.withOpacity(0),
-        ],
+        colors: [color.withOpacity(0.35), color.withOpacity(0)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-      ).createShader(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-      );
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final linePaint = Paint()
       ..color = color
@@ -1027,15 +1127,10 @@ class _LinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final dotPaint = Paint();
-
     final innerDotPaint = Paint()
-      ..color = isDark
-          ? const Color(0xFF1A1A2E)
-          : Colors.white;
+      ..color = isDark ? const Color(0xFF1A1A2E) : Colors.white;
 
-    final fill = Path()
-      ..moveTo(pts.first.dx, size.height);
-
+    final fill = Path()..moveTo(pts.first.dx, size.height);
     for (int i = 0; i < pts.length; i++) {
       if (i == 0) {
         fill.lineTo(pts[i].dx, pts[i].dy);
@@ -1044,74 +1139,41 @@ class _LinePainter extends CustomPainter {
           (pts[i - 1].dx + pts[i].dx) / 2,
           (pts[i - 1].dy + pts[i].dy) / 2,
         );
-
-        fill.quadraticBezierTo(
-          pts[i - 1].dx,
-          pts[i - 1].dy,
-          cp.dx,
-          cp.dy,
-        );
+        fill.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
       }
     }
-
     fill
       ..lineTo(pts.last.dx, size.height)
       ..close();
-
     canvas.drawPath(fill, fillPaint);
 
-    final line = Path()
-      ..moveTo(pts.first.dx, pts.first.dy);
-
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
     for (int i = 1; i < pts.length; i++) {
       final cp = Offset(
         (pts[i - 1].dx + pts[i].dx) / 2,
         (pts[i - 1].dy + pts[i].dy) / 2,
       );
-
-      line.quadraticBezierTo(
-        pts[i - 1].dx,
-        pts[i - 1].dy,
-        cp.dx,
-        cp.dy,
-      );
+      line.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
     }
-
     line.lineTo(pts.last.dx, pts.last.dy);
-
     canvas.drawPath(line, linePaint);
 
     for (int i = 0; i < pts.length; i++) {
       final isToday = i == todayIndex;
-
-      dotPaint.color =
-          isToday ? color : color.withOpacity(0.6);
-
-      canvas.drawCircle(
-        pts[i],
-        isToday ? 5 : 3.5,
-        dotPaint,
-      );
-
-      canvas.drawCircle(
-        pts[i],
-        isToday ? 3 : 2,
-        innerDotPaint,
-      );
+      dotPaint.color = isToday ? color : color.withOpacity(0.6);
+      canvas.drawCircle(pts[i], isToday ? 5 : 3.5, dotPaint);
+      canvas.drawCircle(pts[i], isToday ? 3 : 2, innerDotPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _LinePainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.maxValue != maxValue ||
-        oldDelegate.color != color ||
-        oldDelegate.todayIndex != todayIndex ||
-        oldDelegate.isDark != isDark;
-  }
+  bool shouldRepaint(covariant _LinePainter old) =>
+      old.values != values ||
+      old.maxValue != maxValue ||
+      old.color != color ||
+      old.todayIndex != todayIndex ||
+      old.isDark != isDark;
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Burned horizontal chart
@@ -1122,27 +1184,40 @@ class _BurnedHorizontalChart extends StatelessWidget {
   final List<String> days;
   final bool isLoading;
   final int todayIndex;
+  final int burnedGoal;
 
   const _BurnedHorizontalChart({
     required this.values,
     required this.days,
     required this.isLoading,
     required this.todayIndex,
+    this.burnedGoal = 500,
   });
 
   @override
   Widget build(BuildContext context) {
-    final maxV = values.isEmpty ? 1.0 : values.reduce(math.max);
+    final maxV = values.isEmpty
+        ? burnedGoal.toDouble()
+        : math.max(burnedGoal.toDouble(), values.reduce(math.max));
+
+    final goalLabel = burnedGoal >= 1000
+        ? '${(burnedGoal / 1000).toStringAsFixed(1)}k'
+        : '$burnedGoal';
+
     return _ChartCard(
       title: 'Calories Burned',
-      subtitle: 'This week',
+      subtitle: 'Goal: $goalLabel kcal / day',
       color: _red,
       isLoading: isLoading,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: List.generate(7, (i) {
           final pct = maxV > 0 ? (values[i] / maxV).clamp(0.0, 1.0) : 0.0;
+          final goalPct =
+              maxV > 0 ? (burnedGoal / maxV).clamp(0.0, 1.0) : 1.0;
           final isToday = i == todayIndex;
+          final reachedGoal = values[i] >= burnedGoal;
+
           return Row(
             children: [
               SizedBox(
@@ -1158,53 +1233,79 @@ class _BurnedHorizontalChart extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: context.isDark
-                            ? Colors.white.withOpacity(0.07)
-                            : const Color(0xFFF0F0F8),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    AnimatedFractionallySizedBox(
-                      duration: Duration(milliseconds: 500 + i * 80),
-                      curve: Curves.easeOut,
-                      widthFactor: pct,
-                      child: Container(
-                        height: 12,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              _red.withOpacity(isToday ? 1 : 0.55),
-                              _orange.withOpacity(isToday ? 1 : 0.55),
-                            ],
+                child: LayoutBuilder(
+                  builder: (_, constraints) {
+                    final goalX = constraints.maxWidth * goalPct;
+                    return Stack(
+                      children: [
+                        Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: context.isDark
+                                ? Colors.white.withOpacity(0.07)
+                                : const Color(0xFFF0F0F8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: isToday
-                              ? [
-                                  BoxShadow(
-                                    color: _red.withOpacity(0.4),
-                                    blurRadius: 4,
-                                  ),
-                                ]
-                              : [],
                         ),
-                      ),
-                    ),
-                  ],
+                        AnimatedFractionallySizedBox(
+                          duration: Duration(milliseconds: 500 + i * 80),
+                          curve: Curves.easeOut,
+                          widthFactor: pct,
+                          child: Container(
+                            height: 12,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: reachedGoal
+                                    ? [
+                                        _green.withOpacity(isToday ? 1 : 0.65),
+                                        _cyan.withOpacity(isToday ? 1 : 0.65),
+                                      ]
+                                    : [
+                                        _red.withOpacity(isToday ? 1 : 0.55),
+                                        _orange.withOpacity(isToday ? 1 : 0.55),
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: isToday
+                                  ? [
+                                      BoxShadow(
+                                        color: _red.withOpacity(0.4),
+                                        blurRadius: 4,
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: goalX - 1,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 2,
+                            decoration: BoxDecoration(
+                              color: _red.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 6),
               SizedBox(
-                width: 30,
+                width: 34,
                 child: Text(
                   '${values[i].toInt()}',
                   style: TextStyle(
                     fontSize: 9,
-                    color: isToday ? _red : context.colors.subText,
+                    color: reachedGoal
+                        ? _green
+                        : isToday
+                            ? _red
+                            : context.colors.subText,
                     fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -1218,7 +1319,7 @@ class _BurnedHorizontalChart extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Water area chart
+// Water area chart — waterGoalL من WaterCubit مش hardcoded
 // ---------------------------------------------------------------------------
 
 class _WaterAreaChart extends StatelessWidget {
@@ -1226,76 +1327,81 @@ class _WaterAreaChart extends StatelessWidget {
   final List<String> days;
   final bool isLoading;
   final int todayIndex;
+  final double waterGoalL; // ← جديد
 
   const _WaterAreaChart({
     required this.values,
     required this.days,
     required this.isLoading,
     required this.todayIndex,
+    this.waterGoalL = 2.5, // ← default fallback
   });
 
   @override
   Widget build(BuildContext context) => _ChartCard(
-    title: 'Weekly Water',
-    subtitle: 'Goal: 2.5L / day',
-    color: _cyan,
-    isLoading: isLoading,
-    child: Column(
-      children: [
-        Expanded(
-          child: CustomPaint(
-            painter: _AreaPainter(
-              values: values,
-              maxValue: 3.5,
-              color: _cyan,
-              isDark: context.isDark,
-            ),
-            child: const SizedBox.expand(),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(7, (i) {
-            final isToday = i == todayIndex;
-            return Column(
-              children: [
-                if (values[i] > 0)
-                  Text(
-                    '${values[i].toStringAsFixed(1)}L',
-                    style: TextStyle(
-                      fontSize: 7,
-                      color: isToday ? _cyan : context.colors.subText,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                Text(
-                  days[i],
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: isToday ? _cyan : context.colors.subText,
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                  ),
+        title: 'Weekly Water',
+        subtitle: 'Goal: ${waterGoalL.toStringAsFixed(1)}L / day', // ← ديناميكي
+        color: _cyan,
+        isLoading: isLoading,
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomPaint(
+                painter: _AreaPainter(
+                  values: values,
+                  maxValue: math.max(3.5, waterGoalL + 0.5), // يتكيف مع الـ goal
+                  goalL: waterGoalL, // ← مرّره للـ painter
+                  color: _cyan,
+                  isDark: context.isDark,
                 ),
-              ],
-            );
-          }),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (i) {
+                final isToday = i == todayIndex;
+                return Column(
+                  children: [
+                    if (values[i] > 0)
+                      Text(
+                        '${values[i].toStringAsFixed(1)}L',
+                        style: TextStyle(
+                          fontSize: 7,
+                          color: isToday ? _cyan : context.colors.subText,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    Text(
+                      days[i],
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: isToday ? _cyan : context.colors.subText,
+                        fontWeight:
+                            isToday ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
-
 
 class _AreaPainter extends CustomPainter {
   final List<double> values;
   final double maxValue;
+  final double goalL; // ← جديد (بدل الـ hardcoded 2.5)
   final Color color;
   final bool isDark;
 
   const _AreaPainter({
     required this.values,
     required this.maxValue,
+    required this.goalL, // ← جديد
     required this.color,
     required this.isDark,
   });
@@ -1305,29 +1411,19 @@ class _AreaPainter extends CustomPainter {
     if (values.every((v) => v == 0)) return;
 
     final pts = <Offset>[];
-
     for (int i = 0; i < values.length; i++) {
-      pts.add(
-        Offset(
-          i / (values.length - 1) * size.width,
-          size.height -
-              (values[i] / maxValue).clamp(0, 1) *
-                  size.height,
-        ),
-      );
+      pts.add(Offset(
+        i / (values.length - 1) * size.width,
+        size.height - (values[i] / maxValue).clamp(0, 1) * size.height,
+      ));
     }
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
-        colors: [
-          color.withOpacity(0.5),
-          color.withOpacity(0.04),
-        ],
+        colors: [color.withOpacity(0.5), color.withOpacity(0.04)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-      ).createShader(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-      );
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final strokePaint = Paint()
       ..color = color
@@ -1343,80 +1439,53 @@ class _AreaPainter extends CustomPainter {
     final fill = Path()
       ..moveTo(0, size.height)
       ..lineTo(pts.first.dx, pts.first.dy);
-
     for (int i = 1; i < pts.length; i++) {
       final cp = Offset(
         (pts[i - 1].dx + pts[i].dx) / 2,
         (pts[i - 1].dy + pts[i].dy) / 2,
       );
-
-      fill.quadraticBezierTo(
-        pts[i - 1].dx,
-        pts[i - 1].dy,
-        cp.dx,
-        cp.dy,
-      );
+      fill.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
     }
-
     fill
       ..lineTo(size.width, size.height)
       ..close();
-
     canvas.drawPath(fill, fillPaint);
 
-    final stroke = Path()
-      ..moveTo(pts.first.dx, pts.first.dy);
-
+    final stroke = Path()..moveTo(pts.first.dx, pts.first.dy);
     for (int i = 1; i < pts.length; i++) {
       final cp = Offset(
         (pts[i - 1].dx + pts[i].dx) / 2,
         (pts[i - 1].dy + pts[i].dy) / 2,
       );
-
-      stroke.quadraticBezierTo(
-        pts[i - 1].dx,
-        pts[i - 1].dy,
-        cp.dx,
-        cp.dy,
-      );
+      stroke.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
     }
-
     stroke.lineTo(pts.last.dx, pts.last.dy);
-
     canvas.drawPath(stroke, strokePaint);
 
-    final goalY =
-        size.height - (2.5 / maxValue) * size.height;
-
+    // Dashed goal line — ديناميكي من goalL مش hardcoded 2.5
+    final goalY = size.height - (goalL / maxValue).clamp(0, 1) * size.height;
     double x = 0;
-
     while (x < size.width) {
       canvas.drawLine(
         Offset(x, goalY),
-        Offset(
-          math.min(x + 6, size.width),
-          goalY,
-        ),
+        Offset(math.min(x + 6, size.width), goalY),
         dashPaint,
       );
-
       x += 10;
     }
   }
 
   @override
-  bool shouldRepaint(covariant _AreaPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.maxValue != maxValue ||
-        oldDelegate.color != color ||
-        oldDelegate.isDark != isDark;
-  }
+  bool shouldRepaint(covariant _AreaPainter old) =>
+      old.values != values ||
+      old.maxValue != maxValue ||
+      old.goalL != goalL || // ← جديد
+      old.color != color ||
+      old.isDark != isDark;
 }
 
-
-
 // ---------------------------------------------------------------------------
-// Sleep bar chart — replaced radial with simple bars, easier to read
+// Sleep bar chart
 // ---------------------------------------------------------------------------
 
 class _SleepBarChart extends StatelessWidget {
@@ -1435,9 +1504,15 @@ class _SleepBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const goal = 8.0;
-    // Cap each day at 12h max since backend can accumulate duplicate sessions
+    // ← مش بنكلم القيمة عند 8 — بنعرضها كاملة
     final capped = values.map((v) => v.clamp(0.0, 12.0)).toList();
     final total = capped.fold(0.0, (a, b) => a + b);
+
+    // ← الـ max هو أكبر قيمة أو الـ goal — عشان البار يتمدد فوق الـ goal
+    final maxVal = capped.isEmpty
+        ? goal
+        : capped.reduce((a, b) => a > b ? a : b);
+    final scale = maxVal > goal ? maxVal : goal;
 
     return _ChartCard(
       title: 'Weekly Sleep',
@@ -1451,8 +1526,13 @@ class _SleepBarChart extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(7, (i) {
-                final pct = (capped[i] / goal).clamp(0.0, 1.0);
+                // ← pct بيتحسب على أساس الـ scale مش الـ goal الثابت
+                final pct = (capped[i] / scale).clamp(0.0, 1.0);
+                // ← goalPct عشان نرسم خط الـ goal على الـ bar
+                final goalPct = (goal / scale).clamp(0.0, 1.0);
                 final isToday = i == todayIndex;
+                final overGoal = capped[i] > goal;
+
                 return Row(
                   children: [
                     SizedBox(
@@ -1461,52 +1541,78 @@ class _SleepBarChart extends StatelessWidget {
                         days[i],
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isToday
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontWeight:
+                              isToday ? FontWeight.bold : FontWeight.normal,
                           color: isToday ? _purple : context.colors.subText,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Stack(
-                        children: [
-                          Container(
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: context.isDark
-                                  ? Colors.white.withOpacity(0.07)
-                                  : const Color(0xFFF0F0F8),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                          ),
-                          AnimatedFractionallySizedBox(
-                            duration: Duration(milliseconds: 500 + i * 80),
-                            curve: Curves.easeOut,
-                            widthFactor: pct,
-                            child: Container(
-                              height: 10,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    _purple.withOpacity(isToday ? 1.0 : 0.5),
-                                    _cyan.withOpacity(isToday ? 0.9 : 0.35),
-                                  ],
+                      child: LayoutBuilder(
+                        builder: (_, constraints) {
+                          final goalX = constraints.maxWidth * goalPct;
+                          return Stack(
+                            children: [
+                              // Background track
+                              Container(
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: context.isDark
+                                      ? Colors.white.withOpacity(0.07)
+                                      : const Color(0xFFF0F0F8),
+                                  borderRadius: BorderRadius.circular(5),
                                 ),
-                                borderRadius: BorderRadius.circular(5),
-                                boxShadow: isToday
-                                    ? [
-                                        BoxShadow(
-                                          color: _purple.withOpacity(0.4),
-                                          blurRadius: 4,
-                                        ),
-                                      ]
-                                    : [],
                               ),
-                            ),
-                          ),
-                        ],
+                              // Fill bar
+                              AnimatedFractionallySizedBox(
+                                duration: Duration(milliseconds: 500 + i * 80),
+                                curve: Curves.easeOut,
+                                widthFactor: pct,
+                                child: Container(
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: overGoal
+                                          ? [
+                                              // فوق الـ goal → لون مختلف
+                                              const Color(0xFF4CC9F0).withOpacity(isToday ? 1.0 : 0.55),
+                                              _purple.withOpacity(isToday ? 0.9 : 0.45),
+                                            ]
+                                          : [
+                                              _purple.withOpacity(isToday ? 1.0 : 0.5),
+                                              _cyan.withOpacity(isToday ? 0.9 : 0.35),
+                                            ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(5),
+                                    boxShadow: isToday
+                                        ? [
+                                            BoxShadow(
+                                              color: _purple.withOpacity(0.4),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                ),
+                              ),
+                              // ← خط الـ goal (8h) على الـ bar
+                              if (scale > goal)
+                                Positioned(
+                                  left: goalX - 1,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 2,
+                                    decoration: BoxDecoration(
+                                      color: _purple.withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(1),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -1519,10 +1625,14 @@ class _SleepBarChart extends StatelessWidget {
                         textAlign: TextAlign.right,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isToday
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isToday ? _purple : context.colors.subText,
+                          fontWeight:
+                              isToday ? FontWeight.bold : FontWeight.normal,
+                          // ← لو فوق الـ goal → لون مختلف
+                          color: overGoal
+                              ? _cyan
+                              : isToday
+                                  ? _purple
+                                  : context.colors.subText,
                         ),
                       ),
                     ),
@@ -1582,15 +1692,19 @@ class _SleepBarChart extends StatelessWidget {
 class _ActivitySummaryCard extends StatelessWidget {
   final ActivityState activityState;
   final int stepsGoal;
+  final int burnedGoal;
+  final ActivityLevel? activityLevel;
 
   const _ActivitySummaryCard({
     required this.activityState,
     this.stepsGoal = 10000,
+    this.burnedGoal = 500,
+    this.activityLevel,
   });
 
   @override
   Widget build(BuildContext context) {
-final isLoading = activityState is TodayLoading;
+    final isLoading = activityState is TodayLoading;
 
     int steps = 0;
     int calories = 0;
@@ -1598,21 +1712,20 @@ final isLoading = activityState is TodayLoading;
 
     if (activityState is TodayLoaded) {
       final stats = (activityState as TodayLoaded).stats;
-
       steps = stats.steps;
       calories = stats.caloriesBurned;
       workoutMins = stats.workoutMinutes;
     }
 
     final stepPct = (steps / stepsGoal).clamp(0.0, 1.0);
+    final caloriesPct = (calories / burnedGoal).clamp(0.0, 1.0);
 
-    final stepsLabel = steps >= 1000
-        ? '${(steps / 1000).toStringAsFixed(1)}k'
-        : '$steps';
-
-    final goalLabel = stepsGoal >= 1000
-        ? '${(stepsGoal / 1000).toStringAsFixed(0)}k'
-        : '$stepsGoal';
+    final stepsLabel =
+        steps >= 1000 ? '${(steps / 1000).toStringAsFixed(1)}k' : '$steps';
+    final stepsGoalLabel =
+        stepsGoal >= 1000 ? '${(stepsGoal / 1000).toStringAsFixed(0)}k' : '$stepsGoal';
+    final burnedGoalLabel = '$burnedGoal kcal';
+    final workoutGoal = activityLevel?.workoutGoal ?? 30;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -1623,14 +1736,8 @@ final isLoading = activityState is TodayLoading;
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: context.isDark
-              ? [
-                  const Color(0xFF1C2240),
-                  const Color(0xFF11162B),
-                ]
-              : [
-                  Colors.white,
-                  const Color(0xFFF5F7FF),
-                ],
+              ? [const Color(0xFF1C2240), const Color(0xFF11162B)]
+              : [Colors.white, const Color(0xFFF5F7FF)],
         ),
         boxShadow: [
           BoxShadow(
@@ -1640,9 +1747,7 @@ final isLoading = activityState is TodayLoading;
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(
-          color: _green.withOpacity(0.12),
-        ),
+        border: Border.all(color: _green.withOpacity(0.12)),
       ),
       child: isLoading
           ? const SizedBox(
@@ -1686,7 +1791,9 @@ final isLoading = activityState is TodayLoading;
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            'Live activity tracking',
+                            activityLevel != null
+                                ? '${activityLevel!.label} activity level'
+                                : 'Live activity tracking',
                             style: TextStyle(
                               color: context.colors.subText,
                               fontSize: 11,
@@ -1729,9 +1836,7 @@ final isLoading = activityState is TodayLoading;
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 26),
-
                 Row(
                   children: [
                     SizedBox(
@@ -1746,10 +1851,8 @@ final isLoading = activityState is TodayLoading;
                             child: CircularProgressIndicator(
                               value: stepPct,
                               strokeWidth: 10,
-                              backgroundColor:
-                                  _green.withOpacity(0.10),
-                              valueColor:
-                                  const AlwaysStoppedAnimation(_green),
+                              backgroundColor: _green.withOpacity(0.10),
+                              valueColor: const AlwaysStoppedAnimation(_green),
                             ),
                           ),
                           Column(
@@ -1776,49 +1879,41 @@ final isLoading = activityState is TodayLoading;
                         ],
                       ),
                     ),
-
                     const SizedBox(width: 18),
-
                     Expanded(
                       child: Column(
                         children: [
                           _ModernActivityTile(
-                            icon:
-                                Icons.local_fire_department_rounded,
-                            color: _red,
-                            title: 'Calories',
-                            value: '$calories kcal',
+                            icon: Icons.local_fire_department_rounded,
+                            color: caloriesPct >= 1.0 ? _green : _red,
+                            title: 'Calories Burned',
+                            value: '$calories / $burnedGoalLabel',
                           ),
-
                           const SizedBox(height: 12),
-
                           _ModernActivityTile(
                             icon: Icons.timer_rounded,
-                            color: _orange,
+                            color: workoutMins >= workoutGoal ? _green : _orange,
                             title: 'Workout',
-                            value: '${workoutMins} mins',
+                            value: '$workoutMins / ${workoutGoal} min',
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 24),
-
                 Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Daily Goal Progress',
+                      'Daily Step Goal',
                       style: TextStyle(
                         color: context.colors.subText,
                         fontSize: 11,
                       ),
                     ),
                     Text(
-                      '$steps / $goalLabel',
+                      '$steps / $stepsGoalLabel',
                       style: const TextStyle(
                         color: _green,
                         fontSize: 12,
@@ -1827,18 +1922,47 @@ final isLoading = activityState is TodayLoading;
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
                     value: stepPct,
                     minHeight: 10,
-                    backgroundColor:
-                        _green.withOpacity(0.08),
-                    valueColor:
-                        const AlwaysStoppedAnimation(_green),
+                    backgroundColor: _green.withOpacity(0.08),
+                    valueColor: const AlwaysStoppedAnimation(_green),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Daily Burn Goal',
+                      style: TextStyle(
+                        color: context.colors.subText,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      '$calories / $burnedGoal kcal',
+                      style: TextStyle(
+                        color: caloriesPct >= 1.0 ? _green : _red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: caloriesPct,
+                    minHeight: 10,
+                    backgroundColor: _red.withOpacity(0.08),
+                    valueColor: AlwaysStoppedAnimation(
+                      caloriesPct >= 1.0 ? _green : _red,
+                    ),
                   ),
                 ),
               ],
@@ -1867,9 +1991,7 @@ class _ModernActivityTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withOpacity(0.14),
-        ),
+        border: Border.all(color: color.withOpacity(0.14)),
       ),
       child: Row(
         children: [
@@ -1879,11 +2001,7 @@ class _ModernActivityTile extends StatelessWidget {
               color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1903,7 +2021,7 @@ class _ModernActivityTile extends StatelessWidget {
                   style: TextStyle(
                     color: context.colors.text,
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
               ],
@@ -1913,59 +2031,6 @@ class _ModernActivityTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String value, label;
-
-  const _StatChip({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: color.withOpacity(0.18)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 15),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: context.colors.text,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 9, color: context.colors.subText),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1979,52 +2044,57 @@ class _BellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: () => context.push('/notifications'),
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: context.colors.card,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: context.colors.shadow, blurRadius: 8)],
-          ),
-          child: Icon(
-            CupertinoIcons.bell_fill,
-            color: isDark ? _orange : _blue,
-            size: 20,
-          ),
-        ),
-        if (_unread > 0)
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        onTap: () => context.push('/notifications'),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF4757),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF0F1221)
-                      : const Color(0xFFF0F3FF),
-                  width: 1.5,
-                ),
+                color: context.colors.card,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: context.colors.shadow, blurRadius: 8),
+                ],
               ),
-              child: Text(
-                '$_unread',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Icon(
+                CupertinoIcons.bell_fill,
+                color: isDark ? _orange : _blue,
+                size: 20,
               ),
             ),
-          ),
-      ],
-    ),
-  );
+            if (_unread > 0)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4757),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF0F1221)
+                          : const Color(0xFFF0F3FF),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    '$_unread',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -2033,19 +2103,19 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: context.colors.text,
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: context.colors.text,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _StatCard extends StatelessWidget {
@@ -2062,49 +2132,52 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: context.colors.card,
-      borderRadius: BorderRadius.circular(18),
-      boxShadow: [
-        BoxShadow(
-          color: context.colors.shadow,
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(color: context.colors.subText, fontSize: 11),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                color: context.colors.text,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: context.colors.card,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: context.colors.shadow,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-      ],
-    ),
-  );
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: context.colors.subText,
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: context.colors.text,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
 }
 
 class _BmiCard extends StatelessWidget {
@@ -2227,22 +2300,14 @@ class _BmiCard extends StatelessWidget {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '10',
-                          style: TextStyle(color: Colors.white54, fontSize: 9),
-                        ),
-                        Text(
-                          '18.5',
-                          style: TextStyle(color: Colors.white54, fontSize: 9),
-                        ),
-                        Text(
-                          '25',
-                          style: TextStyle(color: Colors.white54, fontSize: 9),
-                        ),
-                        Text(
-                          '30+',
-                          style: TextStyle(color: Colors.white54, fontSize: 9),
-                        ),
+                        Text('10',
+                            style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('18.5',
+                            style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('25',
+                            style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('30+',
+                            style: TextStyle(color: Colors.white54, fontSize: 9)),
                       ],
                     ),
                   ],
@@ -2293,10 +2358,8 @@ class _NutritionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (cal.totalCaloriesConsumed / cal.caloriesBudget).clamp(
-      0.0,
-      1.0,
-    );
+    final progress =
+        (cal.totalCaloriesConsumed / cal.caloriesBudget).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2324,10 +2387,7 @@ class _NutritionCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _blue.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -2357,16 +2417,8 @@ class _NutritionCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _MacroChip(
-                label: 'Protein',
-                value: '${cal.totalProtein}g',
-                color: _orange,
-              ),
-              _MacroChip(
-                label: 'Carbs',
-                value: '${cal.totalCarbs}g',
-                color: _green,
-              ),
+              _MacroChip(label: 'Protein', value: '${cal.totalProtein}g', color: _orange),
+              _MacroChip(label: 'Carbs', value: '${cal.totalCarbs}g', color: _green),
               _MacroChip(label: 'Fat', value: '${cal.totalFat}g', color: _red),
             ],
           ),
@@ -2388,29 +2440,26 @@ class _MacroChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
           ),
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        label,
-        style: TextStyle(color: context.colors.subText, fontSize: 11),
-      ),
-    ],
-  );
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: context.colors.subText, fontSize: 11)),
+        ],
+      );
 }
 
 class _WaterProgressCard extends StatelessWidget {
@@ -2447,10 +2496,7 @@ class _WaterProgressCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -2504,24 +2550,9 @@ class _MacrosCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final macros = [
-      {
-        'label': 'Protein',
-        'consumed': cal.totalProtein,
-        'goal': cal.proteinGoal,
-        'color': _orange,
-      },
-      {
-        'label': 'Carbs',
-        'consumed': cal.totalCarbs,
-        'goal': cal.carbsGoal,
-        'color': _green,
-      },
-      {
-        'label': 'Fat',
-        'consumed': cal.totalFat,
-        'goal': cal.fatGoal,
-        'color': _red,
-      },
+      {'label': 'Protein', 'consumed': cal.totalProtein, 'goal': cal.proteinGoal, 'color': _orange},
+      {'label': 'Carbs', 'consumed': cal.totalCarbs, 'goal': cal.carbsGoal, 'color': _green},
+      {'label': 'Fat', 'consumed': cal.totalFat, 'goal': cal.fatGoal, 'color': _red},
     ];
     return Container(
       padding: const EdgeInsets.all(16),

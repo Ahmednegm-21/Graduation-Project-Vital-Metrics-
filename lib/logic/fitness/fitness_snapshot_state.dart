@@ -21,6 +21,11 @@ class FitnessSnapshotLoaded extends FitnessSnapshotState {
   List<Object?> get props => [snapshot];
 }
 
+// ← State جديد لما اليوزر يعطّل Health Connect
+class FitnessSnapshotDisabled extends FitnessSnapshotState {
+  const FitnessSnapshotDisabled();
+}
+
 class FitnessSnapshotError extends FitnessSnapshotState {
   final String message;
   const FitnessSnapshotError(this.message);
