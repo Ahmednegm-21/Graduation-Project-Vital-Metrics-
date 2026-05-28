@@ -55,6 +55,8 @@ class ActivityCubit extends Cubit<ActivityState> {
       _loadActivityLevel(),
     ]);
 
+    // ← تحقق من اليوم عند أي init عشان لو التطبيق اتفتح بعد منتصف الليل
+    await _checkAndResetIfNewDay();
     await _loadCachedActivities();
     await _load();
   }
@@ -286,13 +288,22 @@ class ActivityCubit extends Cubit<ActivityState> {
       print('[ActivityCubit] Health Connect failed (non-fatal): $e');
     }
 
-    // Backend activities
+    // Backend activities — فلتر صارم لليوم الحالي
     try {
       final backendActivities = await _activityRepo.getActivities();
+      final today = _todayStr();
+
+      // ← فلتر double-check حتى لو الـ repository فلتر
+      final todayOnly = backendActivities.where((a) {
+        final d = a.timestamp;
+        final dateStr =
+            '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        return dateStr == today;
+      }).toList();
 
       _localActivities.clear();
 
-      final restored = backendActivities.map((a) {
+      final restored = todayOnly.map((a) {
         final originalType = _originalTypes[a.id];
         return originalType != null ? a.copyWith(type: originalType) : a;
       }).toList();
@@ -300,7 +311,8 @@ class ActivityCubit extends Cubit<ActivityState> {
       _localActivities.addAll(restored);
       await _saveCachedActivities();
 
-      print('[ActivityCubit] backend activities loaded: ${restored.length}');
+      print('[ActivityCubit] today=$today loaded=${restored.length} '
+          '(total from backend=${backendActivities.length})');
     } catch (e) {
       print('[ActivityCubit] backend activities failed: $e');
 

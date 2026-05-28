@@ -17,25 +17,24 @@ class DailyMetricsRepository {
     return ApiConfig.headers(token: token);
   }
 
-  // GET /daily-metrics?page=X&limit=7
-  // weekOffset: 0 = current week, -1 = last week, -2 = two weeks ago, etc.
-  // Backend returns newest-first so we reverse to get Sat->Fri order.
-  // We fetch limit=14 to have enough records then filter by the target week dates.
+  // =====================================================
+  // GET WEEKLY METRICS
+  // weekOffset: 0 = current week, -1 = last week, etc.
+  // =====================================================
+
   Future<List<DailyMetricModel>> getWeeklyMetrics({
     int weekOffset = 0,
   }) async {
     try {
       final headers = await _authHeaders;
-
-      // Calculate the target week date range
       final range = _weekDateRange(weekOffset);
       final weekStart = range.$1;
       final weekEnd = range.$2;
 
-      // Fetch enough records to cover the target week.
-      // weekOffset 0 needs page 1, offset -1 might need page 1 or 2, etc.
-      // We fetch a generous limit and filter by date on the client side.
-      final limit = 7 + (weekOffset.abs() * 7) + 7;
+      // ← limit كافي يغطي الأسبوع المطلوب مهما كان بعيد
+      // كل أسبوع = 7 أيام، نجيب buffer كافي
+      // weekOffset=0 → limit=14, weekOffset=-1 → limit=21, إلخ
+      final limit = 14 + (weekOffset.abs() * 7);
 
       final raw = await _api.getAsList(
         ApiConfig.getDailyMetrics,
@@ -47,21 +46,24 @@ class DailyMetricsRepository {
           .map((e) => DailyMetricModel.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Filter to only records within the target week
+      // Filter للأسبوع المطلوب بالظبط
       final filtered = allMetrics.where((m) {
         final dateStr = m.date.length >= 10 ? m.date.substring(0, 10) : m.date;
         final date = DateTime.tryParse(dateStr);
         if (date == null) return false;
-        // Include dates from weekStart to weekEnd inclusive
         return !date.isBefore(weekStart) && !date.isAfter(weekEnd);
       }).toList();
 
-      // Sort ascending (Sat to Fri)
+      // Sort ascending (Sat → Fri)
       filtered.sort((a, b) {
         final da = a.date.length >= 10 ? a.date.substring(0, 10) : a.date;
         final db = b.date.length >= 10 ? b.date.substring(0, 10) : b.date;
         return da.compareTo(db);
       });
+
+      print('[DailyMetricsRepo] weekOffset=$weekOffset '
+          'fetched=${allMetrics.length} filtered=${filtered.length} '
+          'range=${_fmt(weekStart)} → ${_fmt(weekEnd)}');
 
       return filtered;
     } on ApiException {
@@ -71,7 +73,10 @@ class DailyMetricsRepository {
     }
   }
 
-  // GET /daily-metrics — find today's record to get its metric_id
+  // =====================================================
+  // GET TODAY METRIC
+  // =====================================================
+
   Future<DailyMetricModel?> getTodayMetric() async {
     try {
       final headers = await _authHeaders;
@@ -96,7 +101,10 @@ class DailyMetricsRepository {
     }
   }
 
-  // PATCH /daily-metrics/{id}/steps — sync Health Connect steps
+  // =====================================================
+  // UPDATE STEPS
+  // =====================================================
+
   Future<DailyMetricModel> updateSteps({
     required int metricsId,
     required int totalSteps,
@@ -116,9 +124,10 @@ class DailyMetricsRepository {
     }
   }
 
-  // Returns (weekStart, weekEnd) for a given weekOffset
-  // weekOffset 0 = current week (Sat to Fri)
-  // weekOffset -1 = last week, etc.
+  // =====================================================
+  // HELPERS
+  // =====================================================
+
   (DateTime, DateTime) _weekDateRange(int weekOffset) {
     final now = DateTime.now();
     final weekday = now.weekday;
@@ -149,10 +158,8 @@ class DailyMetricsRepository {
 
     final currentWeekStart = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: daysSinceSaturday));
-
     final targetWeekStart =
         currentWeekStart.add(Duration(days: weekOffset * 7));
-
     final targetWeekEnd = targetWeekStart.add(const Duration(days: 6));
 
     return (targetWeekStart, targetWeekEnd);
@@ -162,4 +169,7 @@ class DailyMetricsRepository {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
+
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

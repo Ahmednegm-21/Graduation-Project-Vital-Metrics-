@@ -72,10 +72,11 @@ class GoogleFitService {
 
   Future<bool> requestPermissions() async {
     try {
-      // ← تحقق من اختيار اليوزر الأول
-      final enabled = await isHealthConnectEnabled();
-      if (!enabled) {
-        print('[Health] disabled by user preference');
+      // تحقق من steps preference فقط — Sleep و Water ليهم preference منفصل
+      final prefs = await SharedPreferences.getInstance();
+      final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
+      if (!stepsEnabled) {
+        print('[Health] steps tracking disabled by user');
         return false;
       }
 
