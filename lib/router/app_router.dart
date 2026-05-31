@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/forget_password_cubit.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
+import 'package:vital_metrics/ui/screens/admin/admin_panel_screen.dart';
+import 'package:vital_metrics/ui/screens/admin/admin_shell.dart';
 import 'package:vital_metrics/ui/screens/auth_screens/forget_password_screen.dart';
 import 'package:vital_metrics/ui/screens/auth_screens/new_password_screen.dart';
 import 'package:vital_metrics/ui/screens/auth_screens/password_reset_password_screen.dart';
@@ -55,7 +58,6 @@ class AppRouter {
       ),
 
       // ── Sign In OTP ──────────────────────────────────────────────────────
-      // After OTP verified → AuthSuccess → /home
       GoRoute(
         path: '/verify-signin-otp',
         name: 'verify-signin-otp',
@@ -66,19 +68,23 @@ class AppRouter {
             child: VerifySigninOtpScreen(email: email),
             transitionsBuilder: (context, animation, _, child) =>
                 SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-              child: child,
-            ),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: child,
+                ),
           );
         },
       ),
 
       // ── Sign Up OTP ──────────────────────────────────────────────────────
-      // After OTP verified → AuthOTPVerified → /goal-selection
       GoRoute(
         path: '/verify-signup-otp',
         name: 'verify-signup-otp',
@@ -89,13 +95,18 @@ class AppRouter {
             child: VerifySignupOtpScreen(email: email),
             transitionsBuilder: (context, animation, _, child) =>
                 SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-              child: child,
-            ),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: child,
+                ),
           );
         },
       ),
@@ -111,11 +122,13 @@ class AppRouter {
             child: const ForgotPasswordScreen(),
           ),
           transitionsBuilder: (context, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           ),
         ),
@@ -133,13 +146,18 @@ class AppRouter {
             ),
             transitionsBuilder: (context, animation, _, child) =>
                 SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-              child: child,
-            ),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: child,
+                ),
           );
         },
       ),
@@ -159,13 +177,18 @@ class AppRouter {
             ),
             transitionsBuilder: (context, animation, _, child) =>
                 SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-              child: child,
-            ),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: child,
+                ),
           );
         },
       ),
@@ -175,10 +198,8 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const PasswordResetSuccessScreen(),
-          transitionsBuilder: (context, animation, _, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          transitionsBuilder: (context, animation, _, child) =>
+              FadeTransition(opacity: animation, child: child),
         ),
       ),
 
@@ -262,13 +283,19 @@ class AppRouter {
         name: 'notifications',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const NotificationsScreen(),
+          child: BlocProvider(
+            // ← الإضافة هنا
+            create: (_) => NotificationsCubit(),
+            child: const NotificationsScreen(),
+          ),
           transitionsBuilder: (context, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           ),
         ),
@@ -282,11 +309,13 @@ class AppRouter {
           key: state.pageKey,
           child: const FoodSwappingScreen(),
           transitionsBuilder: (context, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
+            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           ),
         ),
@@ -303,13 +332,27 @@ class AppRouter {
             child: const FavoritesScreen(),
           ),
           transitionsBuilder: (context, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           ),
+        ),
+      ),
+
+      // ── Admin Panel ──────────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/admin-panel',
+        name: 'admin-panel',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const AdminShell(), // ← AdminShell بدل AdminPanelScreen
+          transitionsBuilder: (context, animation, _, child) =>
+              FadeTransition(opacity: animation, child: child),
         ),
       ),
 
@@ -321,11 +364,13 @@ class AppRouter {
           key: state.pageKey,
           child: const AiScreen(),
           transitionsBuilder: (context, animation, _, child) => SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-                parent: animation, curve: Curves.easeOutCubic)),
+            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           ),
         ),

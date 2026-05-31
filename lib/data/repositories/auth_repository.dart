@@ -1,3 +1,5 @@
+// lib/data/repositories/auth_repository.dart
+
 import '../config/api_config.dart';
 import '../models/api_response.dart';
 import '../models/user_model.dart';
@@ -6,19 +8,16 @@ import '../../services/token_storage_service.dart';
 import '../exceptions/api_exception.dart';
 
 class AuthRepository {
-  final ApiService _apiService;
+  final ApiService          _apiService;
   final TokenStorageService _tokenStorage;
 
   AuthRepository({
-    ApiService? apiService,
+    ApiService?          apiService,
     TokenStorageService? tokenStorage,
-  })  : _apiService = apiService ?? ApiService(),
+  })  : _apiService   = apiService   ?? ApiService(),
         _tokenStorage = tokenStorage ?? TokenStorageService();
 
   // ── Sign In ───────────────────────────────────────────────────────────────
-  // true  → email verified → token saved → AuthSuccess → home
-  // false → email not verified (403) → AuthSignInOTPSent → OTP screen
-
   Future<bool> signIn({
     required String email,
     required String password,
@@ -28,13 +27,10 @@ class AuthRepository {
         ApiConfig.login,
         body: {'email': email, 'password': password},
       );
-
       final saved = await _trySaveTokenFromResponse(response);
       if (!saved) {
         final data = response['data'];
-        if (data is Map<String, dynamic>) {
-          await _trySaveTokenFromResponse(data);
-        }
+        if (data is Map<String, dynamic>) await _trySaveTokenFromResponse(data);
       }
       return true;
     } on ForbiddenException {
@@ -47,9 +43,6 @@ class AuthRepository {
   }
 
   // ── Sign Up ───────────────────────────────────────────────────────────────
-  // 201 → OTP sent → AuthRegistrationSuccess
-  // 409 → email exists → treat as success → OTP screen
-
   Future<String> signUp({
     required String name,
     required String email,
@@ -84,9 +77,6 @@ class AuthRepository {
   }
 
   // ── Verify OTP ────────────────────────────────────────────────────────────
-  // verify_email → save tokens
-  // reset_password → no tokens saved
-
   Future<void> verifyOTP({
     required String email,
     required String otp,
@@ -95,20 +85,13 @@ class AuthRepository {
     try {
       final response = await _apiService.post(
         ApiConfig.verifyOtp,
-        body: {
-          'email':   email,
-          'code':    otp,
-          'purpose': purpose,
-        },
+        body: {'email': email, 'code': otp, 'purpose': purpose},
       );
-
       if (purpose == 'verify_email') {
         final saved = await _trySaveTokenFromResponse(response);
         if (!saved) {
           final data = response['data'];
-          if (data is Map<String, dynamic>) {
-            await _trySaveTokenFromResponse(data);
-          }
+          if (data is Map<String, dynamic>) await _trySaveTokenFromResponse(data);
         }
       }
     } on ApiException {
@@ -118,20 +101,12 @@ class AuthRepository {
     }
   }
 
-  // ── Verify OTP for forgot password ────────────────────────────────────────
-
-  Future<void> verifyOtp({
-    required String email,
-    required String otp,
-  }) async {
+  // ── Verify OTP (forgot password) ──────────────────────────────────────────
+  Future<void> verifyOtp({required String email, required String otp}) async {
     try {
       await _apiService.post(
         ApiConfig.verifyOtp,
-        body: {
-          'email':   email,
-          'code':    otp,
-          'purpose': 'reset_password',
-        },
+        body: {'email': email, 'code': otp, 'purpose': 'reset_password'},
       );
     } on ApiException {
       rethrow;
@@ -141,28 +116,22 @@ class AuthRepository {
   }
 
   // ── Refresh Token ─────────────────────────────────────────────────────────
-
   Future<void> refreshToken() async {
     try {
       final accessToken  = await _tokenStorage.getToken();
       final refreshToken = await _tokenStorage.getRefreshToken();
-
       if (accessToken == null || refreshToken == null) {
         throw UnauthorizedException('No tokens found');
       }
-
       final response = await _apiService.post(
         ApiConfig.refreshToken,
         headers: ApiConfig.headers(token: accessToken),
         body: {'refresh_token': refreshToken},
       );
-
       final saved = await _trySaveTokenFromResponse(response);
       if (!saved) {
         final data = response['data'];
-        if (data is Map<String, dynamic>) {
-          await _trySaveTokenFromResponse(data);
-        }
+        if (data is Map<String, dynamic>) await _trySaveTokenFromResponse(data);
       }
     } on ApiException {
       rethrow;
@@ -172,7 +141,6 @@ class AuthRepository {
   }
 
   // ── Sign Out ──────────────────────────────────────────────────────────────
-
   Future<void> signOut() async {
     try {
       final token = await _tokenStorage.getToken();
@@ -189,7 +157,6 @@ class AuthRepository {
   }
 
   // ── Get User Profile ──────────────────────────────────────────────────────
-
   Future<UserModel> getUserProfile() async {
     try {
       final token = await _tokenStorage.getToken();
@@ -200,12 +167,19 @@ class AuthRepository {
         headers: ApiConfig.headers(token: token),
       );
 
+      // ✅ يدعم { data: {...} } أو الـ JSON مباشرةً
       final Map<String, dynamic> userData =
           response['data'] is Map<String, dynamic>
               ? response['data'] as Map<String, dynamic>
               : response;
 
-      return _toUserModelFromProfile(userData);
+      final user = _toUserModelFromProfile(userData);
+
+      // DEBUG — احذف السطر ده بعد ما تتأكد إن الـ isAdmin شغال
+      // ignore: avoid_print
+      print('[AuthRepo] isAdmin=${user.isAdmin} | raw=${userData['is_admin']}');
+
+      return user;
     } on UnauthorizedException {
       try {
         await refreshToken();
@@ -221,7 +195,6 @@ class AuthRepository {
   }
 
   // ── Forgot Password ───────────────────────────────────────────────────────
-
   Future<void> sendResetEmail({required String email}) async {
     try {
       await _apiService.post(ApiConfig.resetPassword, body: {'email': email});
@@ -233,7 +206,6 @@ class AuthRepository {
   }
 
   // ── Reset Password Confirm ────────────────────────────────────────────────
-
   Future<void> resetPasswordConfirm({
     required String email,
     required String otp,
@@ -282,26 +254,35 @@ class AuthRepository {
 
   String? _safeStr(Map<String, dynamic> map, String key) {
     final val = map[key];
-    if (val is String) return val;
-    return null;
+    return val is String ? val : null;
   }
 
-  UserModel _toUserModelFromProfile(Map<String, dynamic> json) => UserModel(
-        id:    json['user_id']?.toString()
-            ?? json['id']?.toString()
-            ?? json['_id']?.toString(),
-        name:  _safeStr(json, 'name') ?? '',
-        email: _safeStr(json, 'email') ?? '',
-        profileImage: json['profileImage'] is String
-            ? json['profileImage'] as String
-            : null,
-        createdAt: json['createdAt'] != null
-            ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
-            : DateTime.now(),
-        onboardingComplete: json['onboardingComplete'] as bool?
-            ?? json['is_verified'] as bool?
-            ?? false,
-      );
+  // ✅ الإصلاح الرئيسي — يقرأ is_admin بشكل صحيح حتى لو الـ value مش bool
+  UserModel _toUserModelFromProfile(Map<String, dynamic> json) {
+    // is_admin ممكن يجي كـ bool أو int (1/0) أو String ("true")
+    final rawAdmin = json['is_admin'] ?? json['isAdmin'];
+    final isAdmin = rawAdmin == true ||
+        rawAdmin == 1 ||
+        rawAdmin?.toString().toLowerCase() == 'true';
+
+    return UserModel(
+      id: json['user_id']?.toString()
+          ?? json['id']?.toString()
+          ?? json['_id']?.toString(),
+      name:  _safeStr(json, 'name')  ?? '',
+      email: _safeStr(json, 'email') ?? '',
+      profileImage: json['profileImage'] is String
+          ? json['profileImage'] as String
+          : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      onboardingComplete: json['onboardingComplete'] as bool?
+          ?? json['is_verified'] as bool?
+          ?? false,
+      isAdmin: isAdmin,  // ✅
+    );
+  }
 
   void dispose() => _apiService.dispose();
 }

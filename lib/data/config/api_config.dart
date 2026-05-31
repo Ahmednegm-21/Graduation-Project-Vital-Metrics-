@@ -1,12 +1,14 @@
+// lib/data/config/api_config.dart
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   // ── Base URL ───────────────────────────────────────────────────────────────
   static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:3000';
-    if (Platform.isAndroid) return 'http://192.168.1.11:3000';
-    if (Platform.isIOS) return 'http://localhost:3000';
+    if (kIsWeb)             return 'http://localhost:3000';
+    if (Platform.isAndroid) return 'http://192.168.1.27:3000';
+    if (Platform.isIOS)     return 'http://localhost:3000';
     return 'http://localhost:3000';
   }
 
@@ -43,12 +45,16 @@ class ApiConfig {
   static const String updateActivity = '/activities';
   static const String deleteActivity = '/activities';
 
-  // ── Meals (shared catalog — populated by admin) ────────────────────────────
-  static const String getMeals = '/meals'; // GET /meals, GET /meals/{id}, GET /meals/{id}/swap
+  // ── Meals (admin catalog) ──────────────────────────────────────────────────
+  static const String getMeals   = '/meals';
+  static const String createMeal = '/meals';
+  static String updateMeal(int id) => '/meals/$id';
+  static String deleteMeal(int id) => '/meals/$id';
+  static String getMeal(int id)    => '/meals/$id';
 
-  // ── Consumed Meals (user meal log) ─────────────────────────────────────────
-  static const String consumedMeals       = '/consumed-meals'; // POST, GET
-  static String consumedMeal(int id) => '/consumed-meals/$id'; // GET /{id}, DELETE /{id}
+  // ── Consumed Meals (user log) ──────────────────────────────────────────────
+  static const String consumedMeals      = '/consumed-meals';
+  static String consumedMeal(int id) => '/consumed-meals/$id';
 
   // ── Water Intakes ──────────────────────────────────────────────────────────
   static const String createWaterIntake = '/water-intakes';
@@ -67,22 +73,38 @@ class ApiConfig {
       '/daily-metrics/$metricsId/steps';
 
   // ── Notifications ──────────────────────────────────────────────────────────
-  static const String getNotifications         = '/Get/notifications';
-  static const String deleteNotifications      = '/Delete/notifications';
-  static const String getUnreadCount           = '/Get/notifications/unread-count';
-  static const String markNotificationRead     = '/Patch/notifications/{id}/read';
-  static const String markAllNotificationsRead = '/Patch/notifications/read-all';
+  static const String getNotifications         = '/notifications';
+  static const String deleteAllNotifications   = '/notifications';
+  static const String getUnreadCount           = '/notifications/unread-count';
+  static const String markAllNotificationsRead = '/notifications/read-all';
+  static String markNotificationRead(int id)   => '/notifications/$id/read';
+  static String deleteNotification(int id)     => '/notifications/$id';
+
+  // ── Notification Preferences ───────────────────────────────────────────────
+  static const String getNotifPreferences    = '/notification-preferences';
+  static const String updateNotifPreferences = '/notification-preferences';
+
+  // ── Device Tokens (FCM) ────────────────────────────────────────────────────
+  static const String registerDeviceToken      = '/device-tokens';
+  static const String getDeviceTokens          = '/device-tokens';
+  static String deleteDeviceToken(int tokenId) => '/device-tokens/$tokenId';
+
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  static const String adminStats    = '/admin/stats';
+  static const String adminUsers    = '/admin/users';
+  static const String adminOverview = '/admin/metrics/overview';
+  static const String adminMeals    = '/admin/meals';
+  static String adminMealById(int id)   => '/admin/meals/$id';
+  static String adminDeleteUser(int id) => '/admin/users/$id';
 
   // ── Timeouts ───────────────────────────────────────────────────────────────
   static const Duration connectionTimeout = Duration(seconds: 60);
   static const Duration receiveTimeout    = Duration(seconds: 60);
 
   // ── Headers ────────────────────────────────────────────────────────────────
-  static Map<String, String> headers({String? token}) {
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
+  static Map<String, String> headers({String? token}) => {
+    'Content-Type': 'application/json',
+    'Accept':       'application/json',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
 }

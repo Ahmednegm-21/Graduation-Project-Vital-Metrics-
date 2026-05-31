@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "614319872852",
+    "project_id": "vital-metrics-1a8e2",
+    "storage_bucket": "vital-metrics-1a8e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:614319872852:android:c78dd7d5d8ea5af2fbc6c1",
+        "android_client_info": {
+          "package_name": "com.example.vital_metrics"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAH6tmR3P5Fs3RSuz5TrEVahwXLvZXDFoc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

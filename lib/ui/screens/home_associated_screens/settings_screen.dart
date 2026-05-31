@@ -1,12 +1,18 @@
+// lib/ui/screens/home_associated_screens/settings_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
+import 'package:vital_metrics/services/notification_api_service.dart';
+import 'package:vital_metrics/data/models/notification_preferences_model.dart';
+import 'package:vital_metrics/services/device_token_manager.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,16 +23,22 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifications = true;
+  bool _notifLoading = false;
   String _language = 'English';
   String _username = 'Abdelrhman';
   String _email = 'Abdelrhman@gmail.com';
   String? _avatarPath;
 
+  final NotificationApiService _notifService = NotificationApiService();
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadNotifPreference();
   }
+
+  // ── Load ───────────────────────────────────────────────────────────────────
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
@@ -36,6 +48,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _avatarPath = prefs.getString('avatar_path');
     });
   }
+
+  Future<void> _loadNotifPreference() async {
+    try {
+      final pref = await _notifService.getPreferences();
+      if (mounted) setState(() => _notifications = pref.pushEnabled);
+    } catch (_) {
+      // keep default true on error
+    }
+  }
+
+  // ── Save ───────────────────────────────────────────────────────────────────
 
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
@@ -56,7 +79,95 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Shared TextField builder (متاح لكل الـ dialogs في الـ State) ──────────
+  // ── Toggle Notifications ───────────────────────────────────────────────────
+
+  Future<void> _toggleNotifications(bool value) async {
+    // optimistic update — بيتغير على الفور
+    setState(() {
+      _notifications = value;
+      _notifLoading = true;
+    });
+    try {
+      // بنبعت الـ value مباشرةً من غير ما نعمل GET الأول
+      await _notifService.updatePreferences(
+        NotificationPreferencesModel(pushEnabled: value),
+      );
+    } catch (e) {
+      debugPrint('[Settings] toggleNotifications error: $e');
+      // revert لو السيرفر رد بـ error
+      if (mounted) setState(() => _notifications = !value);
+    } finally {
+      if (mounted) setState(() => _notifLoading = false);
+    }
+  }
+
+  // ── Logout ─────────────────────────────────────────────────────────────────
+
+  Future<void> _logout() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Log Out',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : const Color(0xFF2D3142),
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to log out?',
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF4757),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Log Out',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // 1. Unregister FCM device token
+    await DeviceTokenManager.instance.unregisterOnLogout();
+
+    // 2. Clear stored tokens
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('accessToken');
+    await prefs.remove('token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('user_id');
+
+    // 3. Navigate to sign-in
+    if (mounted) context.go('/signin');
+  }
+
+  // ── TextField builder ──────────────────────────────────────────────────────
+
   Widget _buildTextField(
     TextEditingController ctrl,
     String label,
@@ -93,6 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ── Edit Profile Dialog ────────────────────────────────────────────────────
+
   void _showEditProfileDialog(bool isDark) {
     final nameCtrl = TextEditingController(text: _username);
     final emailCtrl = TextEditingController(text: _email);
@@ -155,6 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ── Personal Information Dialog ────────────────────────────────────────────
+
   void _showPersonalInfoDialog(bool isDark) {
     final info = context.read<PersonalInfoCubit>().state;
     final weightCtrl = TextEditingController(
@@ -191,7 +304,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Gender
                 Text(
                   'Gender',
                   style: TextStyle(
@@ -384,6 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ── Reset Water Dialog ─────────────────────────────────────────────────────
+
   void _showResetWaterDialog(bool isDark) {
     final dlgBg = isDark ? const Color(0xFF16213E) : Colors.white;
     final txtColor = isDark ? Colors.white : const Color(0xFF2D3142);
@@ -438,6 +551,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -626,13 +740,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     onTap: () => _showPersonalInfoDialog(isDark),
                   ),
-                  _TileRow(
-                    icon: Icons.lock_outline,
-                    label: 'Change Password',
-                    textColor: textColor,
-                    subColor: subColor,
-                    onTap: () {},
-                  ),
+                  // ✅ Change Password شيل — مش موجود
                 ],
               ),
             ),
@@ -674,11 +782,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     child: Column(
                       children: [
+                        // ✅ Notification toggle مربوط بالـ API
                         _GradSwitch(
                           icon: Icons.notifications_outlined,
-                          label: 'Notification',
+                          label: 'Notifications',
                           value: _notifications,
-                          onChanged: (v) => setState(() => _notifications = v),
+                          loading: _notifLoading,
+                          onChanged: _toggleNotifications,
                         ),
                         const _GradDivider(),
                         _GradLanguage(
@@ -778,6 +888,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
+            const SizedBox(height: 20),
+
+            // ── Log Out Button ─────────────────────────────────────────────
+            FadeInDown(
+              delay: const Duration(milliseconds: 500),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF4757).withOpacity(0.12),
+                    foregroundColor: const Color(0xFFFF4757),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: const Color(0xFFFF4757).withOpacity(0.35),
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.logout_rounded, size: 20),
+                  label: const Text(
+                    'Log Out',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  onPressed: _logout,
+                ),
+              ),
+            ),
+
             const SizedBox(height: 30),
           ],
         ),
@@ -787,15 +927,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Helper Widgets — بدون أي منطق، بس UI بحتة
+// Helper Widgets
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _SectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
-  final Color cardBg;
-  final Color textColor;
-  final Color divColor;
+  final Color cardBg, textColor, divColor;
 
   const _SectionCard({
     required this.title,
@@ -856,8 +994,7 @@ class _SectionCard extends StatelessWidget {
 class _TileRow extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color textColor;
-  final Color subColor;
+  final Color textColor, subColor;
   final Color? iconColor;
   final Widget? trailing;
   final VoidCallback onTap;
@@ -903,10 +1040,12 @@ class _TileRow extends StatelessWidget {
   }
 }
 
+// ✅ _GradSwitch — أضاف loading indicator
 class _GradSwitch extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool value;
+  final bool loading;
   final ValueChanged<bool> onChanged;
 
   const _GradSwitch({
@@ -914,6 +1053,7 @@ class _GradSwitch extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.loading = false,
   });
 
   @override
@@ -934,14 +1074,24 @@ class _GradSwitch extends StatelessWidget {
               ),
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: Colors.white,
-            activeTrackColor: Colors.white.withOpacity(0.4),
-            inactiveThumbColor: Colors.white.withOpacity(0.7),
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-          ),
+          if (loading)
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          else
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Colors.white,
+              activeTrackColor: Colors.white.withOpacity(0.4),
+              inactiveThumbColor: Colors.white.withOpacity(0.7),
+              inactiveTrackColor: Colors.white.withOpacity(0.2),
+            ),
         ],
       ),
     );
@@ -997,11 +1147,9 @@ class _GradDivider extends StatelessWidget {
   const _GradDivider();
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: Colors.white.withOpacity(0.2),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    height: 1,
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    color: Colors.white.withOpacity(0.2),
+  );
 }

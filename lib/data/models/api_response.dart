@@ -1,5 +1,7 @@
+// lib/data/models/auth_response.dart
+
 class AuthResponse {
-  final String token;
+  final String  token;
   final String? refreshToken;
   final UserData user;
 
@@ -15,7 +17,6 @@ class AuthResponse {
             ? json['data'] as Map<String, dynamic>
             : json;
 
-    // ✅ access_token أو token أو accessToken
     final token = _safeStr(payload, 'access_token')
         ?? _safeStr(payload, 'token')
         ?? _safeStr(payload, 'accessToken');
@@ -33,8 +34,7 @@ class AuthResponse {
     }
 
     return AuthResponse(
-      token: token,
-      // ✅ refresh_token أو refreshToken
+      token:        token,
       refreshToken: _safeStr(payload, 'refresh_token')
           ?? _safeStr(payload, 'refreshToken'),
       user: user,
@@ -43,15 +43,14 @@ class AuthResponse {
 
   static String? _safeStr(Map<String, dynamic> map, String key) {
     final val = map[key];
-    if (val is String) return val;
-    return null;
+    return val is String ? val : null;
   }
 
   Map<String, dynamic> toJson() => {
-        'access_token':  token,
-        'refresh_token': refreshToken,
-        'user':          user.toJson(),
-      };
+    'access_token':  token,
+    'refresh_token': refreshToken,
+    'user':          user.toJson(),
+  };
 }
 
 class UserData {
@@ -59,7 +58,8 @@ class UserData {
   final String name;
   final String email;
   final String? profileImage;
-  final bool? onboardingComplete;
+  final bool?   onboardingComplete;
+  final bool    isAdmin;           // ← جديد
 
   UserData({
     required this.id,
@@ -67,10 +67,10 @@ class UserData {
     required this.email,
     this.profileImage,
     this.onboardingComplete,
+    this.isAdmin = false,
   });
 
   factory UserData.fromJson(Map<String, dynamic> json) {
-    // ✅ user_id أو id أو _id أو userId
     final id = (json['user_id'] ?? json['id'] ?? json['_id'] ?? json['userId'])
         ?.toString();
 
@@ -89,20 +89,22 @@ class UserData {
       onboardingComplete: json['onboardingComplete'] is bool
           ? json['onboardingComplete'] as bool
           : null,
+      // backend بيبعت is_admin
+      isAdmin: (json['is_admin'] ?? json['isAdmin'] ?? false) as bool,
     );
   }
 
   static String? _safeStr(Map<String, dynamic> map, String key) {
     final val = map[key];
-    if (val is String) return val;
-    return null;
+    return val is String ? val : null;
   }
 
   Map<String, dynamic> toJson() => {
-        'user_id':            id,
-        'name':               name,
-        'email':              email,
-        'profileImage':       profileImage,
-        'onboardingComplete': onboardingComplete,
-      };
+    'user_id':            id,
+    'name':               name,
+    'email':              email,
+    'profileImage':       profileImage,
+    'onboardingComplete': onboardingComplete,
+    'is_admin':           isAdmin,
+  };
 }
