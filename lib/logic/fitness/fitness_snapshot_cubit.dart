@@ -12,17 +12,10 @@ class FitnessSnapshotCubit extends Cubit<FitnessSnapshotState> {
         super(const FitnessSnapshotInitial());
 
   // =====================================================
-  // LOAD — بيتحقق من اختيار اليوزر الأول
+  // LOAD
   // =====================================================
 
   Future<void> load() async {
-    // لو اليوزر عطّل Health Connect → emit disabled مباشرة
-    final enabled = await _fitService.isHealthConnectEnabled();
-    if (!enabled) {
-      emit(const FitnessSnapshotDisabled());
-      return;
-    }
-
     emit(const FitnessSnapshotLoading());
     try {
       final snapshot = await _fitService.getTodaySnapshot();
@@ -33,21 +26,18 @@ class FitnessSnapshotCubit extends Cubit<FitnessSnapshotState> {
   }
 
   // =====================================================
-  // ENABLE — اليوزر فعّل Health Connect
+  // ENABLE — اليوزر فعّل Steps tracking
   // =====================================================
 
   Future<void> enable() async {
-    await _fitService.setHealthConnectEnabled(true);
-    // بعد التفعيل → حمّل الـ snapshot
     await load();
   }
 
   // =====================================================
-  // DISABLE — اليوزر عطّل Health Connect
+  // DISABLE — اليوزر عطّل Steps tracking
   // =====================================================
 
   Future<void> disable() async {
-    await _fitService.setHealthConnectEnabled(false);
     emit(const FitnessSnapshotDisabled());
   }
 

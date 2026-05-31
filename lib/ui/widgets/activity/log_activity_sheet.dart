@@ -236,176 +236,151 @@ class _LogActivitySheetState extends State<_LogActivitySheet>
   }
 
   // Step 1: details form
-  Widget _buildForm(bool isDark) {
+Widget _buildForm(bool isDark) {
     final act = _selected!;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SheetHandle(),
-            SizedBox(height: 8.h),
-
-            // Back button and selected activity pill
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: _goBack,
-                  child: Container(
-                    padding: EdgeInsets.all(8.w),
-                    decoration: BoxDecoration(
-                      color:        act.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size:  16.sp,
-                      color: act.color,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical:   8.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color:        act.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(50.r),
-                    border:       Border.all(color: act.color.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(act.icon, color: act.color, size: 18.sp),
-                      SizedBox(width: 6.w),
-                      // Show display name to user
-                      Text(
-                        act.name,
-                        style: TextStyle(
-                          fontSize:   14.sp,
-                          fontWeight: FontWeight.w700,
-                          color:      act.color,
-                        ),
+        // Wrap in SingleChildScrollView so content scrolls when keyboard appears
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SheetHandle(),
+              SizedBox(height: 8.h),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _goBack,
+                    child: Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: BoxDecoration(
+                        color:        act.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10.r),
                       ),
-                    ],
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size:  16.sp,
+                        color: act.color,
+                      ),
+                    ),
                   ),
+                  SizedBox(width: 12.w),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color:        act.color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(50.r),
+                      border:       Border.all(color: act.color.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(act.icon, color: act.color, size: 18.sp),
+                        SizedBox(width: 6.w),
+                        Text(
+                          act.name,
+                          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: act.color),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 22.h),
+              if (_isOther) ...[
+                _FieldLabel('Activity name', context),
+                SizedBox(height: 8.h),
+                _InputField(
+                  controller:      _customNameCtrl,
+                  hint:            'e.g. Martial arts, Boxing...',
+                  keyboardType:    TextInputType.text,
+                  inputFormatters: [],
+                  prefixIcon:      Icons.edit_rounded,
+                  accentColor:     act.color,
+                  isDark:          isDark,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Enter activity name';
+                    return null;
+                  },
                 ),
+                SizedBox(height: 16.h),
               ],
-            ),
-
-            SizedBox(height: 22.h),
-
-            // Custom name field shown only when Other is selected
-            if (_isOther) ...[
-              _FieldLabel('Activity name', context),
+              _FieldLabel('Duration (minutes)', context),
               SizedBox(height: 8.h),
               _InputField(
-                controller:      _customNameCtrl,
-                hint:            'e.g. Martial arts, Boxing...',
-                keyboardType:    TextInputType.text,
-                inputFormatters: [],
-                prefixIcon:      Icons.edit_rounded,
+                controller:      _durationCtrl,
+                hint:            'e.g. 30',
+                keyboardType:    TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                prefixIcon:      Icons.timer_rounded,
                 accentColor:     act.color,
                 isDark:          isDark,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Enter activity name';
+                  if (v == null || v.isEmpty) return 'Enter duration';
+                  final n = int.tryParse(v);
+                  if (n == null || n <= 0) return 'Must be greater than 0';
                   return null;
                 },
               ),
               SizedBox(height: 16.h),
-            ],
-
-            // Duration field
-            _FieldLabel('Duration (minutes)', context),
-            SizedBox(height: 8.h),
-            _InputField(
-              controller:      _durationCtrl,
-              hint:            'e.g. 30',
-              keyboardType:    TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              prefixIcon:      Icons.timer_rounded,
-              accentColor:     act.color,
-              isDark:          isDark,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Enter duration';
-                final n = int.tryParse(v);
-                if (n == null || n <= 0) return 'Must be greater than 0';
-                return null;
-              },
-            ),
-
-            SizedBox(height: 16.h),
-
-            // Weight field
-            _FieldLabel('Your weight (kg)', context),
-            SizedBox(height: 8.h),
-            _InputField(
-              controller:   _weightCtrl,
-              hint:         '70',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-              ],
-              prefixIcon:  Icons.monitor_weight_outlined,
-              accentColor: act.color,
-              isDark:      isDark,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Enter your weight';
-                final n = double.tryParse(v);
-                if (n == null || n <= 0) return 'Must be greater than 0';
-                return null;
-              },
-            ),
-
-            SizedBox(height: 12.h),
-
-            // Live calorie estimate preview
-            _CaloriePreview(
-              durationCtrl: _durationCtrl,
-              weightCtrl:   _weightCtrl,
-              met:          act.metValue,
-              color:        act.color,
-              isDark:       isDark,
-            ),
-
-            SizedBox(height: 22.h),
-
-            // Save button
-            SizedBox(
-              width:  double.infinity,
-              height: 52.h,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: act.color,
-                  foregroundColor: Colors.white,
-                  elevation:       0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
+              _FieldLabel('Your weight (kg)', context),
+              SizedBox(height: 8.h),
+              _InputField(
+                controller:   _weightCtrl,
+                hint:         '70',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+                prefixIcon:  Icons.monitor_weight_outlined,
+                accentColor: act.color,
+                isDark:      isDark,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter your weight';
+                  final n = double.tryParse(v);
+                  if (n == null || n <= 0) return 'Must be greater than 0';
+                  return null;
+                },
+              ),
+              SizedBox(height: 12.h),
+              _CaloriePreview(
+                durationCtrl: _durationCtrl,
+                weightCtrl:   _weightCtrl,
+                met:          act.metValue,
+                color:        act.color,
+                isDark:       isDark,
+              ),
+              SizedBox(height: 22.h),
+              SizedBox(
+                width:  double.infinity,
+                height: 52.h,
+                child: ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: act.color,
+                    foregroundColor: Colors.white,
+                    elevation:       0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_rounded, size: 20),
+                      SizedBox(width: 8.w),
+                      Text('Log Activity',
+                          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.check_rounded, size: 20),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'Log Activity',
-                      style: TextStyle(
-                        fontSize:   16.sp,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          ],
+              // Extra bottom padding so button stays above keyboard
+              SizedBox(height: 8.h),
+            ],
+          ),
         ),
       ),
     );

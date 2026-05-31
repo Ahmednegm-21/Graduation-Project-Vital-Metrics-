@@ -25,11 +25,9 @@ class CalorieCubit extends Cubit<CalorieState> {
 
       final savedDate = prefs.getString('cached_date') ?? '';
       final today = DateTime.now();
-      final todayStr =
-          '${today.year}-${today.month}-${today.day}';
+      final todayStr = '${today.year}-${today.month}-${today.day}';
 
       if (savedDate != todayStr) {
-        // يوم جديد - امسح الكالوريز
         await prefs.setStringList(_mealsKey, []);
         await prefs.setString('cached_date', todayStr);
         final budget = prefs.getInt(_budgetKey) ?? 2000;
@@ -37,13 +35,11 @@ class CalorieCubit extends Cubit<CalorieState> {
         return;
       }
 
-      // نفس اليوم - حمّل العادي
       final budget = prefs.getInt(_budgetKey) ?? 2000;
       final mealsJson = prefs.getStringList(_mealsKey) ?? [];
 
       final meals = mealsJson.map((mealString) {
-        final mealJson =
-            jsonDecode(mealString) as Map<String, dynamic>;
+        final mealJson = jsonDecode(mealString) as Map<String, dynamic>;
         return MealEntry(
           name: mealJson['name'] as String,
           calories: mealJson['calories'] as int,
@@ -68,7 +64,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // ✅ الإصلاح: احفظ الـ meals فعلاً
       final mealsJson = state.meals.map((meal) {
         return jsonEncode({
           'name': meal.name,
@@ -138,6 +133,7 @@ class CalorieCubit extends Cubit<CalorieState> {
       case 'gain_weight':
         targetCalories += 300;
         break;
+      // maintain or any other value: no adjustment
     }
 
     if (targetCalories < 1200) {
@@ -152,12 +148,9 @@ class CalorieCubit extends Cubit<CalorieState> {
   // =====================================================
 
   void addMeal(MealEntry meal) {
-    final updatedMeals = List<MealEntry>.from(state.meals)
-      ..add(meal);
-
+    final updatedMeals = List<MealEntry>.from(state.meals)..add(meal);
     emit(state.copyWith(meals: updatedMeals));
     _saveCache();
-
     print('[CalorieCubit] Meal Added => ${meal.name}');
   }
 
@@ -181,7 +174,6 @@ class CalorieCubit extends Cubit<CalorieState> {
       fat: fat.round(),
       mealType: mealType,
     );
-
     addMeal(meal);
   }
 
@@ -190,9 +182,7 @@ class CalorieCubit extends Cubit<CalorieState> {
   // =====================================================
 
   void removeMeal(MealEntry meal) {
-    final updatedMeals = List<MealEntry>.from(state.meals)
-      ..remove(meal);
-
+    final updatedMeals = List<MealEntry>.from(state.meals)..remove(meal);
     emit(state.copyWith(meals: updatedMeals));
     _saveCache();
   }
@@ -202,21 +192,23 @@ class CalorieCubit extends Cubit<CalorieState> {
   // =====================================================
 
   void resetMeal(String mealType) {
-    final updatedMeals = state.meals
-        .where((meal) => meal.mealType != mealType)
-        .toList();
-
+    final updatedMeals =
+        state.meals.where((meal) => meal.mealType != mealType).toList();
     emit(state.copyWith(meals: updatedMeals));
     _saveCache();
-
     print('[CalorieCubit] Reset Meal => $mealType');
   }
 
   // =====================================================
   // UPDATE BUDGET
+  // Guard prevents emitting when the value has not changed,
+  // which would otherwise cause a listener loop:
+  // calorieCubit.stream -> progressCubit.load ->
+  // onboardingCubit.stream -> syncProfile -> updateBudget -> loop
   // =====================================================
 
   void updateBudget(int budget) {
+    if (state.caloriesBudget == budget) return;
     emit(state.copyWith(caloriesBudget: budget));
     _saveCache();
   }
@@ -227,7 +219,6 @@ class CalorieCubit extends Cubit<CalorieState> {
 
   Future<void> reset() async {
     emit(const CalorieState());
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_mealsKey);
     await prefs.remove(_budgetKey);

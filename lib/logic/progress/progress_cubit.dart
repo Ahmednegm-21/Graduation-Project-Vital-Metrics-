@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vital_metrics/data/models/daily_metric_model.dart';
 import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
@@ -76,12 +77,12 @@ class ProgressCubit extends Cubit<ProgressState> {
   }
 
   // =====================================================
-  // UPDATE TODAY SLEEP — يُستدعى من SleepCubit مباشرة
-  // بيحدّث اليوم الحالي فقط في الـ state من غير ما يروح للباك
+  // UPDATE TODAY SLEEP
+  // Called directly from SleepCubit to update only the
+  // current day in state without hitting the backend
   // =====================================================
 
   void updateTodaySleep(int sleepMinutes) {
-    // شغّال بس لو في loaded state وعلى current week
     if (state is! ProgressLoaded) return;
     final loaded = state as ProgressLoaded;
     if (loaded.weekOffset != 0) return;
@@ -99,7 +100,7 @@ class ProgressCubit extends Cubit<ProgressState> {
           caloriesConsumed: m.caloriesConsumed,
           burnedTotal: m.burnedTotal,
           totalWaterMl: m.totalWaterMl,
-          totalSleepMinutes: sleepMinutes, // ← ده اللي بيتغير بس
+          totalSleepMinutes: sleepMinutes,
         );
       }
       return m;
@@ -153,8 +154,11 @@ class ProgressCubit extends Cubit<ProgressState> {
         case DateTime.thursday:
           daysSinceSaturday = 5;
           break;
-        default:
+        case DateTime.friday:
           daysSinceSaturday = 6;
+          break;
+        default:
+          daysSinceSaturday = 0;
       }
 
       final currentWeekStart = DateTime(now.year, now.month, now.day)
@@ -186,7 +190,6 @@ class ProgressCubit extends Cubit<ProgressState> {
       final liveSteps =
           (isCurrentWeek && snapshot != null) ? snapshot.steps : 0;
 
-      // liveBurned من Health Connect + الـ local manual activities
       final healthConnectBurned =
           (isCurrentWeek && snapshot != null) ? snapshot.caloriesBurned : 0;
       final liveBurnedFromHC = healthConnectBurned + localBurned;
@@ -198,23 +201,14 @@ class ProgressCubit extends Cubit<ProgressState> {
         final isToday = isCurrentWeek && dateStr == today;
 
         if (metric != null) {
-          // ── حساب الـ burned لليوم الحالي ──
-          // لو Health Connect شغال → استخدم قيمته + الـ manual
-          // لو مش شغال → استخدم الـ backend value + الـ manual
           final int todayBurned;
           if (isToday) {
             if (liveBurnedFromHC > 0) {
-              // Health Connect شغال
               todayBurned = liveBurnedFromHC;
-            } else if (localBurned > 0) {
-              // Health Connect مش شغال بس في manual activities
-              todayBurned = (metric.burnedTotal) + localBurned;
             } else {
-              // مفيش Health Connect ومفيش manual → خد من الباك
               todayBurned = metric.burnedTotal;
             }
           } else {
-            // الأيام السابقة دايماً من الباك
             todayBurned = metric.burnedTotal;
           }
 
@@ -228,26 +222,22 @@ class ProgressCubit extends Cubit<ProgressState> {
                 isToday ? localCalories : metric.caloriesConsumed,
             burnedTotal: todayBurned,
             totalWaterMl: isToday ? localWater : metric.totalWaterMl,
-            // النوم دايماً من الباك — التحديث الفوري عن طريق updateTodaySleep
             totalSleepMinutes: metric.totalSleepMinutes,
           );
         }
 
-        // اليوم الحالي بدون record في الباك بعد
         if (isToday) {
           return DailyMetricModel(
             metricId: 0,
             date: dateStr,
             totalSteps: liveSteps,
             caloriesConsumed: localCalories,
-            // لو Health Connect شغال خد منه، لو لأ خد الـ manual فقط
             burnedTotal: liveBurnedFromHC > 0 ? liveBurnedFromHC : localBurned,
             totalWaterMl: localWater,
             totalSleepMinutes: 0,
           );
         }
 
-        // يوم سابق بدون داتا
         return DailyMetricModel(
           metricId: 0,
           date: dateStr,
@@ -314,15 +304,29 @@ class ProgressCubit extends Cubit<ProgressState> {
 
   // =====================================================
   // REFRESH
+  // Checks hc_steps_enabled preference before calling
+  // the fit service so that disabled HC data is never
+  // shown after the user turns off the toggle
   // =====================================================
 
   Future<void> refresh() async {
     try {
       FitnessSnapshot? snapshot;
-      final granted = await _fitService.requestPermissions();
-      if (granted) {
-        snapshot = await _fitService.getTodaySnapshot();
+
+      // Check HC preference before calling the fit service
+      // If user disabled HC skip the snapshot entirely
+      final prefs = await SharedPreferences.getInstance();
+      final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
+
+      if (stepsEnabled) {
+        final granted = await _fitService.requestPermissions();
+        if (granted) {
+          snapshot = await _fitService.getTodaySnapshot();
+        }
+      } else {
+        print('[ProgressCubit] HC disabled — skipping snapshot in refresh');
       }
+
       _weekCache.remove(0);
       await loadWeeklyMetrics(
         snapshot: snapshot,

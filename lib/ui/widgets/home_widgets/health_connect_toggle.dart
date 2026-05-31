@@ -3,18 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
-import 'package:vital_metrics/logic/home/sleep_cubit.dart';
-import 'package:vital_metrics/logic/home/water_cubit.dart';
+import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 
-// =====================================================
-// كل feature ليه toggle منفصل
-// =====================================================
-
-const _kStepsEnabled   = 'hc_steps_enabled';
-const _kSleepEnabled   = 'hc_sleep_enabled';
-const _kWaterEnabled   = 'hc_water_enabled';
-
-// ── Steps & Activity Toggle ────────────────────────────────────────────────
+const _kStepsEnabled = 'hc_steps_enabled';
+const _kSleepEnabled = 'hc_sleep_enabled';
+const _kWaterEnabled = 'hc_water_enabled';
 
 class StepsConnectToggle extends StatefulWidget {
   const StepsConnectToggle({super.key});
@@ -44,10 +37,22 @@ class _StepsConnectToggleState extends State<StepsConnectToggle> {
     setState(() => _enabled = newVal);
 
     if (newVal) {
-      // فعّل → حمّل الـ snapshot من جديد
+      // Enabled: load a fresh snapshot from Health Connect
       context.read<FitnessSnapshotCubit>().enable();
+
+      // Refresh ActivityCubit to include the new HC snapshot
+      try {
+        context.read<ActivityCubit>().refresh();
+      } catch (_) {}
     } else {
+      // Disabled: clear the HC snapshot from ActivityCubit immediately
+      // so stale HC data does not remain visible after disabling
+      // Do NOT remove activity_cached_list because it holds manually
+      // logged activities that must be preserved
       context.read<FitnessSnapshotCubit>().disable();
+      try {
+        context.read<ActivityCubit>().clearSnapshot();
+      } catch (_) {}
     }
   }
 
@@ -67,8 +72,6 @@ class _StepsConnectToggleState extends State<StepsConnectToggle> {
     );
   }
 }
-
-// ── Sleep Toggle ────────────────────────────────────────────────────────────
 
 class SleepConnectToggle extends StatefulWidget {
   const SleepConnectToggle({super.key});
@@ -96,7 +99,6 @@ class _SleepConnectToggleState extends State<SleepConnectToggle> {
     final newVal = !_enabled;
     await prefs.setBool(_kSleepEnabled, newVal);
     setState(() => _enabled = newVal);
-    // SleepCubit بيقرأ الـ preference ده في writeSleep
     print('[HealthToggle] sleep hc enabled=$newVal');
   }
 
@@ -116,8 +118,6 @@ class _SleepConnectToggleState extends State<SleepConnectToggle> {
     );
   }
 }
-
-// ── Water Toggle ────────────────────────────────────────────────────────────
 
 class WaterConnectToggle extends StatefulWidget {
   const WaterConnectToggle({super.key});
@@ -164,10 +164,6 @@ class _WaterConnectToggleState extends State<WaterConnectToggle> {
     );
   }
 }
-
-// =====================================================
-// Badge UI مشترك
-// =====================================================
 
 class _ToggleBadge extends StatelessWidget {
   final String label;
@@ -217,10 +213,6 @@ class _ToggleBadge extends StatelessWidget {
     );
   }
 }
-
-// =====================================================
-// Confirm bottom sheet مشترك
-// =====================================================
 
 void _showConfirm(
   BuildContext context, {
@@ -326,10 +318,6 @@ void _showConfirm(
     ),
   );
 }
-
-// =====================================================
-// Helper functions للـ services يقرأوا الـ preferences
-// =====================================================
 
 Future<bool> isSleepHcEnabled() async {
   final prefs = await SharedPreferences.getInstance();

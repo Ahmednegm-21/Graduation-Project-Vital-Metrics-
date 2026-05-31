@@ -7,67 +7,28 @@ import '../../services/token_storage_service.dart';
 
 class ActivityRepository {
   final ApiService _apiService;
-
   final TokenStorageService _tokenStorage;
 
   ActivityRepository({
     ApiService? apiService,
     TokenStorageService? tokenStorage,
-  }) : _apiService =
-           apiService ?? ApiService(),
-       _tokenStorage =
-           tokenStorage ??
-           TokenStorageService();
+  })  : _apiService = apiService ?? ApiService(),
+        _tokenStorage = tokenStorage ?? TokenStorageService();
 
-  // =====================================================
-  // AUTH HEADERS
-  // =====================================================
-
-  Future<Map<String, String>>
-  get _authHeaders async {
-    final token =
-        await _tokenStorage.getToken();
-
-    return ApiConfig.headers(
-      token: token,
-    );
+  Future<Map<String, String>> get _authHeaders async {
+    final token = await _tokenStorage.getToken();
+    return ApiConfig.headers(token: token);
   }
 
-  // =====================================================
-  // MAP DISPLAY TYPE TO BACKEND TYPE
-  // =====================================================
-
-  String _mapToBackendType(
-    String displayType,
-  ) {
-    final normalized =
-        displayType
-            .trim()
-            .toLowerCase();
-
-    const walkTypes = {
-      'walking',
-      'walk',
-      'yoga',
-      'stretching',
-    };
-
-    if (walkTypes.contains(
-      normalized,
-    )) {
-      return 'walk';
-    }
-
+  String _mapToBackendType(String displayType) {
+    final normalized = displayType.trim().toLowerCase();
+    const walkTypes = {'walking', 'walk', 'yoga', 'stretching'};
+    if (walkTypes.contains(normalized)) return 'walk';
     return 'run';
   }
 
-  // =====================================================
-  // TODAY DATE STRING
-  // =====================================================
-
   String _todayStr() {
     final now = DateTime.now();
-
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
@@ -75,183 +36,86 @@ class ActivityRepository {
   // CREATE ACTIVITY
   // =====================================================
 
-  Future<ActivityModel>
-  createActivity({
+  Future<ActivityModel> createActivity({
     required String type,
     required int durationMinutes,
     required int caloriesBurned,
     DateTime? date,
   }) async {
     try {
-      final headers =
-          await _authHeaders;
-
-      final activityDate =
-          date ?? DateTime.now();
-
+      final headers = await _authHeaders;
+      final activityDate = date ?? DateTime.now();
       final dateStr =
           '${activityDate.year}-${activityDate.month.toString().padLeft(2, '0')}-${activityDate.day.toString().padLeft(2, '0')}';
 
-      final response =
-          await _apiService.post(
-            ApiConfig.createActivity,
-            headers: headers,
-            body: {
-              'date': dateStr,
-              'type':
-                  _mapToBackendType(
-                    type,
-                  ),
-              'duration':
-                  durationMinutes,
-              'calories_burned':
-                  caloriesBurned,
-            },
-          );
-
-      final data =
-          response['data'] ??
-          response;
-
-      final saved =
-          ActivityModel.fromBackendJson(
-            Map<String, dynamic>.from(
-              data,
-            ),
-          );
-
-      return saved.copyWith(
-        type: type,
+      final response = await _apiService.post(
+        ApiConfig.createActivity,
+        headers: headers,
+        body: {
+          'date': dateStr,
+          'type': _mapToBackendType(type),
+          'duration': durationMinutes,
+          'calories_burned': caloriesBurned,
+        },
       );
+
+      final data = response['data'] ?? response;
+      final saved = ActivityModel.fromBackendJson(data);
+      return saved.copyWith(type: type);
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(
-        message:
-            'Failed to create activity: $e',
-      );
+      throw ApiException(message: 'Failed to create activity: $e');
     }
   }
 
   // =====================================================
-  // GET ACTIVITIES
+  // GET ACTIVITIES — بيجيب اليوم الحالي بس
+  // بنبعت التاريخ في الـ query parameters لو الـ API يدعمه
+  // وبنفلتر في الـ client كضمان إضافي
   // =====================================================
 
-  Future<List<ActivityModel>>
-  getActivities({
+  Future<List<ActivityModel>> getActivities({
     int page = 1,
-    int limit = 20,
+    int limit = 50,
   }) async {
     try {
-      final headers =
-          await _authHeaders;
+      final headers = await _authHeaders;
+      final today = _todayStr();
 
-      final today =
-          _todayStr();
-
-      final response =
-          await _apiService.get(
-            ApiConfig.getActivities,
-            headers: headers,
-            queryParameters: {
-              'page': page,
-              'limit': limit,
-            },
-          );
-
-      print(
-        '[ActivityRepo] response = $response',
+      // ← استخدم getAsList زي DailyMetricsRepository بالظبط
+      final raw = await _apiService.getAsList(
+        ApiConfig.getActivities,
+        headers: headers,
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+        },
       );
 
-      dynamic rawList;
+      final activities = raw
+          .map((item) =>
+              ActivityModel.fromBackendJson(item as Map<String, dynamic>))
+          .toList();
 
-      // Response is list directly
-
-      if (response is List) {
-        rawList = response;
-      }
-
-      // Response is wrapped in map
-
-      else if (response is Map) {
-        final data =
-            response['data'];
-
-        if (data is List) {
-          rawList = data;
-        } else if (data is Map) {
-          rawList =
-              data['activities'] ??
-              data['data'] ??
-              [];
-        } else {
-          rawList =
-              response['activities'] ??
-              response['items'] ??
-              [];
-        }
-      }
-
-      // Invalid response
-
-      if (rawList == null ||
-          rawList is! List) {
-        print(
-          '[ActivityRepo] invalid response shape',
-        );
-
-        return [];
-      }
-
-      print(
-        '[ActivityRepo] rawList = $rawList',
-      );
-
-      final activities =
-          rawList
-              .map(
-                (item) =>
-                    ActivityModel.fromBackendJson(
-                      Map<String,
-                        dynamic>.from(
-                        item,
-                      ),
-                    ),
-              )
-              .toList();
-
-      // Filter only today activities
-
-      final todayActivities =
-          activities.where((a) {
-            final activityDate =
-                '${a.timestamp.year}-${a.timestamp.month.toString().padLeft(2, '0')}-${a.timestamp.day.toString().padLeft(2, '0')}';
-
-            return activityDate ==
-                today;
-          }).toList();
+      // فلتر لليوم الحالي بس
+      final todayActivities = activities.where((a) {
+        final activityDate =
+            '${a.timestamp.year}-${a.timestamp.month.toString().padLeft(2, '0')}-${a.timestamp.day.toString().padLeft(2, '0')}';
+        return activityDate == today;
+      }).toList();
 
       // Sort newest first
+      todayActivities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      todayActivities.sort(
-        (a, b) => b.timestamp
-            .compareTo(
-              a.timestamp,
-            ),
-      );
-
-      print(
-        '[ActivityRepo] total=${activities.length} today=${todayActivities.length}',
-      );
+      print('[ActivityRepo] fetched ${activities.length} total, '
+          '${todayActivities.length} for today ($today)');
 
       return todayActivities;
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(
-        message:
-            'Failed to get activities: $e',
-      );
+      throw ApiException(message: 'Failed to get activities: $e');
     }
   }
 
@@ -259,20 +123,10 @@ class ActivityRepository {
   // DELETE ACTIVITY
   // =====================================================
 
-  Future<void> deleteActivity(
-    String id,
-  ) async {
+  Future<void> deleteActivity(String id) async {
     try {
-      if (id.startsWith(
-            'local_',
-          ) ||
-          id.startsWith('hc_')) {
-        return;
-      }
-
-      final headers =
-          await _authHeaders;
-
+      if (id.startsWith('local_') || id.startsWith('hc_')) return;
+      final headers = await _authHeaders;
       await _apiService.delete(
         '${ApiConfig.deleteActivity}/$id',
         headers: headers,
@@ -280,16 +134,9 @@ class ActivityRepository {
     } on ApiException {
       rethrow;
     } catch (e) {
-      throw ApiException(
-        message:
-            'Failed to delete activity: $e',
-      );
+      throw ApiException(message: 'Failed to delete activity: $e');
     }
   }
-
-  // =====================================================
-  // DISPOSE
-  // =====================================================
 
   void dispose() {
     _apiService.dispose();

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vital_metrics/data/exceptions/api_exception.dart';
 import 'package:vital_metrics/data/models/activity_level.dart';
@@ -12,6 +13,9 @@ import 'package:vital_metrics/logic/auth/auth_state.dart';
 
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 
+const _kActivityLevelKey = 'onboarding_activity_level';
+const _kGoalKey = 'onboarding_goal_type';
+
 class OnboardingCubitAllData extends Cubit<OnboardingState> {
   OnboardingData _data = OnboardingData(activityLevel: ActivityLevel.low);
 
@@ -23,7 +27,74 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
 
   OnboardingCubitAllData({OnboardingRepository? repo})
       : _repo = repo ?? OnboardingRepository(),
-        super(OnboardingInitial());
+        super(OnboardingInitial()) {
+    _loadPersistedData();
+  }
+
+  // =====================================================
+  // LOAD PERSISTED DATA ON STARTUP
+  // Loads both activity level and goal type from SharedPreferences
+  // so _goalString() in main.dart never falls back to 'maintain'
+  // after the first onboarding is completed
+  // =====================================================
+
+  Future<void> _loadPersistedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load activity level
+      final savedLevel = prefs.getString(_kActivityLevelKey);
+      if (savedLevel != null) {
+        final level = ActivityLevel.values.firstWhere(
+          (e) => e.name == savedLevel,
+          orElse: () => ActivityLevel.low,
+        );
+        _data = _data.copyWith(activityLevel: level);
+        print('[OnboardingCubit] loaded activityLevel=$level');
+      }
+
+      // Load goal type
+      final savedGoal = prefs.getString(_kGoalKey);
+      if (savedGoal != null) {
+        final matchingGoal = UserGoal.allGoals.firstWhere(
+          (g) => g.type.name == savedGoal,
+          orElse: () => UserGoal.allGoals.first,
+        );
+        _data = _data.copyWith(goal: matchingGoal);
+        print('[OnboardingCubit] loaded goal=${matchingGoal.type.name}');
+      }
+
+      emit(OnboardingDataUpdated(_data));
+    } catch (e) {
+      print('[OnboardingCubit] _loadPersistedData error: $e');
+    }
+  }
+
+  // =====================================================
+  // SAVE ACTIVITY LEVEL TO SHARED PREFERENCES
+  // =====================================================
+
+  Future<void> _saveActivityLevel(ActivityLevel level) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kActivityLevelKey, level.name);
+    } catch (e) {
+      print('[OnboardingCubit] _saveActivityLevel error: $e');
+    }
+  }
+
+  // =====================================================
+  // SAVE GOAL TO SHARED PREFERENCES
+  // =====================================================
+
+  Future<void> _saveGoal(UserGoal goal) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kGoalKey, goal.type.name);
+    } catch (e) {
+      print('[OnboardingCubit] _saveGoal error: $e');
+    }
+  }
 
   // =====================================================
   // CURRENT DATA
@@ -83,20 +154,25 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
 
   // =====================================================
   // ACTIVITY LEVEL
+  // Saves to SharedPreferences so it persists across restarts
   // =====================================================
 
   void updateActivityLevel(ActivityLevel level) {
     _data = _data.copyWith(activityLevel: level);
     emit(OnboardingDataUpdated(_data));
+    _saveActivityLevel(level);
   }
 
   // =====================================================
   // GOAL
+  // Also saves to SharedPreferences so the goal survives restarts
+  // and _goalString() in main.dart returns the correct value
   // =====================================================
 
   void selectGoal(UserGoal goal) {
     _data = _data.copyWith(goal: goal);
     emit(GoalSelected(goal));
+    _saveGoal(goal);
   }
 
   // =====================================================
@@ -206,16 +282,6 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
 
   // =====================================================
   // COMPLETE ONBOARDING
-  //
-  // المنطق:
-  // 1. جرّب saveGoal
-  // 2. لو نجح → OnboardingComplete
-  // 3. لو 409 (موجود) → جرّب updateGoal
-  //    - لو updateGoal نجح → OnboardingComplete
-  //    - لو updateGoal فشل → OnboardingComplete كمان
-  //      (الداتا موجودة في الباك، منمنعش المستخدم)
-  // 4. لو أي error تاني → OnboardingComplete كمان
-  //    (نفس المنطق — الأكونت موجود والداتا اتحفظت)
   // =====================================================
 
   Future<void> completeOnboarding() async {
@@ -235,11 +301,12 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
         targetDate: _data.targetDate,
       );
 
-      // saveGoal نجح ← روح للهوم
+      // Persist goal locally so it survives app restarts
+      await _saveGoal(_data.goal!);
+
       emit(OnboardingComplete(_data));
     } on ApiException catch (e) {
       if (e.statusCode == 409) {
-        // الـ goal موجود ← جرّب تحدّثه
         try {
           await _repo.updateGoal(
             goal: _data.goal!,
@@ -247,23 +314,18 @@ class OnboardingCubitAllData extends Cubit<OnboardingState> {
             weightPerWeek: _data.weightPerWeek,
           );
         } catch (_) {
-          // updateGoal فشل — مشكلة في الشبكة أو غيرها
-          // الداتا موجودة في الباك → روح للهوم على طول
           print('[OnboardingCubit] updateGoal failed, proceeding anyway');
         }
-
-        // في الحالتين (نجح أو فشل) ← روح للهوم
+        await _saveGoal(_data.goal!);
         emit(OnboardingComplete(_data));
       } else {
-        // أي error تاني من الـ API (مش 409)
-        // الداتا اتسجلت في الباك من قبل → روح للهوم
         print('[OnboardingCubit] saveGoal error ${e.statusCode}: ${e.message}, proceeding anyway');
+        await _saveGoal(_data.goal!);
         emit(OnboardingComplete(_data));
       }
     } catch (e) {
-      // network error أو غيره
-      // نفس المنطق — متوقفش المستخدم
       print('[OnboardingCubit] completeOnboarding unexpected error: $e, proceeding anyway');
+      await _saveGoal(_data.goal!);
       emit(OnboardingComplete(_data));
     }
   }
