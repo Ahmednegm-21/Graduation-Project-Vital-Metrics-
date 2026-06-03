@@ -70,9 +70,44 @@ class ActivityRepository {
   }
 
   // =====================================================
-  // GET ACTIVITIES — بيجيب اليوم الحالي بس
-  // بنبعت التاريخ في الـ query parameters لو الـ API يدعمه
-  // وبنفلتر في الـ client كضمان إضافي
+  // SYNC HC ACTIVITY TO BACKEND
+  // Sends a Health Connect workout to the backend so that
+  // burned_total is persisted in daily metrics for the chart
+  // Returns null silently on failure to avoid blocking the UI
+  // =====================================================
+
+  Future<ActivityModel?> syncHCActivity({
+    required String type,
+    required int durationMinutes,
+    required int caloriesBurned,
+    required DateTime date,
+  }) async {
+    try {
+      final headers = await _authHeaders;
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+      final response = await _apiService.post(
+        ApiConfig.createActivity,
+        headers: headers,
+        body: {
+          'date': dateStr,
+          'type': _mapToBackendType(type),
+          'duration': durationMinutes,
+          'calories_burned': caloriesBurned,
+        },
+      );
+
+      final data = response['data'] ?? response;
+      return ActivityModel.fromBackendJson(data);
+    } catch (e) {
+      print('[ActivityRepo] syncHCActivity failed (non-fatal): $e');
+      return null;
+    }
+  }
+
+  // =====================================================
+  // GET ACTIVITIES
   // =====================================================
 
   Future<List<ActivityModel>> getActivities({
@@ -83,7 +118,6 @@ class ActivityRepository {
       final headers = await _authHeaders;
       final today = _todayStr();
 
-      // ← استخدم getAsList زي DailyMetricsRepository بالظبط
       final raw = await _apiService.getAsList(
         ApiConfig.getActivities,
         headers: headers,
@@ -98,7 +132,7 @@ class ActivityRepository {
               ActivityModel.fromBackendJson(item as Map<String, dynamic>))
           .toList();
 
-      // فلتر لليوم الحالي بس
+      // Filter to today only
       final todayActivities = activities.where((a) {
         final activityDate =
             '${a.timestamp.year}-${a.timestamp.month.toString().padLeft(2, '0')}-${a.timestamp.day.toString().padLeft(2, '0')}';

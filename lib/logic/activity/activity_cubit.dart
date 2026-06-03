@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,10 +16,11 @@ import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 
 import 'package:vital_metrics/services/google_fit_service.dart';
 
-const _kOriginalTypesKey = 'activity_original_types';
-const _kActivityLevelKey = 'activity_level';
-const _kCachedActivities = 'activity_cached_list';
-const _kCachedDate       = 'activity_cached_date';
+const _kOriginalTypesKey  = 'activity_original_types';
+const _kActivityLevelKey  = 'activity_level';
+const _kCachedActivities  = 'activity_cached_list';
+const _kCachedDate        = 'activity_cached_date';
+const _kHcLastSyncDate    = 'hc_last_sync_date';
 
 class ActivityCubit extends Cubit<ActivityState> {
   final OnboardingCubitAllData onboardingCubit;
@@ -42,6 +44,9 @@ class ActivityCubit extends Cubit<ActivityState> {
 
   FitnessSnapshot? _lastSnapshot;
 
+  // Timer that fires at midnight to reset the day data automatically
+  Timer? _midnightTimer;
+
   ActivityCubit({
     required this.onboardingCubit,
     ActivityRepository? activityRepository,
@@ -61,6 +66,41 @@ class ActivityCubit extends Cubit<ActivityState> {
     await _checkAndResetIfNewDay();
     await _loadCachedActivities();
     await _load();
+
+    // Schedule midnight reset so data clears even if app stays open overnight
+    _scheduleMidnightReset();
+  }
+
+  // =====================================================
+  // MIDNIGHT RESET
+  // Schedules a timer that fires exactly at midnight
+  // so the day resets automatically without reopening the app
+  // =====================================================
+
+  void _scheduleMidnightReset() {
+    _midnightTimer?.cancel();
+    final now      = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    final duration = midnight.difference(now);
+
+    _midnightTimer = Timer(duration, () async {
+      print('[ActivityCubit] midnight timer fired — resetting day');
+      _lastSnapshot = null;
+      _localActivities.clear();
+      _fitService.clearPermissionCache();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kCachedActivities);
+      await prefs.remove(_kCachedDate);
+      await prefs.remove(_kHcLastSyncDate);
+
+      await _load();
+
+      // Schedule the next midnight reset for tomorrow
+      _scheduleMidnightReset();
+    });
+
+    print('[ActivityCubit] midnight reset scheduled in ${duration.inMinutes} minutes');
   }
 
   // =====================================================
@@ -179,6 +219,42 @@ class ActivityCubit extends Cubit<ActivityState> {
   }
 
   // =====================================================
+  // SYNC HC ACTIVITIES TO BACKEND
+  // Sends HC workout activities to the backend once per day
+  // so burned_total is persisted and shows in the progress chart
+  // Skips sync if already done today to avoid duplicate records
+  // =====================================================
+
+  Future<void> _syncHCActivitiesToBackend(FitnessSnapshot snapshot) async {
+    try {
+      if (snapshot.activities.isEmpty) return;
+
+      final prefs    = await SharedPreferences.getInstance();
+      final lastSync = prefs.getString(_kHcLastSyncDate) ?? '';
+      final today    = _todayStr();
+
+      // Only sync once per day to avoid duplicate backend records
+      if (lastSync == today) return;
+
+      print('[ActivityCubit] syncing ${snapshot.activities.length} HC activities to backend');
+
+      for (final activity in snapshot.activities) {
+        await _activityRepo.syncHCActivity(
+          type:            activity.type,
+          durationMinutes: activity.durationMinutes,
+          caloriesBurned:  activity.caloriesBurned,
+          date:            activity.timestamp,
+        );
+      }
+
+      await prefs.setString(_kHcLastSyncDate, today);
+      print('[ActivityCubit] HC activities synced to backend for $today');
+    } catch (e) {
+      print('[ActivityCubit] HC sync failed (non-fatal): $e');
+    }
+  }
+
+  // =====================================================
   // PUBLIC API
   // =====================================================
 
@@ -204,6 +280,7 @@ class ActivityCubit extends Cubit<ActivityState> {
       if (cached != null && cached != today) {
         await prefs.remove(_kCachedActivities);
         await prefs.remove(_kCachedDate);
+        await prefs.remove(_kHcLastSyncDate);
         _localActivities.clear();
         print('[ActivityCubit] midnight reset triggered');
       }
@@ -238,10 +315,10 @@ class ActivityCubit extends Cubit<ActivityState> {
 
     try {
       final saved = await _activityRepo.createActivity(
-        type: originalType,
+        type:            originalType,
         durationMinutes: activity.durationMinutes,
-        caloriesBurned: activity.caloriesBurned,
-        date: activity.timestamp,
+        caloriesBurned:  activity.caloriesBurned,
+        date:            activity.timestamp,
       );
 
       _originalTypes[saved.id] = originalType;
@@ -291,16 +368,17 @@ class ActivityCubit extends Cubit<ActivityState> {
     if (!hasExistingData) emit(const TodayLoading());
 
     try {
-      // Check HC preference before calling the fit service
-      // If user disabled HC keep _lastSnapshot as null
-      // so no stale data appears in the UI
-      final prefs = await SharedPreferences.getInstance();
+      final prefs       = await SharedPreferences.getInstance();
       final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
 
       if (stepsEnabled) {
         final snapshot = await _fitService.getTodaySnapshot();
         _lastSnapshot = snapshot;
         print('[ActivityCubit] snapshot loaded: steps=${snapshot.steps}');
+
+        // Sync HC workout activities to backend once per day
+        // so burned_total is persisted for the progress chart
+        await _syncHCActivitiesToBackend(snapshot);
       } else {
         _lastSnapshot = null;
         print('[ActivityCubit] HC disabled — snapshot skipped');
@@ -316,7 +394,7 @@ class ActivityCubit extends Cubit<ActivityState> {
       _localActivities.clear();
 
       final todayOnly = backendActivities.where((a) {
-        final d = a.timestamp;
+        final d       = a.timestamp;
         final dateStr =
             '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
         return dateStr == today;
@@ -342,8 +420,8 @@ class ActivityCubit extends Cubit<ActivityState> {
     } catch (e) {
       print('[ActivityCubit] backend activities failed: $e');
 
-      final today = _todayStr();
-      final prefs = await SharedPreferences.getInstance();
+      final today      = _todayStr();
+      final prefs      = await SharedPreferences.getInstance();
       final cachedDate = prefs.getString(_kCachedDate);
 
       if (_localActivities.isNotEmpty && cachedDate == today) {
@@ -374,12 +452,12 @@ class ActivityCubit extends Cubit<ActivityState> {
     }
 
     final allActivities = map.values.toList();
-    final localOnly =
+    final localOnly     =
         _localActivities.where((a) => !_isHealthConnectId(a.id));
 
     final extraCalories =
         localOnly.fold<int>(0, (s, a) => s + a.caloriesBurned);
-    final extraMinutes =
+    final extraMinutes  =
         localOnly.fold<int>(0, (s, a) => s + a.durationMinutes);
 
     final stats = DailyStats(
@@ -396,9 +474,7 @@ class ActivityCubit extends Cubit<ActivityState> {
 
     emit(TodayLoaded(stats));
 
-    // Sync the loaded level to onboardingCubit once on startup so that
-    // main.dart listeners receive the correct level without the user
-    // having to tap the activity level card
+    // Sync the loaded level to onboardingCubit once on startup
     if (!_levelSyncedToOnboarding) {
       _levelSyncedToOnboarding = true;
       if (onboardingCubit.currentData.activityLevel != _activityLevel) {
@@ -407,7 +483,11 @@ class ActivityCubit extends Cubit<ActivityState> {
       }
     }
 
-    _progressCubit?.updateLocalBurned(extraCalories);
+    // Pass total burned including HC calories to ProgressCubit
+    // so the burned chart shows the correct value for today
+    final totalBurned = (snap?.caloriesBurned ?? 0) + extraCalories;
+    _progressCubit?.updateLocalBurned(totalBurned);
+    _progressCubit?.updateLocalSteps(snap?.steps ?? 0);
     _progressCubit?.refresh();
   }
 
@@ -420,5 +500,15 @@ class ActivityCubit extends Cubit<ActivityState> {
     final parsed = int.tryParse(id);
     if (parsed == null) return false;
     return parsed > 2147483647;
+  }
+
+  // =====================================================
+  // CLOSE
+  // =====================================================
+
+  @override
+  Future<void> close() {
+    _midnightTimer?.cancel();
+    return super.close();
   }
 }

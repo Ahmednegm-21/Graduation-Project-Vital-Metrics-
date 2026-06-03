@@ -77,8 +77,7 @@ class _MyAppState extends State<MyApp> {
 
   // Pushes the latest personal info into onboardingDataCubit so that
   // ActivityCubit._rebuildLoaded always reads the same weight/height/age/gender
-  // as CalorieCubit and WaterCubit. This is the single reconciliation point
-  // so every downstream goal calculation uses identical values.
+  // as CalorieCubit and WaterCubit
   void _pushProfileToOnboarding() {
     final info = _personalInfoCubit.state;
     _onboardingDataCubit.setWeight(info.weight);
@@ -89,13 +88,8 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // Recalculates calorie budget and water goal from the current personal info
-  // and activity level. Always calls _pushProfileToOnboarding first so
-  // onboardingDataCubit is up to date before ActivityCubit rebuilds.
-  // The _onboardingDataCubit.stream listener has been intentionally removed:
-  // keeping it caused a loop because _pushProfileToOnboarding emits on
-  // onboardingDataCubit which would re-trigger _syncProfileToHome endlessly.
-  // _personalInfoCubit.stream is the only trigger needed.
+  // Recalculates calorie budget and water goal from current personal info
+  // and activity level
   void _syncProfileToHome() {
     _pushProfileToOnboarding();
 
@@ -124,8 +118,7 @@ class _MyAppState extends State<MyApp> {
         'weight=${info.weight} goal=${_goalString()}');
   }
 
-  // Called when only the activity level changes (e.g. user taps activity card).
-  // Pushes profile first so onboardingDataCubit weight matches personalInfoCubit.
+  // Called when only the activity level changes
   void _syncActivityLevel(ActivityLevel level) {
     _pushProfileToOnboarding();
 
@@ -165,6 +158,9 @@ class _MyAppState extends State<MyApp> {
     _themeCubit = ThemeCubit();
     _personalInfoCubit = PersonalInfoCubit();
 
+    // ProgressCubit no longer takes a fitService parameter
+    // All HC data flows through ActivityCubit via updateLocalBurned
+    // and updateLocalSteps to avoid stale data after HC toggle
     _progressCubit = ProgressCubit(
       calorieCubit: _calorieCubit,
       waterCubit: _waterCubit,
@@ -174,20 +170,11 @@ class _MyAppState extends State<MyApp> {
       ..setProgressCubit(_progressCubit)
       ..refresh();
 
-    // Listen to personal info changes.
-    // On every change including the first load from SharedPreferences:
-    //   1. push the new values into onboardingDataCubit so ActivityCubit
-    //      and the activity level card compute goals from the same data
-    //   2. recalculate calorie budget and water goal
-    // Note: _onboardingDataCubit.stream is NOT listened to here because
-    // _pushProfileToOnboarding emits on it, which would cause an infinite loop.
     bool _activityLevelSyncedOnStart = false;
 
     _personalInfoCubit.stream.listen((_) {
       _syncProfileToHome();
 
-      // After personal info is ready sync the saved activity level once
-      // so water and calorie goals are correct on first launch
       if (!_activityLevelSyncedOnStart) {
         _activityLevelSyncedOnStart = true;
         final savedLevel = _onboardingDataCubit.currentData.activityLevel;
@@ -198,9 +185,7 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    // Progress refreshes when water or calorie data changes.
-    // CalorieCubit.updateBudget has a same-value guard so budget-only
-    // updates do not re-trigger this listener unnecessarily.
+    // Progress refreshes when water or calorie data changes
     _waterCubit.stream.listen((_) {
       _progressCubit.loadWeeklyMetrics(silent: true);
     });
@@ -217,8 +202,7 @@ class _MyAppState extends State<MyApp> {
 
     _activityCubit.setProgressCubit(_progressCubit);
 
-    // When activity level changes from the activity screen sync everything.
-    // Push profile first so the new DailyStats is built from the correct weight.
+    // When activity level changes from the activity screen sync everything
     ActivityLevel? _lastSyncedLevel;
     bool _firstLoad = true;
 
