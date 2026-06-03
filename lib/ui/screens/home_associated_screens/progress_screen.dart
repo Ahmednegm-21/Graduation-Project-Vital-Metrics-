@@ -176,7 +176,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
               const SizedBox(height: 20),
 
               // Charts section
-              // ← هنا بنجيب waterGoalL من WaterCubit مباشرة
               FadeInDown(
                 delay: const Duration(milliseconds: 120),
                 child: BlocBuilder<WaterCubit, WaterState>(
@@ -196,20 +195,36 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               activityLevel = activity.stats.activityLevel;
                             }
 
-                            return BlocBuilder<CalorieCubit, CalorieState>(
-                              builder: (_, cal) => _ChartsSection(
-                                pageCtrl: _pageCtrl,
-                                chartPage: _chartPage,
-                                onPageChanged: (i) =>
-                                    setState(() => _chartPage = i),
-                                isLoading: isLoading,
-                                loaded: loaded,
-                                cal: cal,
-                                stepsGoal: _stepsGoalFor(activityLevel),
-                                burnedGoal: _burnedGoalFor(activityLevel),
-                                todayIndex: _todayIndex(),
-                                waterGoalL: waterGoalL, // ← من WaterCubit
-                              ),
+                            // ← احسب burnedGoal من البيانات الشخصية
+                            return BlocSelector<PersonalInfoCubit,
+                                PersonalInfoState, PersonalInfoState>(
+                              selector: (s) => s,
+                              builder: (_, info) {
+                                final burnedGoal = activityLevel != null
+                                    ? activityLevel.caloriesGoalFor(
+                                        weight: info.weight,
+                                        height: info.height,
+                                        age: info.age.toDouble(),
+                                        gender: info.gender,
+                                      )
+                                    : 500;
+
+                                return BlocBuilder<CalorieCubit, CalorieState>(
+                                  builder: (_, cal) => _ChartsSection(
+                                    pageCtrl: _pageCtrl,
+                                    chartPage: _chartPage,
+                                    onPageChanged: (i) =>
+                                        setState(() => _chartPage = i),
+                                    isLoading: isLoading,
+                                    loaded: loaded,
+                                    cal: cal,
+                                    stepsGoal: _stepsGoalFor(activityLevel),
+                                    burnedGoal: burnedGoal, // ← محسوب
+                                    todayIndex: _todayIndex(),
+                                    waterGoalL: waterGoalL,
+                                  ),
+                                );
+                              },
                             );
                           },
                         );
@@ -1504,15 +1519,13 @@ class _SleepBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const goal = 8.0;
-    // ← مش بنكلم القيمة عند 8 — بنعرضها كاملة
     final capped = values.map((v) => v.clamp(0.0, 12.0)).toList();
     final total = capped.fold(0.0, (a, b) => a + b);
+    const scale = 12.0;
 
-    // ← الـ max هو أكبر قيمة أو الـ goal — عشان البار يتمدد فوق الـ goal
-    final maxVal = capped.isEmpty
-        ? goal
-        : capped.reduce((a, b) => a > b ? a : b);
-    final scale = maxVal > goal ? maxVal : goal;
+    // ← debug: اطبع القيم الفعلية
+    print('[SleepChart] raw values=$values');
+    print('[SleepChart] capped=$capped scale=$scale');
 
     return _ChartCard(
       title: 'Weekly Sleep',
@@ -1675,6 +1688,23 @@ class _SleepBarChart extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // ← scale indicator
+              Text(
+                '12h max',
+                style: TextStyle(
+                  fontSize: 8,
+                  color: _purple.withOpacity(0.5),
+                ),
+              ),
+              Text(
+                '8h goal',
+                style: TextStyle(
+                  fontSize: 8,
+                  color: _purple.withOpacity(0.7),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

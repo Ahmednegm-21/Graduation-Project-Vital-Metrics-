@@ -113,9 +113,14 @@ class SleepCubit extends Cubit<SleepState> {
       if (todaySleeps.isEmpty) return;
 
       final firstSession = todaySleeps.first;
-      final totalMinutes =
-          todaySleeps.fold<int>(0, (sum, s) => sum + s.durationMinutes);
-      final cappedMinutes = totalMinutes.clamp(0, 12 * 60);
+
+      // ← استخدم الـ session الأكبر بدل جمع كل الـ sessions
+      // الباك ممكن يحفظ نفس الـ session أكتر من مرة
+      final maxMinutes = todaySleeps
+          .map((s) => s.durationMinutes)
+          .reduce((a, b) => a > b ? a : b);
+
+      final cappedMinutes = maxMinutes.clamp(0, 12 * 60);
       final hours = _roundToHalf(cappedMinutes / 60.0);
 
       emit(state.copyWith(sleepHours: hours, sleepId: firstSession.id));
@@ -167,10 +172,14 @@ class SleepCubit extends Cubit<SleepState> {
         print('[SleepCubit] created sleep');
       }
 
-      // Health Connect
-      final end = DateTime.now();
-      final start = end.subtract(Duration(minutes: state.durationMinutes));
-      await _fitService.writeSleep(start: start, end: end);
+      // Health Connect — تحقق من الـ preference الأول
+      final prefs = await SharedPreferences.getInstance();
+      final sleepHcEnabled = prefs.getBool('hc_sleep_enabled') ?? true;
+      if (sleepHcEnabled) {
+        final end = DateTime.now();
+        final start = end.subtract(Duration(minutes: state.durationMinutes));
+        await _fitService.writeSleep(start: start, end: end);
+      }
 
       emit(state.copyWith(sleepId: result.id, isSaving: false));
       await _saveLocalCache();

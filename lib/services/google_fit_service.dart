@@ -2,8 +2,6 @@ import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vital_metrics/data/models/activity_model.dart';
 
-const _kHealthConnectEnabled = 'health_connect_enabled';
-
 class FitnessActivity {
   final String name;
   final int caloriesBurned;
@@ -37,26 +35,6 @@ class GoogleFitService {
   bool _configured = false;
 
   // =====================================================
-  // USER PREFERENCE — هل اليوزر فعّل Health Connect أم لا
-  // =====================================================
-
-  Future<bool> isHealthConnectEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    // default: true — مفعّل من أول ما يفتح التطبيق
-    return prefs.getBool(_kHealthConnectEnabled) ?? true;
-  }
-
-  Future<void> setHealthConnectEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHealthConnectEnabled, enabled);
-    if (!enabled) {
-      // لو عطّله → امسح الـ cache عشان لو فعّله تاني يطلب permissions من جديد
-      _cachedPermission = null;
-    }
-    print('[Health] user preference: health_connect_enabled=$enabled');
-  }
-
-  // =====================================================
   // CONFIGURE
   // =====================================================
 
@@ -68,18 +46,33 @@ class GoogleFitService {
 
   // =====================================================
   // PERMISSIONS
+  // Checks steps preference FIRST before anything else
+  // so that disabling HC is respected immediately
   // =====================================================
 
   Future<bool> requestPermissions() async {
     try {
-      // ← تحقق من اختيار اليوزر الأول
-      final enabled = await isHealthConnectEnabled();
-      if (!enabled) {
-        print('[Health] disabled by user preference');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check steps preference first before any cache check
+      // If user disabled HC tracking return false immediately
+      final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
+      if (!stepsEnabled) {
+        print('[Health] steps tracking disabled by user');
+        _cachedPermission = false;
         return false;
       }
 
+      // Check memory cache
       if (_cachedPermission == true) return true;
+
+      // Check persisted permission
+      final persistedGranted =
+          prefs.getBool('hc_permission_granted') ?? false;
+      if (persistedGranted) {
+        _cachedPermission = true;
+        return true;
+      }
 
       await _ensureConfigured();
 
@@ -100,16 +93,20 @@ class GoogleFitService {
       ];
 
       final hasPermissions =
-          await _health.hasPermissions(types, permissions: permissions) ?? false;
+          await _health.hasPermissions(types, permissions: permissions) ??
+              false;
 
       if (hasPermissions) {
         _cachedPermission = true;
+        await prefs.setBool('hc_permission_granted', true);
         print('[Health] permissions already granted');
         return true;
       }
 
-      final granted = await _health.requestAuthorization(types, permissions: permissions);
+      final granted = await _health.requestAuthorization(
+          types, permissions: permissions);
       _cachedPermission = granted;
+      await prefs.setBool('hc_permission_granted', granted);
       print('[Health] permission granted = $granted');
       return granted;
     } catch (e) {
@@ -127,7 +124,8 @@ class GoogleFitService {
       final granted = await requestPermissions();
 
       if (!granted) {
-        return FitnessSnapshot(steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: []);
+        return FitnessSnapshot(
+            steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: []);
       }
 
       final now = DateTime.now();
@@ -140,7 +138,8 @@ class GoogleFitService {
 
       // Steps
       try {
-        final totalSteps = await _health.getTotalStepsInInterval(start, now);
+        final totalSteps =
+            await _health.getTotalStepsInInterval(start, now);
         steps = (totalSteps ?? 0).clamp(0, 999999);
       } catch (e) {
         print('[Health] steps error: $e');
@@ -157,7 +156,9 @@ class GoogleFitService {
         for (final point in caloriesData) {
           try {
             final value = point.value;
-            if (value is NumericHealthValue) total += value.numericValue.toDouble();
+            if (value is NumericHealthValue) {
+              total += value.numericValue.toDouble();
+            }
           } catch (_) {}
         }
         calories = total.round().clamp(0, 99999);
@@ -175,7 +176,8 @@ class GoogleFitService {
 
         final uniqueWorkouts = <String, HealthDataPoint>{};
         for (final workout in workouts) {
-          final key = '${workout.dateFrom.millisecondsSinceEpoch}_${workout.dateTo.millisecondsSinceEpoch}';
+          final key =
+              '${workout.dateFrom.millisecondsSinceEpoch}_${workout.dateTo.millisecondsSinceEpoch}';
           uniqueWorkouts[key] = workout;
         }
 
@@ -189,7 +191,9 @@ class GoogleFitService {
           int workoutCalories = 0;
           try {
             final value = workout.value;
-            if (value is NumericHealthValue) workoutCalories = value.numericValue.round();
+            if (value is NumericHealthValue) {
+              workoutCalories = value.numericValue.round();
+            }
           } catch (_) {}
 
           String workoutType = 'Workout';
@@ -209,7 +213,8 @@ class GoogleFitService {
         print('[Health] workouts error: $e');
       }
 
-      print('[Health] SUCCESS => steps=$steps calories=$calories workouts=$workoutMinutes activities=${activities.length}');
+      print('[Health] SUCCESS => steps=$steps calories=$calories '
+          'workouts=$workoutMinutes activities=${activities.length}');
 
       return FitnessSnapshot(
         steps: steps,
@@ -219,7 +224,8 @@ class GoogleFitService {
       );
     } catch (e) {
       print('[Health] snapshot fatal error: $e');
-      return FitnessSnapshot(steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: []);
+      return FitnessSnapshot(
+          steps: 0, caloriesBurned: 0, workoutMinutes: 0, activities: []);
     }
   }
 
@@ -234,7 +240,8 @@ class GoogleFitService {
         .toLowerCase();
     return cleaned
         .split(' ')
-        .map((e) => e.isEmpty ? e : '${e[0].toUpperCase()}${e.substring(1)}')
+        .map((e) =>
+            e.isEmpty ? e : '${e[0].toUpperCase()}${e.substring(1)}')
         .join(' ');
   }
 
@@ -271,7 +278,10 @@ class GoogleFitService {
   // WRITE SLEEP
   // =====================================================
 
-  Future<bool> writeSleep({required DateTime start, required DateTime end}) async {
+  Future<bool> writeSleep({
+    required DateTime start,
+    required DateTime end,
+  }) async {
     try {
       final granted = await requestPermissions();
       if (!granted) return false;
@@ -294,9 +304,17 @@ class GoogleFitService {
 
   // =====================================================
   // CLEAR PERMISSION CACHE
+  // Resets memory cache so next requestPermissions call
+  // reads fresh values from SharedPreferences
   // =====================================================
 
   void clearPermissionCache() {
     _cachedPermission = null;
+  }
+
+  Future<void> clearPermissionCacheAndPersisted() async {
+    _cachedPermission = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('hc_permission_granted');
   }
 }

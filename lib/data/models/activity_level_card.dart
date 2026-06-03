@@ -3,7 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/models/activity_level.dart';
-import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
+import 'package:vital_metrics/logic/activity/activity_cubit.dart';
+import 'package:vital_metrics/logic/activity/activity_state.dart';
 
 class ActivityLevelCard extends StatelessWidget {
   final ActivityLevel activityLevel;
@@ -101,13 +102,29 @@ class ActivityLevelCard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 2.h),
-                  Text(
-                    activityLevel.targetSummary,
-                    style: TextStyle(
-                      fontSize: 10.sp,
-                      color: context.colors.subText,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  // Real targets calculated from user profile via DailyStats
+                  BlocBuilder<ActivityCubit, ActivityState>(
+                    builder: (context, activityState) {
+                      if (activityState is TodayLoaded) {
+                        final stats = activityState.stats;
+                        final burn = stats.caloriesGoal;
+                        final steps = stats.stepsGoal;
+                        final workout = stats.workoutGoal;
+                        final water = stats.waterGoalL;
+                        final stepsLabel = steps >= 1000
+                            ? '${(steps / 1000).toStringAsFixed(0)}k'
+                            : '$steps';
+                        return Text(
+                          'Burn $burn kcal · $stepsLabel steps · $workout min · ${water}L',
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            color: context.colors.subText,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ],
               ),
@@ -125,7 +142,7 @@ class ActivityLevelCard extends StatelessWidget {
   }
 }
 
-// ── Detail sheet ──────────────────────────────────────────────────────────────
+// Detail sheet shown when the user taps the activity level card
 
 class ActivityLevelDetailSheet extends StatefulWidget {
   final ActivityLevel currentLevel;
@@ -173,29 +190,47 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
     }
   }
 
+  // Reads user profile from DailyStats so all goal calculations
+  // use the exact same weight/height/age/gender as the home screen.
+  // Falls back to safe defaults only if the cubit has not loaded yet.
+  _UserProfile _resolveProfile(BuildContext context) {
+    final activityState = context.read<ActivityCubit>().state;
+    if (activityState is TodayLoaded) {
+      final stats = activityState.stats;
+      return _UserProfile(
+        weight: stats.userWeight,
+        height: stats.userHeight,
+        age: stats.userAge,
+        gender: stats.userGender,
+      );
+    }
+    return const _UserProfile(
+      weight: 70,
+      height: 170,
+      age: 25,
+      gender: 'male',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _colorFor(_selected);
 
-    // ← جيب البيانات الشخصية من الـ onboarding
-    final onboardingData =
-        context.read<OnboardingCubitAllData>().currentData;
-    final weight = onboardingData.weight ?? 70.0;
-    final height = onboardingData.height ?? 170.0;
-    final age = onboardingData.age ?? 25.0;
-    final gender = onboardingData.gender ?? 'male';
+    // Read the user profile from ActivityCubit DailyStats.
+    // This guarantees the same weight is used here and on the home screen,
+    // so water/calorie goals are always consistent across the app.
+    final profile = _resolveProfile(context);
 
-    // احسب الـ targets بناءً على الـ level المختار والبيانات الشخصية
-    final stepsGoal = _selected.stepsGoal;
-    final workoutGoal = _selected.workoutGoal;
-    final burnGoal = _selected.caloriesGoalFor(
-      weight: weight,
-      height: height,
-      age: age,
-      gender: gender,
+    final int burnGoal = _selected.caloriesGoalFor(
+      weight: profile.weight,
+      height: profile.height,
+      age: profile.age,
+      gender: profile.gender,
     );
-    final waterGoal = _selected.waterGoalMl(weight: weight);
-    final waterGoalL = (waterGoal / 1000).toStringAsFixed(1);
+    final int waterGoalMl = _selected.waterGoalMl(weight: profile.weight);
+    final String waterGoalL = (waterGoalMl / 1000).toStringAsFixed(1);
+    final int stepsGoal = _selected.stepsGoal;
+    final int workoutGoal = _selected.workoutGoal;
 
     return Container(
       decoration: BoxDecoration(
@@ -278,8 +313,7 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
                         children: [
                           Icon(
                             _iconFor(level),
-                            color:
-                                isSelected ? c : context.colors.subText,
+                            color: isSelected ? c : context.colors.subText,
                             size: 22.sp,
                           ),
                           SizedBox(height: 6.h),
@@ -301,7 +335,7 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
 
             SizedBox(height: 24.h),
 
-            // ── Your Daily Targets (محسوبة من البيانات الشخصية) ──
+            // Daily targets header
             Row(
               children: [
                 Container(
@@ -352,7 +386,7 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
                   child: _TargetTile(
                     emoji: '🔥',
                     label: 'Burn',
-                    value: '${burnGoal} kcal',
+                    value: '$burnGoal kcal',
                     color: color,
                   ),
                 ),
@@ -392,73 +426,7 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
               ],
             ),
 
-            SizedBox(height: 24.h),
 
-            // ── Tips ──
-            Row(
-              children: [
-                Container(
-                  width: 3.w,
-                  height: 16.h,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  'To reach ${_selected.label}:',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    color: context.colors.text,
-                  ),
-                ),
-              ],
-            ),
-
-            SizedBox(height: 12.h),
-
-            ..._selected.tips.map(
-              (tip) => Container(
-                margin: EdgeInsets.only(bottom: 10.h),
-                padding: EdgeInsets.all(14.w),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.07),
-                  borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(color: color.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Text(tip.icon, style: TextStyle(fontSize: 22.sp)),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tip.title,
-                            style: TextStyle(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: context.colors.text,
-                            ),
-                          ),
-                          SizedBox(height: 2.h),
-                          Text(
-                            tip.detail,
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              color: context.colors.subText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -466,7 +434,7 @@ class _ActivityLevelDetailSheetState extends State<ActivityLevelDetailSheet> {
   }
 }
 
-// ── Target tile widget ────────────────────────────────────────────────────────
+// Target tile widget shown in the 2x2 grid inside the detail sheet
 
 class _TargetTile extends StatelessWidget {
   final String emoji;
@@ -522,4 +490,20 @@ class _TargetTile extends StatelessWidget {
       ),
     );
   }
+}
+
+// Internal helper to carry resolved user profile data
+
+class _UserProfile {
+  final double weight;
+  final double height;
+  final double age;
+  final String gender;
+
+  const _UserProfile({
+    required this.weight,
+    required this.height,
+    required this.age,
+    required this.gender,
+  });
 }

@@ -4,14 +4,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:vital_metrics/core/imports.dart';
+import 'package:vital_metrics/data/models/daily_metric_bottom_sheet.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/sleep_cubit.dart';
-import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
-import 'package:vital_metrics/ui/widgets/home_widgets/water_details_sheet.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/water_tracker_card.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/meal_section.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/health_connect_toggle.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
+import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
+import 'package:vital_metrics/data/models/daily_metric_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,24 +24,24 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseAnim;
-
   late final AnimationController _floatCtrl;
   late final Animation<double> _floatAnim;
-
   late final AnimationController _particleCtrl;
+
+  // Repository used to fetch daily metrics when user picks a date
+  final DailyMetricsRepository _metricsRepo = DailyMetricsRepository();
 
   static const _meals = [
     {'type': 'breakfast', 'label': 'Breakfast', 'emoji': '☀️'},
-    {'type': 'lunch', 'label': 'Lunch', 'emoji': '🌤️'},
-    {'type': 'dinner', 'label': 'Dinner', 'emoji': '🌙'},
-    {'type': 'snacks', 'label': 'Snacks', 'emoji': '🍎'},
+    {'type': 'lunch',     'label': 'Lunch',     'emoji': '🌤️'},
+    {'type': 'dinner',    'label': 'Dinner',    'emoji': '🌙'},
+    {'type': 'snacks',    'label': 'Snacks',    'emoji': '🍎'},
   ];
 
   @override
   void initState() {
     super.initState();
 
-    // Pulse animation for the calorie ring
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -50,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    // Float animation for the calorie card vertical movement
     _floatCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3200),
@@ -60,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut),
     );
 
-    // Particle animation for the floating dots around the calorie card
     _particleCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 6000),
@@ -75,6 +74,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // Opens date picker, fetches metric for selected date, shows bottom sheet
+  Future<void> _showDatePicker(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      // Prevent picking future dates since no data exists yet
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: Color(0xFF4361EE)),
+        ),
+        child: child!,
+      ),
+    );
+
+    // User dismissed the picker without selecting a date
+    if (picked == null || !context.mounted) return;
+
+    // Format picked date as yyyy-MM-dd to match backend format
+    final dateStr =
+        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+
+    // Show loading spinner while API call is in progress
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF4361EE),
+          strokeWidth: 2.5,
+        ),
+      ),
+    );
+
+    DailyMetricModel? metric;
+    try {
+      metric = await _metricsRepo.getMetricByDate(dateStr);
+    } catch (_) {
+      // If fetch fails show empty state rather than crashing
+      metric = null;
+    }
+
+    if (!context.mounted) return;
+
+    // Dismiss the loading spinner
+    Navigator.pop(context);
+
+    // Show the daily summary sheet with fetched data or empty state
+    await DailyMetricBottomSheet.show(
+      context,
+      date: picked,
+      metric: metric,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
@@ -85,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           : const Color(0xFFF3F7FF),
       body: Stack(
         children: [
-          // Top-right background glow circle
+          // Top right background glow blob
           Positioned(
             top: -120,
             right: -80,
@@ -104,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Bottom-left background glow circle
+          // Bottom left background glow blob
           Positioned(
             bottom: -140,
             left: -100,
@@ -123,12 +178,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Subtle dot grid painted across the full background
-          Positioned.fill(
-            child: CustomPaint(painter: _HomeGridPainter()),
-          ),
+          // Subtle grid lines painted across the full screen
+          Positioned.fill(child: CustomPaint(painter: _HomeGridPainter())),
 
-          // Main scrollable content area
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -142,8 +194,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _buildMealRow(context, isDark),
                   const SizedBox(height: 24),
 
-                  // Health Connect badge above the water tracker card
-                  _buildHealthBadge(context),
+                  // Water sync toggle placed just above the water tracker card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: const WaterConnectToggle(),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   const WaterTrackerCard(),
 
@@ -158,22 +216,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Health Connect badge shown above the water card
-  // Uses HealthConnectToggle widget instead of inline BlocBuilder
-  Widget _buildHealthBadge(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: HealthConnectToggle(),
-      ),
-    );
-  }
-
-  // Top header row with date picker, notification bell, and settings button
   Widget _buildHeader(BuildContext context, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
-    final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
+    final shadow = isDark
+        ? Colors.black38
+        : Colors.black.withOpacity(0.07);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -181,22 +228,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           FadeInDown(
             child: GestureDetector(
-              onTap: () async {
-                await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
-                  builder: (ctx, child) => Theme(
-                    data: Theme.of(ctx).copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Color(0xFF4361EE),
-                      ),
-                    ),
-                    child: child!,
-                  ),
-                );
-              },
+              // Tapping the date chip opens the picker and fetches history
+              onTap: () => _showDatePicker(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -230,10 +263,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           const Spacer(),
 
-          // Notification bell with red dot indicator
+          // Notification bell with unread indicator dot
           FadeInDown(
             delay: const Duration(milliseconds: 80),
             child: GestureDetector(
@@ -278,9 +310,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           const SizedBox(width: 8),
 
+          // Settings button using filled icon matching other screens
           FadeInDown(
             delay: const Duration(milliseconds: 140),
             child: GestureDetector(
@@ -305,19 +337,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Calorie ring card with food image, macro bars, and floating particles
   Widget _buildCalorieCard(BuildContext context, bool isDark) {
     return BlocBuilder<CalorieCubit, CalorieState>(
       builder: (context, state) {
-        final remaining = state.caloriesRemaining.clamp(0, state.caloriesBudget);
-        final progress = (state.totalCaloriesConsumed / state.caloriesBudget)
-            .clamp(0.0, 1.0);
-
-        final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
+        final remaining = state.caloriesRemaining
+            .clamp(0, state.caloriesBudget);
+        final progress =
+            (state.totalCaloriesConsumed / state.caloriesBudget)
+                .clamp(0.0, 1.0);
+        final cardBg =
+            isDark ? const Color(0xFF1A2340) : Colors.white;
         final cardShadow = isDark
             ? Colors.black54
             : Colors.black.withOpacity(0.10);
-        final numColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+        final numColor =
+            isDark ? Colors.white : const Color(0xFF1A1A2E);
         final subColor = isDark
             ? const Color(0xFFB0B8D0)
             : const Color(0xFF7B8299);
@@ -329,7 +363,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Card floats up and down using the float animation
                 AnimatedBuilder(
                   animation: _floatAnim,
                   builder: (_, child) => Transform.translate(
@@ -342,7 +375,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(28),
                       border: isDark
                           ? Border.all(
-                              color: const Color(0xFF4361EE).withOpacity(0.20),
+                              color: const Color(0xFF4361EE)
+                                  .withOpacity(0.20),
                               width: 1,
                             )
                           : null,
@@ -354,7 +388,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         if (isDark)
                           BoxShadow(
-                            color: const Color(0xFF4361EE).withOpacity(0.07),
+                            color: const Color(0xFF4361EE)
+                                .withOpacity(0.07),
                             blurRadius: 40,
                             offset: const Offset(0, 4),
                           ),
@@ -363,11 +398,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Food image filling the left side of the card
+                        // Food image on the left side of the calorie card
                         Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
+                          left: 0, top: 0, bottom: 0,
                           child: FadeInLeft(
                             duration: const Duration(milliseconds: 600),
                             child: ClipRRect(
@@ -383,12 +416,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        // Right side: calorie ring and macro progress bars
                         Padding(
                           padding: const EdgeInsets.fromLTRB(156, 16, 14, 16),
                           child: Column(
                             children: [
-                              // Pulsing circular progress ring showing calorie usage
+                              // Pulsing ring showing remaining kcal
                               AnimatedBuilder(
                                 animation: _pulseAnim,
                                 builder: (_, child) => Transform.scale(
@@ -401,32 +433,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
-                                      // Background ring track
                                       SizedBox(
-                                        width: 108,
-                                        height: 108,
+                                        width: 108, height: 108,
                                         child: CircularProgressIndicator(
                                           value: 1,
                                           strokeWidth: 10,
                                           color: isDark
-                                              ? const Color(0xFF4361EE).withOpacity(0.30)
-                                              : const Color(0xFF4361EE).withOpacity(0.12),
+                                              ? const Color(0xFF4361EE)
+                                                  .withOpacity(0.30)
+                                              : const Color(0xFF4361EE)
+                                                  .withOpacity(0.12),
                                         ),
                                       ),
-                                      // Foreground ring showing consumed progress
                                       SizedBox(
-                                        width: 108,
-                                        height: 108,
+                                        width: 108, height: 108,
                                         child: CircularProgressIndicator(
                                           value: progress,
                                           strokeWidth: 10,
                                           backgroundColor: Colors.transparent,
-                                          valueColor: const AlwaysStoppedAnimation(
+                                          valueColor:
+                                              const AlwaysStoppedAnimation(
                                             Color(0xFF4361EE),
                                           ),
                                         ),
                                       ),
-                                      // Center label showing remaining calories
                                       Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -458,10 +488,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   ),
                                 ),
                               ),
-
                               const SizedBox(height: 10),
 
-                              // Macro progress bars for protein, carbs, and fat
+                              // Macro progress bars
                               _MacroBar(
                                 label: 'Protein',
                                 consumed: state.totalProtein,
@@ -490,10 +519,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        // Calorie budget label badge overlaid at the bottom-left
+                        // Budget label overlaid on bottom left of food image
                         Positioned(
-                          left: 0,
-                          bottom: 0,
+                          left: 0, bottom: 0,
                           child: Container(
                             width: 148,
                             padding: const EdgeInsets.symmetric(
@@ -523,8 +551,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-
-                // Floating animated particle dots around the card
                 ..._buildParticles(isDark),
               ],
             ),
@@ -534,29 +560,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Builds the list of floating particle dots around the calorie card
   List<Widget> _buildParticles(bool isDark) {
     final particles = [
       _Particle(top: -10, right: 28, size: 6.0, speed: 1.00, color: 0xFF4361EE),
-      _Particle(top: 18, right: -7, size: 4.5, speed: 0.70, color: 0xFF4CC9F0),
-      _Particle(top: -7, left: 55, size: 5.0, speed: 1.20, color: 0xFF7B5EA7),
-      _Particle(top: 8, right: -5, size: 5.5, speed: 0.85, color: 0xFF4361EE),
-      _Particle(top: -5, left: 72, size: 4.0, speed: 1.05, color: 0xFF4CC9F0),
+      _Particle(top:  18, right: -7, size: 4.5, speed: 0.70, color: 0xFF4CC9F0),
+      _Particle(top:  -7, left:  55, size: 5.0, speed: 1.20, color: 0xFF7B5EA7),
+      _Particle(top:   8, right: -5, size: 5.5, speed: 0.85, color: 0xFF4361EE),
+      _Particle(top:  -5, left:  72, size: 4.0, speed: 1.05, color: 0xFF4CC9F0),
     ];
-
     return particles.map<Widget>((p) {
       return AnimatedBuilder(
         animation: _particleCtrl,
         builder: (_, __) {
-          final t = _particleCtrl.value;
+          final t  = _particleCtrl.value;
           final dx = math.sin(t * 2 * math.pi * p.speed) * 4.0;
           final dy = math.cos(t * 2 * math.pi * p.speed) * 4.0;
           final op = (0.25 + math.sin(t * 2 * math.pi * p.speed) * 0.25)
               .clamp(0.0, 1.0);
-
           return Positioned(
-            top: p.top + dy,
-            left: p.left != null ? p.left! + dx : null,
+            top:   p.top + dy,
+            left:  p.left  != null ? p.left!  + dx : null,
             right: p.right != null ? p.right! - dx : null,
             child: Opacity(
               opacity: isDark ? op : op * 0.6,
@@ -581,7 +604,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }).toList();
   }
 
-  // 2x2 grid of meal cards for breakfast, lunch, dinner, and snacks
   Widget _buildMealRow(BuildContext context, bool isDark) {
     return BlocBuilder<CalorieCubit, CalorieState>(
       builder: (context, state) {
@@ -611,17 +633,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Single meal card with emoji, calorie badge, macro rows, and action buttons
-  Widget _buildMealCard(BuildContext context, CalorieState state, int index) {
-    final isDark = context.isDark;
-    final item = _meals[index];
-    final type = item['type']!;
-    final meals = state.mealsFor(type);
-
+  Widget _buildMealCard(
+    BuildContext context,
+    CalorieState state,
+    int index,
+  ) {
+    final isDark        = context.isDark;
+    final item          = _meals[index];
+    final type          = item['type']!;
+    final meals         = state.mealsFor(type);
     final totalCalories = meals.fold(0, (s, m) => s + m.calories);
-    final protein = meals.fold(0, (s, m) => s + m.protein);
-    final carbs = meals.fold(0, (s, m) => s + m.carbs);
-    final fat = meals.fold(0, (s, m) => s + m.fat);
+    final protein       = meals.fold(0, (s, m) => s + m.protein);
+    final carbs         = meals.fold(0, (s, m) => s + m.carbs);
+    final fat           = meals.fold(0, (s, m) => s + m.fat);
 
     return IntrinsicHeight(
       child: Container(
@@ -656,7 +680,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Text(item['emoji']!, style: TextStyle(fontSize: 34.sp)),
               SizedBox(height: 4.h),
-
               Text(
                 item['label']!,
                 textAlign: TextAlign.center,
@@ -668,12 +691,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-
               SizedBox(height: 8.h),
-
-              // Calorie badge showing total kcal for this meal
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10.w,
+                  vertical: 5.h,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFB84D).withOpacity(0.16),
                   borderRadius: BorderRadius.circular(12.r),
@@ -689,21 +712,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-
               SizedBox(height: 10.h),
-
-              // Compact macro rows for protein, carbs, and fat
               _compactMacro('Protein', protein, const Color(0xFFFF9A3C), isDark),
               SizedBox(height: 4.h),
-              _compactMacro('Carbs', carbs, const Color(0xFF2ECC9A), isDark),
+              _compactMacro('Carbs',   carbs,   const Color(0xFF2ECC9A), isDark),
               SizedBox(height: 4.h),
-              _compactMacro('Fat', fat, const Color(0xFFFF6B6B), isDark),
-
+              _compactMacro('Fat',     fat,     const Color(0xFFFF6B6B), isDark),
               SizedBox(height: 10.h),
-
               Row(
                 children: [
-                  // Add meal button opens the MealSection bottom sheet
+                  // Add button opens the meal section bottom sheet
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
@@ -713,13 +731,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           backgroundColor: Colors.transparent,
                           builder: (_) => MealSection(
                             mealType: type,
-                            label: item['label']!,
-                            emoji: item['emoji']!,
-                            index: index,
+                            label:    item['label']!,
+                            emoji:    item['emoji']!,
+                            index:    index,
                             calories: totalCalories,
-                            protein: protein,
-                            carbs: carbs,
-                            fat: fat,
+                            protein:  protein,
+                            carbs:    carbs,
+                            fat:      fat,
                           ),
                         );
                       },
@@ -744,12 +762,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-
                   SizedBox(width: 6.w),
 
-                  // Reset button clears all meals for this type
+                  // Remove button clears all meals of this type
                   GestureDetector(
-                    onTap: () => context.read<CalorieCubit>().resetMeal(type),
+                    onTap: () =>
+                        context.read<CalorieCubit>().resetMeal(type),
                     child: Container(
                       width: 36.w,
                       height: 34.h,
@@ -773,7 +791,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Compact single-line macro row with colored dot, label, and value
   Widget _compactMacro(String label, int value, Color color, bool isDark) {
     return Row(
       children: [
@@ -789,7 +806,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
             style: TextStyle(
-              color: isDark ? Colors.white70 : const Color(0xFF4A4A6A),
+              color: isDark
+                  ? Colors.white70
+                  : const Color(0xFF4A4A6A),
               fontSize: 10.sp,
               fontWeight: FontWeight.w600,
             ),
@@ -812,76 +831,59 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Sleep insights card with weekly bar chart, hours slider, and tip section
   Widget _buildSleepCard(BuildContext context, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
-    final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
+    final shadow = isDark
+        ? Colors.black38
+        : Colors.black.withOpacity(0.07);
 
     return BlocBuilder<SleepCubit, SleepState>(
       builder: (context, sleepState) {
         final hours = sleepState.sleepHours;
-
-        // Week days starting from Saturday to match the app locale
-        final days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        final now = DateTime.now();
+        final days  = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        final now   = DateTime.now();
 
         int currentDayIndex;
         switch (now.weekday) {
-          case DateTime.saturday:
-            currentDayIndex = 0;
-            break;
-          case DateTime.sunday:
-            currentDayIndex = 1;
-            break;
-          case DateTime.monday:
-            currentDayIndex = 2;
-            break;
-          case DateTime.tuesday:
-            currentDayIndex = 3;
-            break;
-          case DateTime.wednesday:
-            currentDayIndex = 4;
-            break;
-          case DateTime.thursday:
-            currentDayIndex = 5;
-            break;
-          default:
-            currentDayIndex = 6;
+          case DateTime.saturday:  currentDayIndex = 0; break;
+          case DateTime.sunday:    currentDayIndex = 1; break;
+          case DateTime.monday:    currentDayIndex = 2; break;
+          case DateTime.tuesday:   currentDayIndex = 3; break;
+          case DateTime.wednesday: currentDayIndex = 4; break;
+          case DateTime.thursday:  currentDayIndex = 5; break;
+          default:                 currentDayIndex = 6;
         }
 
-        // Only the current day has a value; all others default to 0
         final weekData = List.generate(
           7,
           (index) => {'day': days[index], 'hours': 0.0},
         );
         weekData[currentDayIndex]['hours'] = hours;
 
-        // Determine color, emoji, insight, and tip based on hours slept
         Color mainColor;
-        String insight;
-        String sleepEmoji;
-        String sleepTip;
+        String insight, sleepEmoji, sleepTip;
 
         if (hours < 6) {
-          mainColor = const Color(0xFFFF6B6B);
-          insight = 'Not enough sleep';
+          mainColor  = const Color(0xFFFF6B6B);
+          insight    = 'Not enough sleep';
           sleepEmoji = '😴';
-          sleepTip = 'Try sleeping earlier tonight for better recovery.';
+          sleepTip   = 'Try sleeping earlier tonight for better recovery.';
         } else if (hours < 7) {
-          mainColor = const Color(0xFFFFB84D);
-          insight = 'Almost there';
+          mainColor  = const Color(0xFFFFB84D);
+          insight    = 'Almost there';
           sleepEmoji = '🌙';
-          sleepTip = 'You are close to the recommended sleep range.';
+          sleepTip   = 'You are close to the recommended sleep range.';
         } else if (hours <= 9) {
-          mainColor = const Color(0xFF63E6BE);
-          insight = 'Optimal sleep';
+          mainColor  = const Color(0xFF63E6BE);
+          insight    = 'Optimal sleep';
           sleepEmoji = '✨';
-          sleepTip = 'Your sleep today looks healthy and balanced.';
+          sleepTip   = 'Your sleep today looks healthy and balanced.';
         } else {
-          mainColor = const Color(0xFF4CC9F0);
-          insight = 'Too much sleep';
+          mainColor  = const Color(0xFF4CC9F0);
+          insight    = 'Too much sleep';
           sleepEmoji = '💤';
-          sleepTip = 'You slept longer than usual. Try balancing your sleep schedule.';
+          sleepTip   =
+              'You slept longer than usual. Try balancing your sleep schedule.';
         }
 
         return FadeInUp(
@@ -891,14 +893,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Health Connect badge above the sleep card
-                // Uses HealthConnectToggle widget instead of inline BlocBuilder
+                // Sleep sync toggle placed just above the sleep card
                 const Padding(
                   padding: EdgeInsets.only(bottom: 8),
-                  child: HealthConnectToggle(),
+                  child: SleepConnectToggle(),
                 ),
 
-                // Sleep card main container
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
@@ -921,12 +921,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header row with emoji, title, insight text, and hours badge
+                      // Sleep card header with emoji icon, title and hours badge
                       Row(
                         children: [
                           Container(
-                            width: 42,
-                            height: 42,
+                            width: 42, height: 42,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(14),
                               color: mainColor.withOpacity(0.12),
@@ -938,9 +937,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ),
                             ),
                           ),
-
                           const SizedBox(width: 12),
-
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -967,8 +964,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ],
                             ),
                           ),
-
-                          // Hours badge showing current sleep duration
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -999,23 +994,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 24),
 
-                      // Weekly bar chart showing sleep hours per day
+                      // Weekly bar chart showing sleep per day
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: weekData.map((item) {
-                          final day = item['day'] as String;
-                          final value = item['hours'] as double;
+                          final day    = item['day']   as String;
+                          final value  = item['hours'] as double;
                           final active = value > 0;
-                          final height = (value / 10) * 90;
-
+                          // Scale bar height using 12h as max to match slider range
+                          final height = (value / 12.0) * 90;
                           return Column(
                             children: [
                               Text(
-                                active ? '${value.toStringAsFixed(1)}h' : '--',
+                                active
+                                    ? '${value.toStringAsFixed(1)}h'
+                                    : '--',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: active
@@ -1029,14 +1025,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               const SizedBox(height: 6),
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
-                                width: 28,
-                                height: active ? height.clamp(18, 90) : 16,
+                                width:  28,
+                                height: active
+                                    ? height.clamp(18, 90)
+                                    : 16,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
                                   gradient: active
                                       ? LinearGradient(
                                           begin: Alignment.bottomCenter,
-                                          end: Alignment.topCenter,
+                                          end:   Alignment.topCenter,
                                           colors: [
                                             mainColor,
                                             mainColor.withOpacity(0.65),
@@ -1044,7 +1042,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                         )
                                       : LinearGradient(
                                           begin: Alignment.bottomCenter,
-                                          end: Alignment.topCenter,
+                                          end:   Alignment.topCenter,
                                           colors: isDark
                                               ? [
                                                   Colors.white10,
@@ -1085,7 +1083,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           );
                         }).toList(),
                       ),
-
                       const SizedBox(height: 26),
 
                       Text(
@@ -1098,10 +1095,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               : const Color(0xFF4A4A6A),
                         ),
                       ),
-
                       const SizedBox(height: 12),
 
-                      // Slider for manually adjusting sleep hours from 0 to 12
+                      // Slider to manually adjust sleep hours for today
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 5,
@@ -1111,17 +1107,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           overlayShape: const RoundSliderOverlayShape(
                             overlayRadius: 18,
                           ),
-                          activeTrackColor: mainColor,
+                          activeTrackColor:   mainColor,
                           inactiveTrackColor: mainColor.withOpacity(0.15),
-                          thumbColor: mainColor,
+                          thumbColor:   mainColor,
                           overlayColor: mainColor.withOpacity(0.20),
                         ),
                         child: Slider(
-                          value: hours,
-                          min: 0,
-                          max: 12,
+                          value:     hours,
+                          min:       0,
+                          max:       12,
                           divisions: 24,
-                          label: '${hours.toStringAsFixed(1)}h',
+                          label:     '${hours.toStringAsFixed(1)}h',
                           onChanged: (v) =>
                               context.read<SleepCubit>().updateHours(v),
                           onChangeEnd: (_) =>
@@ -1129,7 +1125,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      // Min and max labels for the sleep slider
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1137,22 +1132,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             '0h',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? Colors.white30 : Colors.black38,
+                              color: isDark
+                                  ? Colors.white30
+                                  : Colors.black38,
                             ),
                           ),
                           Text(
                             '12h',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? Colors.white30 : Colors.black38,
+                              color: isDark
+                                  ? Colors.white30
+                                  : Colors.black38,
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 20),
 
-                      // Tip card with lightbulb icon and sleep advice text
+                      // Tip card shown at the bottom of the sleep section
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -1197,24 +1195,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Returns a formatted date label like "Jan 5"
+  // Returns today formatted as "May 30" for the date chip label
   String _todayLabel() {
     final now = DateTime.now();
     const m = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${m[now.month - 1]} ${now.day}';
   }
 }
 
-// Data model for a single floating particle dot
 class _Particle {
   final double top;
-  final double? left;
-  final double? right;
-  final double size;
-  final double speed;
+  final double? left, right;
+  final double size, speed;
   final int color;
 
   const _Particle({
@@ -1227,11 +1222,9 @@ class _Particle {
   });
 }
 
-// Animated macro progress bar with slide-in entrance and fill animation
 class _MacroBar extends StatefulWidget {
   final String label;
-  final int consumed;
-  final int goal;
+  final int consumed, goal;
   final Color color;
   final bool isDark;
   final int delay;
@@ -1252,43 +1245,33 @@ class _MacroBar extends StatefulWidget {
 class _MacroBarState extends State<_MacroBar>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final Animation<double> _fillAnim;
-  late final Animation<double> _fadeAnim;
-  late final Animation<double> _slideAnim;
+  late final Animation<double> _fillAnim, _fadeAnim, _slideAnim;
 
   @override
   void initState() {
     super.initState();
-
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
-
-    // Fill animates the bar width after the fade-in starts
     _fillAnim = CurvedAnimation(
       parent: _ctrl,
       curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
     );
-
-    // Fade-in covers the first 40% of the animation duration
     _fadeAnim = CurvedAnimation(
       parent: _ctrl,
       curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
     );
-
-    // Slide-in moves the bar from right to its final position
     _slideAnim = Tween(begin: 16.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _ctrl,
         curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
       ),
     );
-
-    // Delay the animation start to stagger bars
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.forward();
-    });
+    Future.delayed(
+      Duration(milliseconds: widget.delay),
+      () { if (mounted) _ctrl.forward(); },
+    );
   }
 
   @override
@@ -1299,14 +1282,13 @@ class _MacroBarState extends State<_MacroBar>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
-    final color = widget.color;
-    final pct = widget.goal > 0
+    final color    = widget.color;
+    final isDark   = widget.isDark;
+    final pct      = widget.goal > 0
         ? (widget.consumed / widget.goal).clamp(0.0, 1.0)
         : 0.0;
-
     final labelCol = isDark ? Colors.white : const Color(0xFF2D3142);
-    final badgeBg = isDark ? color.withOpacity(0.18) : color;
+    final badgeBg  = isDark ? color.withOpacity(0.18) : color;
     final badgeTxt = isDark ? color : Colors.white;
     final trackCol = color.withOpacity(isDark ? 0.22 : 0.18);
 
@@ -1324,7 +1306,6 @@ class _MacroBarState extends State<_MacroBar>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Colored dot and macro label on the left
                     Row(
                       children: [
                         Container(
@@ -1336,7 +1317,7 @@ class _MacroBarState extends State<_MacroBar>
                             boxShadow: [
                               BoxShadow(
                                 color: color.withOpacity(isDark ? 0.9 : 0.5),
-                                blurRadius: isDark ? 8 : 4,
+                                blurRadius:   isDark ? 8 : 4,
                                 spreadRadius: isDark ? 1 : 0,
                               ),
                             ],
@@ -1354,7 +1335,6 @@ class _MacroBarState extends State<_MacroBar>
                         ),
                       ],
                     ),
-                    // Consumed vs goal badge on the right
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 7,
@@ -1381,13 +1361,10 @@ class _MacroBarState extends State<_MacroBar>
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 5),
-
                 LayoutBuilder(
                   builder: (_, c) {
                     final fillW = c.maxWidth * pct * _fillAnim.value;
-
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -1399,7 +1376,7 @@ class _MacroBarState extends State<_MacroBar>
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        // Filled portion of the progress bar
+                        // Filled portion with gradient
                         if (fillW > 2)
                           Container(
                             height: 7,
@@ -1414,14 +1391,16 @@ class _MacroBarState extends State<_MacroBar>
                               borderRadius: BorderRadius.circular(4),
                               boxShadow: [
                                 BoxShadow(
-                                  color: color.withOpacity(isDark ? 0.6 : 0.35),
+                                  color: color.withOpacity(
+                                    isDark ? 0.6 : 0.35,
+                                  ),
                                   blurRadius: isDark ? 8 : 4,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                           ),
-                        // Glowing dot at the leading edge of the filled bar
+                        // Glowing dot at the leading edge of the fill
                         if (fillW > 8)
                           Positioned(
                             left: fillW - 5,
@@ -1460,16 +1439,14 @@ class _MacroBarState extends State<_MacroBar>
   }
 }
 
-// Paints a subtle dot grid across the screen background
+// Faint grid lines painted as a background decoration across the whole screen
 class _HomeGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: 0.03)
       ..strokeWidth = 1;
-
     const gap = 32.0;
-
     for (double x = 0; x < size.width; x += gap) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }

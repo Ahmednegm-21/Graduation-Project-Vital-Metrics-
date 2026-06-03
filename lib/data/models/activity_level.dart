@@ -48,7 +48,7 @@ enum ActivityLevel {
           _LevelTip(
             icon: '👣',
             title: '5,000 steps',
-            detail: 'About 4 km — try taking stairs and short walks',
+            detail: 'About 4 km - try taking stairs and short walks',
           ),
           _LevelTip(
             icon: '⏱',
@@ -66,7 +66,7 @@ enum ActivityLevel {
           _LevelTip(
             icon: '👣',
             title: '8,000 steps',
-            detail: 'About 6 km — mix walking and light running',
+            detail: 'About 6 km - mix walking and light running',
           ),
           _LevelTip(
             icon: '⏱',
@@ -84,7 +84,7 @@ enum ActivityLevel {
           _LevelTip(
             icon: '👣',
             title: '12,000 steps',
-            detail: 'About 9 km — run, hike, or stay on your feet',
+            detail: 'About 9 km - run, hike, or stay on your feet',
           ),
           _LevelTip(
             icon: '⏱',
@@ -95,6 +95,7 @@ enum ActivityLevel {
     }
   }
 
+  // Activity multiplier used in TDEE calculation (Mifflin-St Jeor standard values)
   double get _activityMultiplier {
     switch (this) {
       case ActivityLevel.low:
@@ -128,21 +129,32 @@ enum ActivityLevel {
     }
   }
 
+  // Calculate the daily calorie burn target based on user profile
+  // Formula: TDEE - BMR = active calories the body burns through movement
+  // This gives a realistic burn target instead of an arbitrary percentage
   int caloriesGoalFor({
     required double weight,
     required double height,
     required double age,
     required String gender,
   }) {
+    // Calculate BMR using Mifflin-St Jeor equation
     final double bmr = gender.toLowerCase() == 'female'
         ? (10 * weight) + (6.25 * height) - (5 * age) - 161
         : (10 * weight) + (6.25 * height) - (5 * age) + 5;
 
-    final tdee = bmr * _activityMultiplier;
-    final activeCalories = (tdee * 0.2).round();
-    return activeCalories.clamp(200, 1200);
+    // TDEE = total daily energy expenditure including activity
+    final double tdee = bmr * _activityMultiplier;
+
+    // Active calories = difference between TDEE and resting BMR
+    // This represents calories burned through actual movement and exercise
+    final int activeCalories = (tdee - bmr).round();
+
+    // Clamp to a reasonable range to avoid extreme values
+    return activeCalories.clamp(250, 900);
   }
 
+  // Fallback static calorie goal used when user profile data is not available
   int get caloriesGoal {
     switch (this) {
       case ActivityLevel.low:
@@ -154,13 +166,10 @@ enum ActivityLevel {
     }
   }
 
-  // =====================================================
-  // WATER GOAL — معادلة طبية: weight × mlPerKg
-  // low      → 35 ml/kg  (أقل نشاط = أقل تعرق)
-  // moderate → 40 ml/kg
-  // high     → 45 ml/kg  (أكتر نشاط = أكتر تعرق)
-  // =====================================================
-
+  // Water goal calculation based on medical formula: weight x ml per kg
+  // low      = 35 ml/kg  (less activity = less sweating)
+  // moderate = 40 ml/kg
+  // high     = 45 ml/kg  (more activity = more sweating)
   int get _mlPerKg {
     switch (this) {
       case ActivityLevel.low:
@@ -172,11 +181,11 @@ enum ActivityLevel {
     }
   }
 
-  /// يرجع الـ water goal بالـ ml بناءً على الـ weight
-  /// مثال: weight=70kg, moderate → 70 × 40 = 2800 ml
+  // Returns water goal in ml based on user weight
+  // Example: weight=70kg, moderate = 70 x 40 = 2800 ml
   int waterGoalMl({required double weight}) {
-    final ml = (weight * _mlPerKg).round();
-    // clamp بين 1500ml و 5000ml عشان نتجنب أرقام غريبة
+    final int ml = (weight * _mlPerKg).round();
+    // Clamp between 1500ml and 5000ml to avoid unrealistic values
     return ml.clamp(1500, 5000);
   }
 }

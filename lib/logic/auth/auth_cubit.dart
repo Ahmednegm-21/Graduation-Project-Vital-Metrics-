@@ -1,18 +1,42 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vital_metrics/data/repositories/auth_repository.dart';
 import 'package:vital_metrics/data/exceptions/api_exception.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/services/local_data_clear_service.dart';
 
+const _kLastSignedInEmail = 'auth_last_signed_in_email';
+
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepository;
 
-  bool    _isSignInFlow      = false;
+  bool _isSignInFlow = false;
   String? _lastSignedInEmail;
 
   AuthCubit({AuthRepository? authRepository})
       : _authRepository = authRepository ?? AuthRepository(),
-        super(AuthInitial());
+        super(AuthInitial()) {
+    _loadLastEmail();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  Future<void> _loadLastEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    _lastSignedInEmail = prefs.getString(_kLastSignedInEmail);
+  }
+
+  Future<void> _saveLastEmail(String email) async {
+    _lastSignedInEmail = email;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kLastSignedInEmail, email);
+  }
+
+  Future<void> _clearLastEmail() async {
+    _lastSignedInEmail = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kLastSignedInEmail);
+  }
 
   bool _isValidEmail(String email) =>
       RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
@@ -46,10 +70,11 @@ class AuthCubit extends Cubit<AuthState> {
           email: email, password: password);
 
       if (isVerified) {
+        // لو اليوزر اتغير، امسح الداتا القديمة
         if (_lastSignedInEmail != null && _lastSignedInEmail != email) {
           await LocalDataClearService.clearAll();
         }
-        _lastSignedInEmail = email;
+        await _saveLastEmail(email);
 
         final user = await _authRepository.getUserProfile();
 
@@ -108,6 +133,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
+      // امسح الداتا القديمة عند تسجيل يوزر جديد
       await LocalDataClearService.clearAll();
 
       final resultEmail = await _authRepository.signUp(
@@ -116,8 +142,8 @@ class AuthCubit extends Cubit<AuthState> {
         height: height, weight: weight,
       );
 
-      _isSignInFlow      = false;
-      _lastSignedInEmail = email;
+      _isSignInFlow = false;
+      await _saveLastEmail(email);
       emit(AuthRegistrationSuccess(email: resultEmail, tempToken: ''));
     } on ValidationException catch (e) {
       final errors = e.errors ?? {};
@@ -147,7 +173,7 @@ class AuthCubit extends Cubit<AuthState> {
         if (_lastSignedInEmail != null && _lastSignedInEmail != email) {
           await LocalDataClearService.clearAll();
         }
-        _lastSignedInEmail = email;
+        await _saveLastEmail(email);
 
         final user = await _authRepository.getUserProfile();
         _isSignInFlow = false;
@@ -179,7 +205,7 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       await _authRepository.signOut();
       await LocalDataClearService.clearAll();
-      _lastSignedInEmail = null;
+      await _clearLastEmail();
       emit(AuthInitial());
     } on ApiException catch (e) {
       emit(AuthError(e.message));
@@ -194,12 +220,8 @@ class AuthCubit extends Cubit<AuthState> {
       final isLoggedIn = await _authRepository.isLoggedIn();
       if (isLoggedIn) {
         final user = await _authRepository.getUserProfile();
-        _lastSignedInEmail = user.email;
-        if (user.isAdmin) {
-          emit(AuthAdminSuccess(user));
-        } else {
-          emit(AuthSuccess(user));
-        }
+        await _saveLastEmail(user.email);
+        emit(AuthSuccess(user));
       } else {
         emit(AuthInitial());
       }

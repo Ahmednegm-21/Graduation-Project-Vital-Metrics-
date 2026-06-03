@@ -18,19 +18,18 @@ class ActivityModel {
   });
 
   // =====================================================
-  // LOCAL AND HEALTH CONNECT JSON
+  // LOCAL JSON
   // =====================================================
 
   factory ActivityModel.fromJson(
     Map<String, dynamic> json,
   ) {
     return ActivityModel(
-      id:
-          json['id']?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
 
-      type:
-          json['type']?.toString() ??
-          'Workout',
+      type: _parseType(
+        json['type'],
+      ),
 
       durationMinutes:
           (json['durationMinutes'] as num?)
@@ -45,8 +44,7 @@ class ActivityModel {
       timestamp:
           json['timestamp'] != null
               ? DateTime.tryParse(
-                    json['timestamp']
-                        .toString(),
+                    json['timestamp'].toString(),
                   ) ??
                   DateTime.now()
               : DateTime.now(),
@@ -67,10 +65,10 @@ class ActivityModel {
               ?.toString() ??
           '',
 
-      type:
-          _formatActivityType(
-        json['type']?.toString() ??
-            'Workout',
+      type: _formatActivityType(
+        _parseType(
+          json['type'],
+        ),
       ),
 
       durationMinutes:
@@ -102,15 +100,11 @@ class ActivityModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-
       'type': type,
-
       'durationMinutes':
           durationMinutes,
-
       'caloriesBurned':
           caloriesBurned,
-
       'timestamp':
           timestamp.toIso8601String(),
     };
@@ -169,16 +163,42 @@ class ActivityModel {
 
       durationMinutes:
           durationMinutes ??
-          this.durationMinutes,
+              this.durationMinutes,
 
       caloriesBurned:
           caloriesBurned ??
-          this.caloriesBurned,
+              this.caloriesBurned,
 
       timestamp:
           timestamp ??
-          this.timestamp,
+              this.timestamp,
     );
+  }
+
+  // =====================================================
+  // TYPE PARSER
+  // =====================================================
+
+  static String _parseType(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 'Workout';
+    }
+
+    if (value is String) {
+      return value;
+    }
+
+    if (value is List) {
+      if (value.isEmpty) {
+        return 'Workout';
+      }
+
+      return value.first.toString();
+    }
+
+    return value.toString();
   }
 
   // =====================================================
@@ -203,6 +223,12 @@ class ActivityModel {
 
       case 'gym':
         return 'Workout';
+
+      case 'yoga':
+        return 'Yoga';
+
+      case 'stretching':
+        return 'Stretching';
 
       default:
         return raw;

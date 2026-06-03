@@ -209,7 +209,13 @@ class WaterCubit extends Cubit<WaterState> {
       final updated = [...state.todayIntakes, saved];
       emit(state.copyWith(todayIntakes: updated));
       await _saveLocalCache();
-      await _fitService.writeWater(saved.amountMl);
+
+      // ← تحقق من الـ preference قبل الكتابة في Health Connect
+      final prefs = await SharedPreferences.getInstance();
+      final waterHcEnabled = prefs.getBool('hc_water_enabled') ?? true;
+      if (waterHcEnabled) {
+        await _fitService.writeWater(saved.amountMl);
+      }
       print('[WaterCubit] DRINK SUCCESS => $updatedConsumed ml');
     } catch (e) {
       print('[WaterCubit] drink error: $e');

@@ -4,10 +4,10 @@ import 'package:device_preview/device_preview.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
+import 'package:vital_metrics/logic/activity/activity_state.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
-import 'package:vital_metrics/logic/onboarding_data/onboarding_data_state.dart';
 import 'package:vital_metrics/logic/user-goal/user_goal_dart_cubit.dart';
 
 import 'package:vital_metrics/logic/home/home_cubit.dart';
@@ -35,11 +35,6 @@ void main() async {
     ),
   );
 }
-
-// =====================================================
-// Extension على GoalType يحوّله لـ string مناسب
-// للـ CalorieCubit.calculateAndSetBudget
-// =====================================================
 
 extension GoalTypeString on GoalType {
   String toGoalString() {
@@ -74,57 +69,95 @@ class _MyAppState extends State<MyApp> {
   late final ActivityCubit _activityCubit;
   late final StepsSyncService _stepsSyncService;
 
-  // =====================================================
-  // هيلبر: يحوّل الـ UserGoal لـ string
-  // لو مفيش goal → 'maintain'
-  // =====================================================
-
   String _goalString() {
     final goal = _onboardingDataCubit.currentData.goal;
     if (goal == null) return 'maintain';
-    return goal.type.toGoalString(); // ← extension بدل .toLowerCase()
+    return goal.type.toGoalString();
   }
 
-  // =====================================================
-  // هيلبر: يحدّث الـ calories + water بناءً على البيانات الشخصية
-  // =====================================================
-
-  void _syncProfileToHome() {
+  // Pushes the latest personal info into onboardingDataCubit so that
+  // ActivityCubit._rebuildLoaded always reads the same weight/height/age/gender
+  // as CalorieCubit and WaterCubit. This is the single reconciliation point
+  // so every downstream goal calculation uses identical values.
+  void _pushProfileToOnboarding() {
     final info = _personalInfoCubit.state;
-    final onboardingData = _onboardingDataCubit.currentData;
-    final activityLevel = onboardingData.activityLevel ?? ActivityLevel.moderate;
+    _onboardingDataCubit.setWeight(info.weight);
+    _onboardingDataCubit.setHeight(info.height);
+    _onboardingDataCubit.setGender(info.gender);
+    _onboardingDataCubit.setAge(
+      (DateTime.now().year - info.yearOfBirth).toDouble(),
+    );
+  }
 
-    // ── Calories ──
+  // Recalculates calorie budget and water goal from the current personal info
+  // and activity level. Always calls _pushProfileToOnboarding first so
+  // onboardingDataCubit is up to date before ActivityCubit rebuilds.
+  // The _onboardingDataCubit.stream listener has been intentionally removed:
+  // keeping it caused a loop because _pushProfileToOnboarding emits on
+  // onboardingDataCubit which would re-trigger _syncProfileToHome endlessly.
+  // _personalInfoCubit.stream is the only trigger needed.
+  void _syncProfileToHome() {
+    _pushProfileToOnboarding();
+
+    final info = _personalInfoCubit.state;
+    final activityLevel =
+        _onboardingDataCubit.currentData.activityLevel ?? ActivityLevel.moderate;
+
+    final activityLevelStr =
+        activityLevel == ActivityLevel.moderate ? 'medium' : activityLevel.name;
+
     _calorieCubit.calculateAndSetBudget(
       weight: info.weight,
       height: info.height,
       age: info.age.toDouble(),
       gender: info.gender,
       goal: _goalString(),
-      activityLevel: activityLevel.name, // 'low' | 'moderate' | 'high'
+      activityLevel: activityLevelStr,
     );
 
-    // ── Water ──
     _waterCubit.setGoalFromProfile(
       weight: info.weight,
       activityLevel: activityLevel,
     );
+
+    print('[main] syncProfileToHome: level=${activityLevel.name} '
+        'weight=${info.weight} goal=${_goalString()}');
+  }
+
+  // Called when only the activity level changes (e.g. user taps activity card).
+  // Pushes profile first so onboardingDataCubit weight matches personalInfoCubit.
+  void _syncActivityLevel(ActivityLevel level) {
+    _pushProfileToOnboarding();
+
+    final info = _personalInfoCubit.state;
+    final activityLevelStr =
+        level == ActivityLevel.moderate ? 'medium' : level.name;
+
+    _calorieCubit.calculateAndSetBudget(
+      weight: info.weight,
+      height: info.height,
+      age: info.age.toDouble(),
+      gender: info.gender,
+      goal: _goalString(),
+      activityLevel: activityLevelStr,
+    );
+
+    _waterCubit.setGoalFromProfile(
+      weight: info.weight,
+      activityLevel: level,
+    );
+
+    print('[main] syncActivityLevel => level=$level');
   }
 
   @override
   void initState() {
     super.initState();
 
-    // ───────────────── AUTH ─────────────────
-
     _authCubit = AuthCubit();
-
-    // ─────────────── ONBOARDING ─────────────
 
     _onboardingGoalCubit = OnboardingGoalCubit();
     _onboardingDataCubit = OnboardingCubitAllData();
-
-    // ───────────────── HOME ─────────────────
 
     _homeCubit = HomeCubit();
     _waterCubit = WaterCubit()..refresh();
@@ -132,56 +165,51 @@ class _MyAppState extends State<MyApp> {
     _themeCubit = ThemeCubit();
     _personalInfoCubit = PersonalInfoCubit();
 
-    // ─────────────── PROGRESS ───────────────
-
     _progressCubit = ProgressCubit(
       calorieCubit: _calorieCubit,
       waterCubit: _waterCubit,
     );
 
-    // ─────────────── SLEEP ──────────────────
-
     _sleepCubit = SleepCubit()
       ..setProgressCubit(_progressCubit)
       ..refresh();
 
-    // =====================================================
-    // SYNC PROFILE → HOME (Calories + Water)
-    // =====================================================
+    // Listen to personal info changes.
+    // On every change including the first load from SharedPreferences:
+    //   1. push the new values into onboardingDataCubit so ActivityCubit
+    //      and the activity level card compute goals from the same data
+    //   2. recalculate calorie budget and water goal
+    // Note: _onboardingDataCubit.stream is NOT listened to here because
+    // _pushProfileToOnboarding emits on it, which would cause an infinite loop.
+    bool _activityLevelSyncedOnStart = false;
 
-    // لما البيانات الشخصية تتحمّل أول مرة
     _personalInfoCubit.stream.listen((_) {
       _syncProfileToHome();
-    });
 
-    // لما المستخدم يغيّر الـ activity level أو الـ goal
-    _onboardingDataCubit.stream.listen((onboardingState) {
-      if (onboardingState is OnboardingDataUpdated) {
-        _syncProfileToHome();
+      // After personal info is ready sync the saved activity level once
+      // so water and calorie goals are correct on first launch
+      if (!_activityLevelSyncedOnStart) {
+        _activityLevelSyncedOnStart = true;
+        final savedLevel = _onboardingDataCubit.currentData.activityLevel;
+        if (savedLevel != null) {
+          _syncActivityLevel(savedLevel);
+          print('[main] startup activity level sync => $savedLevel');
+        }
       }
     });
 
-    // =====================================================
-    // LISTEN WATER CHANGES → PROGRESS
-    // =====================================================
-
+    // Progress refreshes when water or calorie data changes.
+    // CalorieCubit.updateBudget has a same-value guard so budget-only
+    // updates do not re-trigger this listener unnecessarily.
     _waterCubit.stream.listen((_) {
       _progressCubit.loadWeeklyMetrics(silent: true);
     });
-
-    // =====================================================
-    // LISTEN CALORIES CHANGES → PROGRESS
-    // =====================================================
 
     _calorieCubit.stream.listen((_) {
       _progressCubit.loadWeeklyMetrics(silent: true);
     });
 
-    // ───────────── FITNESS SNAPSHOT ─────────
-
     _fitnessSnapshotCubit = FitnessSnapshotCubit();
-
-    // ─────────────── ACTIVITY ───────────────
 
     _activityCubit = ActivityCubit(
       onboardingCubit: _onboardingDataCubit,
@@ -189,7 +217,23 @@ class _MyAppState extends State<MyApp> {
 
     _activityCubit.setProgressCubit(_progressCubit);
 
-    // ─────────────── STEP SYNC ──────────────
+    // When activity level changes from the activity screen sync everything.
+    // Push profile first so the new DailyStats is built from the correct weight.
+    ActivityLevel? _lastSyncedLevel;
+    bool _firstLoad = true;
+
+    _activityCubit.stream.listen((activityState) {
+      if (activityState is TodayLoaded) {
+        final currentLevel = _onboardingDataCubit.currentData.activityLevel;
+
+        if (currentLevel != null &&
+            (_firstLoad || currentLevel != _lastSyncedLevel)) {
+          _firstLoad = false;
+          _lastSyncedLevel = currentLevel;
+          _syncActivityLevel(currentLevel);
+        }
+      }
+    });
 
     _stepsSyncService = StepsSyncService(
       progressCubit: _progressCubit,

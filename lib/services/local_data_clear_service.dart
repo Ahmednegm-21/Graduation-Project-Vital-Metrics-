@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LocalDataClearService {
   LocalDataClearService._();
 
+  /// مسح داتا اليوزر بس — بدون الـ Health Connect preferences
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -39,6 +40,20 @@ class LocalDataClearService {
     await prefs.remove('pi_height');
     await prefs.remove('pi_year');
 
+    // ← لا نمسح hc_permission_granted ولا hc_*_enabled
+    // عشان اليوزر ميضطرش يوافق على permissions كل مرة
+
     print('[LocalDataClearService] all user data cleared');
+  }
+
+  /// مسح كامل شامل الـ HC permissions — عند تغيير الجهاز أو reinstall
+  static Future<void> clearAllIncludingHC() async {
+    await clearAll();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('hc_permission_granted');
+    await prefs.remove('hc_steps_enabled');
+    await prefs.remove('hc_sleep_enabled');
+    await prefs.remove('hc_water_enabled');
+    print('[LocalDataClearService] full clear including HC preferences');
   }
 }

@@ -15,24 +15,27 @@ class ActivityRepository {
   })  : _apiService = apiService ?? ApiService(),
         _tokenStorage = tokenStorage ?? TokenStorageService();
 
-  // Build auth headers from stored token
   Future<Map<String, String>> get _authHeaders async {
     final token = await _tokenStorage.getToken();
     return ApiConfig.headers(token: token);
   }
 
-  // Map display type to what the backend accepts (walk or run only)
   String _mapToBackendType(String displayType) {
     final normalized = displayType.trim().toLowerCase();
-
     const walkTypes = {'walking', 'walk', 'yoga', 'stretching'};
-
     if (walkTypes.contains(normalized)) return 'walk';
-
     return 'run';
   }
 
-  // Create a new activity on the backend
+  String _todayStr() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  // =====================================================
+  // CREATE ACTIVITY
+  // =====================================================
+
   Future<ActivityModel> createActivity({
     required String type,
     required int durationMinutes,
@@ -42,7 +45,6 @@ class ActivityRepository {
     try {
       final headers = await _authHeaders;
       final activityDate = date ?? DateTime.now();
-
       final dateStr =
           '${activityDate.year}-${activityDate.month.toString().padLeft(2, '0')}-${activityDate.day.toString().padLeft(2, '0')}';
 
@@ -57,12 +59,8 @@ class ActivityRepository {
         },
       );
 
-      // Support both wrapped and direct response shapes
       final data = response['data'] ?? response;
-
       final saved = ActivityModel.fromBackendJson(data);
-
-      // Return with original UI type preserved (not the mapped backend type)
       return saved.copyWith(type: type);
     } on ApiException {
       rethrow;
@@ -71,15 +69,22 @@ class ActivityRepository {
     }
   }
 
-  // Fetch all activities from backend
+  // =====================================================
+  // GET ACTIVITIES — بيجيب اليوم الحالي بس
+  // بنبعت التاريخ في الـ query parameters لو الـ API يدعمه
+  // وبنفلتر في الـ client كضمان إضافي
+  // =====================================================
+
   Future<List<ActivityModel>> getActivities({
     int page = 1,
     int limit = 50,
   }) async {
     try {
       final headers = await _authHeaders;
+      final today = _todayStr();
 
-      final response = await _apiService.get(
+      // ← استخدم getAsList زي DailyMetricsRepository بالظبط
+      final raw = await _apiService.getAsList(
         ApiConfig.getActivities,
         headers: headers,
         queryParameters: {
@@ -88,20 +93,25 @@ class ActivityRepository {
         },
       );
 
-      // Support both wrapped and direct list responses
-      final dynamic rawList = response['data'] ?? response;
-
-      if (rawList is! List) return [];
-
-      final activities = rawList
+      final activities = raw
           .map((item) =>
               ActivityModel.fromBackendJson(item as Map<String, dynamic>))
           .toList();
 
-      // Sort newest first
-      activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      // فلتر لليوم الحالي بس
+      final todayActivities = activities.where((a) {
+        final activityDate =
+            '${a.timestamp.year}-${a.timestamp.month.toString().padLeft(2, '0')}-${a.timestamp.day.toString().padLeft(2, '0')}';
+        return activityDate == today;
+      }).toList();
 
-      return activities;
+      // Sort newest first
+      todayActivities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      print('[ActivityRepo] fetched ${activities.length} total, '
+          '${todayActivities.length} for today ($today)');
+
+      return todayActivities;
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -109,14 +119,14 @@ class ActivityRepository {
     }
   }
 
-  // Delete an activity by id
+  // =====================================================
+  // DELETE ACTIVITY
+  // =====================================================
+
   Future<void> deleteActivity(String id) async {
     try {
-      // Skip local and Health Connect activities
       if (id.startsWith('local_') || id.startsWith('hc_')) return;
-
       final headers = await _authHeaders;
-
       await _apiService.delete(
         '${ApiConfig.deleteActivity}/$id',
         headers: headers,

@@ -34,6 +34,9 @@ class ActivityCubit extends Cubit<ActivityState> {
 
   late ActivityLevel _activityLevel;
 
+  // Tracks whether the saved level has been synced to onboardingCubit
+  bool _levelSyncedToOnboarding = false;
+
   final List<ActivityModel> _localActivities = [];
   final Map<String, String> _originalTypes = {};
 
@@ -55,6 +58,7 @@ class ActivityCubit extends Cubit<ActivityState> {
       _loadActivityLevel(),
     ]);
 
+    await _checkAndResetIfNewDay();
     await _loadCachedActivities();
     await _load();
   }
@@ -127,17 +131,20 @@ class ActivityCubit extends Cubit<ActivityState> {
       final cached = prefs.getString(_kCachedDate);
       final today  = _todayStr();
 
-      // ← يوم جديد: امسح الكاش من الديسك والميموري
       if (cached != today) {
         await prefs.remove(_kCachedActivities);
         await prefs.remove(_kCachedDate);
-        _localActivities.clear(); // ← الإصلاح: امسح الميموري كمان
+        _localActivities.clear();
         print('[ActivityCubit] new day detected — cleared cached activities');
+        _rebuildLoaded();
         return;
       }
 
       final raw = prefs.getString(_kCachedActivities);
-      if (raw == null) return;
+      if (raw == null) {
+        _rebuildLoaded();
+        return;
+      }
 
       final list = (jsonDecode(raw) as List)
           .map((e) => ActivityModel.fromJson(e as Map<String, dynamic>))
@@ -148,10 +155,10 @@ class ActivityCubit extends Cubit<ActivityState> {
         ..addAll(list);
 
       print('[ActivityCubit] loaded ${list.length} cached activities for $today');
-
       _rebuildLoaded();
     } catch (e) {
       print('[ActivityCubit] _loadCachedActivities error: $e');
+      _rebuildLoaded();
     }
   }
 
@@ -176,12 +183,18 @@ class ActivityCubit extends Cubit<ActivityState> {
   // =====================================================
 
   Future<void> refresh() async {
-    // ← تحقق من اليوم عند كل refresh عشان لو التطبيق فضل شغال بعد منتصف الليل
     await _checkAndResetIfNewDay();
     await _load();
   }
 
-  // ← إصلاح: تحقق من التاريخ عند كل فتح للـ screen
+  // Clears the HC snapshot and permission cache immediately
+  // then rebuilds state so stale HC data disappears from UI right away
+  void clearSnapshot() {
+    _lastSnapshot = null;
+    _fitService.clearPermissionCache();
+    _rebuildLoaded();
+  }
+
   Future<void> _checkAndResetIfNewDay() async {
     try {
       final prefs  = await SharedPreferences.getInstance();
@@ -277,40 +290,70 @@ class ActivityCubit extends Cubit<ActivityState> {
     final hasExistingData = state is TodayLoaded;
     if (!hasExistingData) emit(const TodayLoading());
 
-    // Health Connect
     try {
-      final snapshot = await _fitService.getTodaySnapshot();
-      _lastSnapshot = snapshot;
-      print('[ActivityCubit] snapshot loaded: steps=${snapshot.steps}');
+      // Check HC preference before calling the fit service
+      // If user disabled HC keep _lastSnapshot as null
+      // so no stale data appears in the UI
+      final prefs = await SharedPreferences.getInstance();
+      final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
+
+      if (stepsEnabled) {
+        final snapshot = await _fitService.getTodaySnapshot();
+        _lastSnapshot = snapshot;
+        print('[ActivityCubit] snapshot loaded: steps=${snapshot.steps}');
+      } else {
+        _lastSnapshot = null;
+        print('[ActivityCubit] HC disabled — snapshot skipped');
+      }
     } catch (e) {
       print('[ActivityCubit] Health Connect failed (non-fatal): $e');
     }
 
-    // Backend activities
     try {
       final backendActivities = await _activityRepo.getActivities();
+      final today = _todayStr();
 
       _localActivities.clear();
 
-      final restored = backendActivities.map((a) {
+      final todayOnly = backendActivities.where((a) {
+        final d = a.timestamp;
+        final dateStr =
+            '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        return dateStr == today;
+      }).toList();
+
+      final restored = todayOnly.map((a) {
         final originalType = _originalTypes[a.id];
         return originalType != null ? a.copyWith(type: originalType) : a;
       }).toList();
 
       _localActivities.addAll(restored);
-      await _saveCachedActivities();
 
-      print('[ActivityCubit] backend activities loaded: ${restored.length}');
+      if (restored.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_kCachedActivities);
+        await prefs.setString(_kCachedDate, today);
+      } else {
+        await _saveCachedActivities();
+      }
+
+      print('[ActivityCubit] today=$today loaded=${restored.length} '
+          '(total from backend=${backendActivities.length})');
     } catch (e) {
       print('[ActivityCubit] backend activities failed: $e');
 
-      if (_localActivities.isNotEmpty) {
-        print('[ActivityCubit] using ${_localActivities.length} cached activities');
+      final today = _todayStr();
+      final prefs = await SharedPreferences.getInstance();
+      final cachedDate = prefs.getString(_kCachedDate);
+
+      if (_localActivities.isNotEmpty && cachedDate == today) {
+        print('[ActivityCubit] using ${_localActivities.length} cached activities (same day)');
         _rebuildLoaded();
         return;
       }
 
-      emit(TodayError('Failed to load activity data\n${e.toString()}'));
+      _localActivities.clear();
+      _rebuildLoaded();
       return;
     }
 
@@ -352,6 +395,17 @@ class ActivityCubit extends Cubit<ActivityState> {
     );
 
     emit(TodayLoaded(stats));
+
+    // Sync the loaded level to onboardingCubit once on startup so that
+    // main.dart listeners receive the correct level without the user
+    // having to tap the activity level card
+    if (!_levelSyncedToOnboarding) {
+      _levelSyncedToOnboarding = true;
+      if (onboardingCubit.currentData.activityLevel != _activityLevel) {
+        onboardingCubit.updateActivityLevel(_activityLevel);
+        print('[ActivityCubit] synced saved level=$_activityLevel to onboardingCubit');
+      }
+    }
 
     _progressCubit?.updateLocalBurned(extraCalories);
     _progressCubit?.refresh();
