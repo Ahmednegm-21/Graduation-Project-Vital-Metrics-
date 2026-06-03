@@ -46,11 +46,11 @@ flutter_launcher_icons:
   android: true
   ios: true
 
-  image_path: "assets/icons/vital_metrics_icon.png"
+  image_path: "assets/icons/vital_metrics_logo_transparent.png"
 
   # Adaptive Icon
   adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/icons/vital_metrics_icon.png"
+  adaptive_icon_foreground: "assets/icons/vital_metrics_logo_transparent.png"
 
   min_sdk_android: 21
 
@@ -59,3 +59,4 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/icons/

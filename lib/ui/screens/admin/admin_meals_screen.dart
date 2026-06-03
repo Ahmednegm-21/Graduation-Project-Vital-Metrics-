@@ -6,6 +6,7 @@ import 'package:vital_metrics/data/config/api_config.dart';
 import 'package:vital_metrics/data/exceptions/api_exception.dart';
 import 'package:vital_metrics/services/api_service.dart';
 import 'package:vital_metrics/services/token_storage_service.dart';
+import 'package:vital_metrics/data/models/egyptian_meals_data.dart';
 
 // ── Meal model ─────────────────────────────────────────────────────────────────
 class _Meal {
@@ -179,6 +180,68 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
   }
+  Future<void> _importEgyptianMeals() async {
+  try {
+    final headers = await _headers;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    final existingNames = _meals
+        .map((e) => e.name.trim().toLowerCase())
+        .toSet();
+
+    int imported = 0;
+
+    for (final meal in egyptianMeals()) {
+      if (existingNames.contains(meal.name.trim().toLowerCase())) {
+        continue;
+      }
+
+      try {
+        await _api.post(
+          ApiConfig.createMeal,
+          headers: headers,
+          body: {
+            'name': meal.name,
+            'description': meal.description,
+            'calories': meal.calories,
+            'protein': meal.protein,
+            'carbs': meal.carbs,
+            'fat': meal.fat,
+          },
+        );
+
+        imported++;
+      } catch (_) {}
+    }
+
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    await _load();
+
+    _snack(
+      '$imported meals imported successfully',
+      error: false,
+    );
+  } catch (e) {
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    _snack(
+      'Import failed: $e',
+      error: true,
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +274,44 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
                     onPressed: _load,
                     icon: const Icon(Icons.refresh,
                         color: Color(0xFF4361EE), size: 22)),
+                        const SizedBox(width: 8),
+
+GestureDetector(
+  onTap: _importEgyptianMeals,
+  child: Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: 14,
+      vertical: 10,
+    ),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [
+          Color(0xFF10B981),
+          Color(0xFF34D399),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Row(
+      children: [
+        Icon(
+          Icons.file_download,
+          color: Colors.white,
+          size: 16,
+        ),
+        SizedBox(width: 5),
+        Text(
+          'Import',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                   // Add button
                   GestureDetector(
                     onTap: () => _showForm(),

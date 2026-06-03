@@ -46,12 +46,10 @@ class ApiConfig {
   static const String deleteActivity = '/activities';
 
   // ── Meals (admin catalog) ──────────────────────────────────────────────────
-  static const String getMeals   = '/meals';
-  static const String createMeal = '/meals';
-  static String updateMeal(int id) => '/meals/$id';
-  static String deleteMeal(int id) => '/meals/$id';
-  static String getMeal(int id)    => '/meals/$id';
-
+  static const String getMeals    = '/meals';
+static const String createMeal  = '/admin/meals';
+static String updateMeal(int id) => '/admin/meals/$id';
+static String deleteMeal(int id) => '/admin/meals/$id';
   // ── Consumed Meals (user log) ──────────────────────────────────────────────
   static const String consumedMeals      = '/consumed-meals';
   static String consumedMeal(int id) => '/consumed-meals/$id';

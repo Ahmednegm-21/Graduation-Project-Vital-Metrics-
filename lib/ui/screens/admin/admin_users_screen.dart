@@ -7,9 +7,8 @@ import 'package:vital_metrics/data/exceptions/api_exception.dart';
 import 'package:vital_metrics/services/api_service.dart';
 import 'package:vital_metrics/services/token_storage_service.dart';
 
-// ══════════════════════════════════════════════════════════════════════════════
 // AdminUsersScreen
-// ══════════════════════════════════════════════════════════════════════════════
+
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
   @override State<AdminUsersScreen> createState() => _AdminUsersScreenState();

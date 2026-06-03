@@ -57,10 +57,10 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // ── Master (3.6s total) ────────────────────────────────────────────────
+    // ── Master (8.0s total) ────────────────────────────────────────────────
     _masterCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3600),
+      duration: const Duration(milliseconds: 8000),
     )..forward();
 
     // ── Particles (infinite) ──────────────────────────────────────────────
@@ -176,7 +176,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     // ── Auth check after animation settles ───────────────────────────────
-    Timer(const Duration(milliseconds: 3200), () {
+    Timer(const Duration(milliseconds: 7600), () {
       if (mounted) context.read<AuthCubit>().checkAuthStatus();
     });
   }
@@ -195,7 +195,6 @@ class _SplashScreenState extends State<SplashScreen>
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthAdminSuccess) {
-          // ✅ Admin → Admin Panel مباشرةً
           context.go('/admin-panel');
         } else if (state is AuthSuccess) {
           final onboardingComplete = state.user.onboardingComplete ?? false;
@@ -370,8 +369,8 @@ class _SplashScreenState extends State<SplashScreen>
       animation: Listenable.merge([_masterCtrl, _pulseCtrl]),
       builder: (_, __) {
         return SizedBox(
-          width: 220,
-          height: 220,
+          width: 420,
+          height: 420,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -381,8 +380,8 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Transform.scale(
                   scale: _pulse.value * 1.1,
                   child: Container(
-                    width: 210,
-                    height: 210,
+                    width: 410,
+                    height: 410,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -400,7 +399,7 @@ class _SplashScreenState extends State<SplashScreen>
               Opacity(
                 opacity: _ring3Opacity.value,
                 child: CustomPaint(
-                  size: const Size(200, 200),
+                  size: const Size(400, 400),
                   painter: _DashedRingPainter(
                     color: _secondary.withOpacity(0.35),
                     strokeWidth: 1.0,
@@ -411,7 +410,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               // Ring 2 — animated sweep
               CustomPaint(
-                size: const Size(172, 172),
+                size: const Size(365, 365),
                 painter: _SweepRingPainter(
                   progress: _ring2Sweep.value,
                   color: _accent,
@@ -422,7 +421,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               // Ring 1 — main animated sweep
               CustomPaint(
-                size: const Size(148, 148),
+                size: const Size(330, 330),
                 painter: _SweepRingPainter(
                   progress: _ring1Sweep.value,
                   color: _primary,
@@ -430,7 +429,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
 
-              // Pulsing center logo container
+              // ✅ FIX: Removed ClipOval — logo PNG is transparent, no clipping needed
               Transform.scale(
                 scale: _logoScale.value,
                 child: Opacity(
@@ -438,8 +437,8 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Transform.scale(
                     scale: _pulse.value,
                     child: Container(
-                      width: 110,
-                      height: 110,
+                      width: 270,
+                      height: 270,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: const LinearGradient(
@@ -464,13 +463,13 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ],
                       ),
-                      child: ClipOval(
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            fit: BoxFit.contain,
-                          ),
+                      // ✅ FIX: Direct Padding without ClipOval
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Image.asset(
+                          'assets/icons/vital_metrics_logo_transparent.png',
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
                         ),
                       ),
                     ),
@@ -483,8 +482,8 @@ class _SplashScreenState extends State<SplashScreen>
                 animation: _particleCtrl,
                 builder: (_, __) {
                   final angle = _particleCtrl.value * 2 * math.pi;
-                  final x = math.cos(angle) * 86.0;
-                  final y = math.sin(angle) * 86.0;
+                  final x = math.cos(angle) * 183.0;
+                  final y = math.sin(angle) * 183.0;
                   return Transform.translate(
                     offset: Offset(x, y),
                     child: Opacity(
@@ -514,8 +513,8 @@ class _SplashScreenState extends State<SplashScreen>
                 animation: _particleCtrl,
                 builder: (_, __) {
                   final angle = _particleCtrl.value * 2 * math.pi + math.pi;
-                  final x = math.cos(angle) * 86.0;
-                  final y = math.sin(angle) * 86.0;
+                  final x = math.cos(angle) * 183.0;
+                  final y = math.sin(angle) * 183.0;
                   return Transform.translate(
                     offset: Offset(x, y),
                     child: Opacity(
