@@ -1,11 +1,11 @@
 // lib/services/notification_api_service.dart
 
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vital_metrics/data/config/api_config.dart';
 import 'package:vital_metrics/data/models/device_token_model.dart';
 import 'package:vital_metrics/data/models/notification_preferences_model.dart';
 import 'package:vital_metrics/data/models/notification_api_model.dart';
+import 'package:vital_metrics/services/token_storage_service.dart';
 
 class NotificationApiService {
   late final Dio _dio;
@@ -22,11 +22,8 @@ class NotificationApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token =
-              prefs.getString('access_token') ??
-              prefs.getString('accessToken') ??
-              prefs.getString('token');
+          // ✅ بنقرأ من FlutterSecureStorage بـ key 'auth_token'
+          final token = await TokenStorageService().getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -42,23 +39,29 @@ class NotificationApiService {
   // Notification Preferences
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// GET /notifications/preferences
+  /// GET /notification-preferences
   Future<NotificationPreferencesModel> getPreferences() async {
     final response = await _dio.get(ApiConfig.getNotifPreferences);
     final data = _unwrap(response.data);
     return NotificationPreferencesModel.fromJson(data);
   }
 
-  /// PUT /notifications/preferences
+  /// PUT /notification-preferences
+  /// لو السيرفر رجع 404 (record مش موجود) بيعمل POST عشان يعمل create
   Future<NotificationPreferencesModel> updatePreferences(
     NotificationPreferencesModel prefs,
   ) async {
-    final response = await _dio.put(
-      ApiConfig.updateNotifPreferences,
-      data: prefs.toJson(),
-    );
-    final data = _unwrap(response.data);
-    return NotificationPreferencesModel.fromJson(data);
+    try {
+      // ✅ السيرفر بيستخدم PATCH مش PUT
+      final response = await _dio.patch(
+        ApiConfig.updateNotifPreferences,
+        data: prefs.toJson(),
+      );
+      final data = _unwrap(response.data);
+      return NotificationPreferencesModel.fromJson(data);
+    } on DioException catch (e) {
+      rethrow;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
