@@ -18,7 +18,7 @@ class ProgressLoading extends ProgressState {
 class ProgressLoaded extends ProgressState {
   final List<DailyMetricModel> weeklyMetrics;
 
-  // 0 = current week, -1 = last week, -2 = two weeks ago, etc.
+  // 0 = current week, -1 = last week, -2 = two weeks ago
   final int weekOffset;
 
   // The Saturday that starts this week
@@ -46,7 +46,7 @@ class ProgressLoaded extends ProgressState {
   List<int> get waterMl =>
       weeklyMetrics.map((e) => e.totalWaterMl).toList();
 
-  // Sleep duration in hours per day (converted from minutes)
+  // Sleep duration in hours per day converted from minutes
   List<double> get sleepHrs =>
       weeklyMetrics.map((e) => e.sleepHours).toList();
 

@@ -10,18 +10,16 @@ import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
 
-import 'package:vital_metrics/services/google_fit_service.dart';
-
 part 'progress_state.dart';
 
 class ProgressCubit extends Cubit<ProgressState> {
   final DailyMetricsRepository _repository;
-  final GoogleFitService _fitService;
 
   CalorieCubit? _calorieCubit;
   WaterCubit? _waterCubit;
 
   int _localBurnedCalories = 0;
+  int _localSteps = 0;
   bool _loading = false;
 
   StreamSubscription? _waterSubscription;
@@ -32,11 +30,9 @@ class ProgressCubit extends Cubit<ProgressState> {
 
   ProgressCubit({
     DailyMetricsRepository? repository,
-    GoogleFitService? fitService,
     CalorieCubit? calorieCubit,
     WaterCubit? waterCubit,
   })  : _repository = repository ?? DailyMetricsRepository(),
-        _fitService = fitService ?? GoogleFitService(),
         _calorieCubit = calorieCubit,
         _waterCubit = waterCubit,
         super(const ProgressInitial()) {
@@ -70,10 +66,21 @@ class ProgressCubit extends Cubit<ProgressState> {
 
   // =====================================================
   // UPDATE LOCAL BURNED CALORIES
+  // Called from ActivityCubit with the total burned value
+  // including both HC and manual activities
   // =====================================================
 
   void updateLocalBurned(int calories) {
     _localBurnedCalories = calories;
+  }
+
+  // =====================================================
+  // UPDATE LOCAL STEPS
+  // Called from ActivityCubit with the live HC steps value
+  // =====================================================
+
+  void updateLocalSteps(int steps) {
+    _localSteps = steps;
   }
 
   // =====================================================
@@ -117,11 +124,12 @@ class ProgressCubit extends Cubit<ProgressState> {
 
   // =====================================================
   // LOAD WEEKLY METRICS
+  // Does not call HC directly — all live data comes from
+  // ActivityCubit via updateLocalBurned and updateLocalSteps
   // =====================================================
 
   Future<void> loadWeeklyMetrics({
     bool silent = false,
-    FitnessSnapshot? snapshot,
     int weekOffset = 0,
   }) async {
     if (_loading) return;
@@ -130,8 +138,8 @@ class ProgressCubit extends Cubit<ProgressState> {
     if (!silent) emit(const ProgressLoading());
 
     try {
-      final now = DateTime.now();
-      final today = _fmt(now);
+      final now     = DateTime.now();
+      final today   = _fmt(now);
       final weekday = now.weekday;
 
       final int daysSinceSaturday;
@@ -167,8 +175,7 @@ class ProgressCubit extends Cubit<ProgressState> {
       final targetWeekStart =
           currentWeekStart.add(Duration(days: weekOffset * 7));
 
-      final raw =
-          await _repository.getWeeklyMetrics(weekOffset: weekOffset);
+      final raw = await _repository.getWeeklyMetrics(weekOffset: weekOffset);
 
       final metricMap = <String, DailyMetricModel>{};
       for (final metric in raw) {
@@ -185,59 +192,49 @@ class ProgressCubit extends Cubit<ProgressState> {
           : 0;
       final localWater =
           isCurrentWeek ? (_waterCubit?.state.consumedMl ?? 0) : 0;
+
+      // All burned and steps values come from ActivityCubit
+      // No direct HC calls here to avoid stale data after toggle
       final localBurned = isCurrentWeek ? _localBurnedCalories : 0;
-
-      final liveSteps =
-          (isCurrentWeek && snapshot != null) ? snapshot.steps : 0;
-
-      final healthConnectBurned =
-          (isCurrentWeek && snapshot != null) ? snapshot.caloriesBurned : 0;
-      final liveBurnedFromHC = healthConnectBurned + localBurned;
+      final localSteps  = isCurrentWeek ? _localSteps : 0;
 
       final filled = List.generate(7, (index) {
-        final day = targetWeekStart.add(Duration(days: index));
+        final day     = targetWeekStart.add(Duration(days: index));
         final dateStr = _fmt(day);
-        final metric = metricMap[dateStr];
+        final metric  = metricMap[dateStr];
         final isToday = isCurrentWeek && dateStr == today;
 
         if (metric != null) {
-          final int todayBurned;
-          if (isToday) {
-            if (liveBurnedFromHC > 0) {
-              todayBurned = liveBurnedFromHC;
-            } else {
-              todayBurned = metric.burnedTotal;
-            }
-          } else {
-            todayBurned = metric.burnedTotal;
-          }
-
           return DailyMetricModel(
             metricId: metric.metricId,
             date: metric.date,
             totalSteps: isToday
-                ? (liveSteps > 0 ? liveSteps : metric.totalSteps)
+                ? (localSteps > 0 ? localSteps : metric.totalSteps)
                 : metric.totalSteps,
             caloriesConsumed:
                 isToday ? localCalories : metric.caloriesConsumed,
-            burnedTotal: todayBurned,
+            // Today uses live value from ActivityCubit
+            // Previous days always use backend value
+            burnedTotal: isToday ? localBurned : metric.burnedTotal,
             totalWaterMl: isToday ? localWater : metric.totalWaterMl,
             totalSleepMinutes: metric.totalSleepMinutes,
           );
         }
 
+        // Current day with no backend record yet
         if (isToday) {
           return DailyMetricModel(
             metricId: 0,
             date: dateStr,
-            totalSteps: liveSteps,
+            totalSteps: localSteps,
             caloriesConsumed: localCalories,
-            burnedTotal: liveBurnedFromHC > 0 ? liveBurnedFromHC : localBurned,
+            burnedTotal: localBurned,
             totalWaterMl: localWater,
             totalSleepMinutes: 0,
           );
         }
 
+        // Past day with no data
         return DailyMetricModel(
           metricId: 0,
           date: dateStr,
@@ -304,32 +301,14 @@ class ProgressCubit extends Cubit<ProgressState> {
 
   // =====================================================
   // REFRESH
-  // Checks hc_steps_enabled preference before calling
-  // the fit service so that disabled HC data is never
-  // shown after the user turns off the toggle
+  // No longer calls HC directly — data comes from ActivityCubit
+  // This prevents stale HC data after the user disables the toggle
   // =====================================================
 
   Future<void> refresh() async {
     try {
-      FitnessSnapshot? snapshot;
-
-      // Check HC preference before calling the fit service
-      // If user disabled HC skip the snapshot entirely
-      final prefs = await SharedPreferences.getInstance();
-      final stepsEnabled = prefs.getBool('hc_steps_enabled') ?? true;
-
-      if (stepsEnabled) {
-        final granted = await _fitService.requestPermissions();
-        if (granted) {
-          snapshot = await _fitService.getTodaySnapshot();
-        }
-      } else {
-        print('[ProgressCubit] HC disabled — skipping snapshot in refresh');
-      }
-
       _weekCache.remove(0);
       await loadWeeklyMetrics(
-        snapshot: snapshot,
         silent: true,
         weekOffset: 0,
       );

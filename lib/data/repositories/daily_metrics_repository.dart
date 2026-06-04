@@ -20,6 +20,8 @@ class DailyMetricsRepository {
   // =====================================================
   // GET WEEKLY METRICS
   // weekOffset: 0 = current week, -1 = last week, etc.
+  // Backend returns records newest first so we fetch enough
+  // records to guarantee the full requested week is included
   // =====================================================
 
   Future<List<DailyMetricModel>> getWeeklyMetrics({
@@ -31,9 +33,10 @@ class DailyMetricsRepository {
       final weekStart = range.$1;
       final weekEnd   = range.$2;
 
-      // Limit grows with offset to always cover the requested week
-      // weekOffset=0 -> limit=14, weekOffset=-1 -> limit=21, etc.
-      final limit = 14 + (weekOffset.abs() * 7);
+      // Fetch enough records to always cover the requested week
+      // Base of 30 ensures the current week is fully covered
+      // Each additional past week adds 7 more records
+      final limit = 30 + (weekOffset.abs() * 7);
 
       final raw = await _api.getAsList(
         ApiConfig.getDailyMetrics,
@@ -167,8 +170,8 @@ class DailyMetricsRepository {
   // HELPERS
   // =====================================================
 
-  // Calculate start and end dates for a given week offset.
-  // Week starts on Saturday and ends on Friday.
+  // Calculate start and end dates for a given week offset
+  // Week starts on Saturday and ends on Friday
   // DateTime weekday values: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
   (DateTime, DateTime) _weekDateRange(int weekOffset) {
     final now     = DateTime.now();
