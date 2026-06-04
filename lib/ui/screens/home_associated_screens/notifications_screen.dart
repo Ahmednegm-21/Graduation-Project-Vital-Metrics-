@@ -1,7 +1,12 @@
+// lib/presentation/screens/notifications_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/models/notification_model.dart';
+import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_state.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -10,28 +15,21 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _State();
 }
 
-class _State extends State<NotificationsScreen>
-    with TickerProviderStateMixin {
+class _State extends State<NotificationsScreen> with TickerProviderStateMixin {
 
   late final AnimationController _bellCtrl;
   late final Animation<double>   _bellShake, _bellScale, _bellGlow;
 
   bool _selectMode = false;
-
-  final List<NotificationItem> _items = defaultNotifications();
-
-  int get _unread    => _items.where((n) => !n.isRead).length;
-  int get _selected  => _items.where((n) => n.isSelected).length;
-  bool get _allSel   => _items.isNotEmpty && _selected == _items.length;
+  final Set<int> _selectedIds = {};
 
   @override
   void initState() {
     super.initState();
 
-    _bellCtrl = AnimationController(vsync: this,
-        duration: const Duration(milliseconds: 800));
+    _bellCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
 
-    // shake (rotation swing)
     _bellShake = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0,   end:  0.18), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 0.18,  end: -0.14), weight: 1),
@@ -40,25 +38,24 @@ class _State extends State<NotificationsScreen>
       TweenSequenceItem(tween: Tween(begin: -0.06, end:  0.0),  weight: 1),
     ]).animate(CurvedAnimation(parent: _bellCtrl, curve: Curves.easeInOut));
 
-    // scale pulse
     _bellScale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.15), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.0,  end: 1.15), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0),  weight: 1),
     ]).animate(CurvedAnimation(parent: _bellCtrl, curve: Curves.easeInOut));
 
-    // glow opacity
     _bellGlow = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.7), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 0.7, end: 0.0), weight: 1),
     ]).animate(CurvedAnimation(parent: _bellCtrl, curve: Curves.easeInOut));
 
+    context.read<NotificationsCubit>().loadNotifications();
     _runBellLoop();
   }
 
   void _runBellLoop() async {
     while (mounted) {
       await Future.delayed(const Duration(seconds: 3));
-      if (mounted && _unread > 0) {
+      if (mounted && context.read<NotificationsCubit>().unreadCount > 0) {
         await _bellCtrl.forward(from: 0);
       }
     }
@@ -70,52 +67,109 @@ class _State extends State<NotificationsScreen>
     super.dispose();
   }
 
-  // ── actions ───────────────────────────────────────────────────────────────
-  void _markAllRead()   => setState(() { for (var n in _items) n.isRead = true; });
-  void _deleteAll()     => setState(() => _items.clear());
-  void _markSelRead()   => setState(() {
-    for (var n in _items) { if (n.isSelected) { n.isRead = true; n.isSelected = false; } }
-    _selectMode = false;
-  });
-  void _deleteSel()     => setState(() {
-    _items.removeWhere((n) => n.isSelected);
-    _selectMode = false;
-  });
-  void _toggleSel(String id) => setState(() {
-    final n = _items.firstWhere((n) => n.id == id);
-    n.isSelected = !n.isSelected;
-    if (_selected == 0) _selectMode = false;
-  });
-  void _toggleAllSel() => setState(() {
-    final v = !_allSel;
-    for (var n in _items) n.isSelected = v;
-  });
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  // ── build ─────────────────────────────────────────────────────────────────
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+      if (_selectedIds.isEmpty) _selectMode = false;
+    });
+  }
+
+  void _toggleSelectAll(List<NotificationItem> items) {
+    setState(() {
+      if (_selectedIds.length == items.length) {
+        _selectedIds.clear();
+      } else {
+        _selectedIds
+          ..clear()
+          ..addAll(items.map((n) => n.notificationId));
+      }
+    });
+  }
+
+  void _exitSelectMode() {
+    setState(() {
+      _selectMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final bg     = isDark ? const Color(0xFF0F1221) : const Color(0xFFF0F3FF);
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: isDark
+          ? const Color(0xFF0F1221)
+          : const Color(0xFFF0F3FF),
       body: SafeArea(
-        child: Column(
-          children: [
-            _header(context, isDark),
-            _actionBar(context, isDark),
-            if (_selectMode) _selectBar(context, isDark),
-            Expanded(child: _items.isEmpty
-                ? _empty(isDark)
-                : _list(context, isDark)),
-          ],
+        child: BlocBuilder<NotificationsCubit, NotificationsState>(
+          builder: (context, state) {
+            final items  = state is NotificationsLoaded ? state.items : <NotificationItem>[];
+            final unread = state is NotificationsLoaded ? state.unreadCount : 0;
+            final allSel = _selectedIds.length == items.length && items.isNotEmpty;
+
+            return Column(
+              children: [
+                _header(context, isDark, unread),
+                _actionBar(context, isDark, items, unread),
+                if (_selectMode) _selectBar(context, isDark, items, allSel),
+                Expanded(
+                  child: state is NotificationsLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : state is NotificationsError
+                          ? _buildError(isDark, state.message)
+                          : items.isEmpty
+                              ? _empty(isDark)
+                              : _list(context, isDark, items),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  // ── header ────────────────────────────────────────────────────────────────
-  Widget _header(BuildContext context, bool isDark) {
+  // ── Error ─────────────────────────────────────────────────────────────────
+
+  Widget _buildError(bool isDark, String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 48),
+          const SizedBox(height: 12),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.grey)),
+          const SizedBox(height: 16),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF4361EE),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () =>
+                context.read<NotificationsCubit>().loadNotifications(),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Header ────────────────────────────────────────────────────────────────
+
+  Widget _header(BuildContext context, bool isDark, int unread) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
     final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
 
@@ -123,7 +177,6 @@ class _State extends State<NotificationsScreen>
       padding: const EdgeInsets.fromLTRB(8, 12, 16, 10),
       child: Row(
         children: [
-          // back
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
@@ -140,20 +193,18 @@ class _State extends State<NotificationsScreen>
           ),
           const SizedBox(width: 12),
 
-          // ── Animated Bell ─────────────────────────────────────────────────
+          // Animated bell
           AnimatedBuilder(
             animation: _bellCtrl,
             builder: (_, __) => Stack(
               clipBehavior: Clip.none,
               children: [
-                // glow ring
-                if (_unread > 0)
+                if (unread > 0)
                   Positioned.fill(
                     child: Opacity(
                       opacity: _bellGlow.value,
                       child: Container(
                         decoration: BoxDecoration(
-                          shape: BoxShape.rectangle,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
@@ -166,8 +217,6 @@ class _State extends State<NotificationsScreen>
                       ),
                     ),
                   ),
-
-                // bell icon
                 Transform.scale(
                   scale: _bellScale.value,
                   child: Transform.rotate(
@@ -176,35 +225,35 @@ class _State extends State<NotificationsScreen>
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        gradient: _unread > 0
+                        gradient: unread > 0
                             ? const LinearGradient(
                                 colors: [Color(0xFF4361EE), Color(0xFF4CC9F0)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               )
                             : null,
-                        color: _unread == 0 ? cardBg : null,
+                        color: unread == 0 ? cardBg : null,
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: _unread > 0
+                            color: unread > 0
                                 ? const Color(0xFF4361EE).withOpacity(0.40)
                                 : shadow,
-                            blurRadius: _unread > 0 ? 14 : 10,
+                            blurRadius: unread > 0 ? 14 : 10,
                           ),
                         ],
                       ),
                       child: Icon(CupertinoIcons.bell_fill,
-                          color: _unread > 0
+                          color: unread > 0
                               ? Colors.white
-                              : (isDark ? Colors.white54 : const Color(0xFF4361EE)),
+                              : (isDark
+                                  ? Colors.white54
+                                  : const Color(0xFF4361EE)),
                           size: 20),
                     ),
                   ),
                 ),
-
-                // unread count badge
-                if (_unread > 0)
+                if (unread > 0)
                   Positioned(
                     top: -5, right: -6,
                     child: Container(
@@ -226,12 +275,11 @@ class _State extends State<NotificationsScreen>
                           ),
                         ],
                       ),
-                      child: Text('$_unread',
+                      child: Text('$unread',
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          )),
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
               ],
@@ -240,50 +288,55 @@ class _State extends State<NotificationsScreen>
 
           const SizedBox(width: 12),
 
-          // title
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Notifications',
                     style: TextStyle(
-                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    )),
+                        color: isDark
+                            ? Colors.white
+                            : const Color(0xFF1A1A2E),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20)),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: Text(
-                    _unread > 0
-                        ? '$_unread unread message${_unread > 1 ? 's' : ''}'
+                    unread > 0
+                        ? '$unread unread message${unread > 1 ? 's' : ''}'
                         : 'All caught up ✓',
-                    key: ValueKey(_unread),
+                    key: ValueKey(unread),
                     style: TextStyle(
-                      color: _unread > 0
-                          ? const Color(0xFF4361EE)
-                          : (isDark ? Colors.white30 : const Color(0xFF9B9B9B)),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
+                        color: unread > 0
+                            ? const Color(0xFF4361EE)
+                            : (isDark
+                                ? Colors.white30
+                                : const Color(0xFF9B9B9B)),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
           ),
 
-          // select toggle
+          // Select toggle
           GestureDetector(
-            onTap: () => setState(() {
-              _selectMode = !_selectMode;
-              if (!_selectMode) for (var n in _items) n.isSelected = false;
-            }),
+            onTap: () {
+              if (_selectMode) {
+                _exitSelectMode();
+              } else {
+                setState(() => _selectMode = true);
+              }
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _selectMode
                     ? const Color(0xFF4361EE)
-                    : const Color(0xFF4361EE).withOpacity(isDark ? 0.18 : 0.09),
+                    : const Color(0xFF4361EE)
+                        .withOpacity(isDark ? 0.18 : 0.09),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                     color: const Color(0xFF4361EE).withOpacity(0.35)),
@@ -291,9 +344,11 @@ class _State extends State<NotificationsScreen>
               child: Text(
                 _selectMode ? 'Cancel' : 'Select',
                 style: TextStyle(
-                  color: _selectMode ? Colors.white : const Color(0xFF4361EE),
-                  fontSize: 12, fontWeight: FontWeight.w600,
-                ),
+                    color: _selectMode
+                        ? Colors.white
+                        : const Color(0xFF4361EE),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -302,28 +357,40 @@ class _State extends State<NotificationsScreen>
     );
   }
 
-  // ── action bar ────────────────────────────────────────────────────────────
-  Widget _actionBar(BuildContext context, bool isDark) {
+  // ── Action Bar ────────────────────────────────────────────────────────────
+
+  Widget _actionBar(BuildContext context, bool isDark,
+      List<NotificationItem> items, int unread) {
+    final cubit = context.read<NotificationsCubit>();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Row(
         children: [
           _ActionBtn(
-            label: 'Read All',
-            icon: CupertinoIcons.checkmark_circle_fill,
-            color: const Color(0xFF4361EE),
-            enabled: _unread > 0,
-            isDark: isDark,
-            onTap: _markAllRead,
+            label:   'Read All',
+            icon:    CupertinoIcons.checkmark_circle_fill,
+            color:   const Color(0xFF4361EE),
+            enabled: unread > 0,
+            isDark:  isDark,
+            onTap:   cubit.markAllAsRead,
           ),
           const SizedBox(width: 10),
           _ActionBtn(
-            label: 'Delete All',
-            icon: CupertinoIcons.trash_fill,
-            color: const Color(0xFFFF4757),
-            enabled: _items.isNotEmpty,
-            isDark: isDark,
-            onTap: () => _confirmDeleteAll(context, isDark),
+            label:   'Delete All',
+            icon:    CupertinoIcons.trash_fill,
+            color:   const Color(0xFFFF4757),
+            enabled: items.isNotEmpty,
+            isDark:  isDark,
+            onTap:   () => _confirmDeleteAll(context, isDark),
+          ),
+          const SizedBox(width: 10),
+          _ActionBtn(
+            label:   'Refresh',
+            icon:    CupertinoIcons.refresh,
+            color:   const Color(0xFF2ECC9A),
+            enabled: true,
+            isDark:  isDark,
+            onTap:   cubit.loadNotifications,
           ),
         ],
       ),
@@ -334,7 +401,7 @@ class _State extends State<NotificationsScreen>
     final ok = await showCupertinoDialog<bool>(
       context: ctx,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Delete All?'),
+        title:   const Text('Delete All?'),
         content: const Text('This will remove all notifications permanently.'),
         actions: [
           CupertinoDialogAction(
@@ -347,12 +414,19 @@ class _State extends State<NotificationsScreen>
         ],
       ),
     );
-    if (ok == true) _deleteAll();
+    if (ok == true && mounted) {
+      context.read<NotificationsCubit>().deleteAll();
+      _exitSelectMode();
+    }
   }
 
-  // ── select bar ────────────────────────────────────────────────────────────
-  Widget _selectBar(BuildContext context, bool isDark) {
-    final hasSel = _selected > 0;
+  // ── Select Bar ────────────────────────────────────────────────────────────
+
+  Widget _selectBar(BuildContext context, bool isDark,
+      List<NotificationItem> items, bool allSel) {
+    final hasSel = _selectedIds.isNotEmpty;
+    final cubit  = context.read<NotificationsCubit>();
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -361,9 +435,9 @@ class _State extends State<NotificationsScreen>
         color: isDark ? const Color(0xFF1A2340) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasSel
-              ? const Color(0xFF4361EE).withOpacity(0.45)
-              : Colors.transparent),
+            color: hasSel
+                ? const Color(0xFF4361EE).withOpacity(0.45)
+                : Colors.transparent),
         boxShadow: [
           BoxShadow(
             color: isDark ? Colors.black38 : Colors.black.withOpacity(0.06),
@@ -373,18 +447,17 @@ class _State extends State<NotificationsScreen>
       ),
       child: Row(
         children: [
-          // select all toggle
           GestureDetector(
-            onTap: _toggleAllSel,
+            onTap: () => _toggleSelectAll(items),
             child: Row(children: [
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: Icon(
-                  _allSel
+                  allSel
                       ? CupertinoIcons.checkmark_square_fill
                       : CupertinoIcons.square,
-                  key: ValueKey(_allSel),
-                  color: _allSel
+                  key: ValueKey(allSel),
+                  color: allSel
                       ? const Color(0xFF4361EE)
                       : (isDark ? Colors.white30 : Colors.grey),
                   size: 20,
@@ -392,36 +465,36 @@ class _State extends State<NotificationsScreen>
               ),
               const SizedBox(width: 7),
               Text(
-                _allSel ? 'Deselect All' : 'Select All',
+                allSel ? 'Deselect All' : 'Select All',
                 style: TextStyle(
-                  color: isDark ? Colors.white70 : const Color(0xFF2D3142),
-                  fontSize: 12, fontWeight: FontWeight.w600,
-                ),
+                    color: isDark
+                        ? Colors.white70
+                        : const Color(0xFF2D3142),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
               ),
             ]),
           ),
-
           const Spacer(),
-
           if (hasSel) ...[
-            // count
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFF4361EE).withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('$_selected selected',
+              child: Text('${_selectedIds.length} selected',
                   style: const TextStyle(
-                    color: Color(0xFF4361EE),
-                    fontSize: 11, fontWeight: FontWeight.bold,
-                  )),
+                      color: Color(0xFF4361EE),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
-
-            // mark read
             GestureDetector(
-              onTap: _markSelRead,
+              onTap: () {
+                cubit.markSelectedAsRead(_selectedIds.toList());
+                _exitSelectMode();
+              },
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -433,10 +506,11 @@ class _State extends State<NotificationsScreen>
               ),
             ),
             const SizedBox(width: 6),
-
-            // delete
             GestureDetector(
-              onTap: _deleteSel,
+              onTap: () {
+                cubit.deleteSelected(_selectedIds.toList());
+                _exitSelectMode();
+              },
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -453,39 +527,46 @@ class _State extends State<NotificationsScreen>
     );
   }
 
-  // ── list ──────────────────────────────────────────────────────────────────
-  Widget _list(BuildContext context, bool isDark) {
+  // ── List ──────────────────────────────────────────────────────────────────
+
+  Widget _list(BuildContext context, bool isDark, List<NotificationItem> items) {
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
-      itemCount: _items.length,
+      itemCount: items.length,
       itemBuilder: (_, i) {
-        final item = _items[i];
+        final item = items[i];
+        final isSelected = _selectedIds.contains(item.notificationId);
         return _NotifCard(
-          key: ValueKey(item.id),
-          item: item,
-          index: i,
-          isDark: isDark,
+          key:        ValueKey(item.notificationId),
+          item:       item,
+          index:      i,
+          isDark:     isDark,
           selectMode: _selectMode,
+          isSelected: isSelected,
           onTap: () {
             if (_selectMode) {
-              _toggleSel(item.id);
+              _toggleSelect(item.notificationId);
             } else {
-              setState(() => item.isRead = true);
+              context
+                  .read<NotificationsCubit>()
+                  .markAsRead(item.notificationId);
             }
           },
           onLongPress: () => setState(() {
             _selectMode = true;
-            item.isSelected = true;
+            _selectedIds.add(item.notificationId);
           }),
-          onDismiss: () => setState(
-              () => _items.removeWhere((n) => n.id == item.id)),
+          onDismiss: () => context
+              .read<NotificationsCubit>()
+              .deleteNotification(item.notificationId),
         );
       },
     );
   }
 
-  // ── empty ─────────────────────────────────────────────────────────────────
+  // ── Empty ─────────────────────────────────────────────────────────────────
+
   Widget _empty(bool isDark) => Center(
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Container(
@@ -500,27 +581,26 @@ class _State extends State<NotificationsScreen>
       const SizedBox(height: 16),
       Text('All caught up!',
           style: TextStyle(
-            color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-            fontWeight: FontWeight.bold, fontSize: 20,
-          )),
+              color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+              fontWeight: FontWeight.bold,
+              fontSize: 20)),
       const SizedBox(height: 6),
       Text('No notifications right now',
           style: TextStyle(
-            color: isDark ? Colors.white30 : const Color(0xFF9B9B9B),
-            fontSize: 14,
-          )),
+              color: isDark ? Colors.white30 : const Color(0xFF9B9B9B),
+              fontSize: 14)),
     ]),
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 // _ActionBtn
-// ══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 class _ActionBtn extends StatelessWidget {
-  final String  label;
-  final IconData icon;
-  final Color   color;
-  final bool    enabled, isDark;
+  final String     label;
+  final IconData   icon;
+  final Color      color;
+  final bool       enabled, isDark;
   final VoidCallback onTap;
 
   const _ActionBtn({
@@ -550,9 +630,9 @@ class _ActionBtn extends StatelessWidget {
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
-                    color: color,
-                    fontSize: 12, fontWeight: FontWeight.w600,
-                  )),
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -561,20 +641,24 @@ class _ActionBtn extends StatelessWidget {
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// _NotifCard — entrance animation + swipe to delete
-// ══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
+// _NotifCard
+// ═════════════════════════════════════════════════════════════════════════════
 class _NotifCard extends StatefulWidget {
-  final NotificationItem       item;
-  final int          index;
-  final bool         isDark, selectMode;
-  final VoidCallback onTap, onLongPress, onDismiss;
+  final NotificationItem item;
+  final int              index;
+  final bool             isDark, selectMode, isSelected;
+  final VoidCallback     onTap, onLongPress, onDismiss;
 
   const _NotifCard({
     super.key,
-    required this.item, required this.index,
-    required this.isDark, required this.selectMode,
-    required this.onTap, required this.onLongPress,
+    required this.item,
+    required this.index,
+    required this.isDark,
+    required this.selectMode,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
     required this.onDismiss,
   });
 
@@ -591,21 +675,21 @@ class _NotifCardState extends State<_NotifCard>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this,
-        duration: const Duration(milliseconds: 480));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 480));
 
     _fade  = CurvedAnimation(parent: _ctrl,
         curve: const Interval(0.0, 0.55, curve: Curves.easeOut));
     _slide = Tween(begin: 36.0, end: 0.0).animate(
-      CurvedAnimation(parent: _ctrl,
-          curve: const Interval(0.0, 0.65, curve: Curves.easeOutCubic)));
+        CurvedAnimation(parent: _ctrl,
+            curve: const Interval(0.0, 0.65, curve: Curves.easeOutCubic)));
     _scale = Tween(begin: 0.90, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl,
-          curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack)));
+        CurvedAnimation(parent: _ctrl,
+            curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack)));
 
-    Future.delayed(Duration(milliseconds: 55 * widget.index), () {
-      if (mounted) _ctrl.forward();
-    });
+    Future.delayed(
+        Duration(milliseconds: 55 * widget.index),
+        () { if (mounted) _ctrl.forward(); });
   }
 
   @override
@@ -613,13 +697,14 @@ class _NotifCardState extends State<_NotifCard>
 
   @override
   Widget build(BuildContext context) {
-    final item   = widget.item;
-    final isDark = widget.isDark;
-    final color  = item.type.color;
+    final item       = widget.item;
+    final isDark     = widget.isDark;
+    final isSelected = widget.isSelected;
+    final color      = item.type.color;
 
     final cardBg = isDark
         ? (item.isRead ? const Color(0xFF1A2340) : const Color(0xFF1E2D4A))
-        : (item.isRead ? Colors.white            : const Color(0xFFEEF2FF));
+        : (item.isRead ? Colors.white : const Color(0xFFEEF2FF));
 
     return AnimatedBuilder(
       animation: _ctrl,
@@ -630,7 +715,7 @@ class _NotifCardState extends State<_NotifCard>
           child: Transform.scale(
             scale: _scale.value,
             child: Dismissible(
-              key: ValueKey('d_${item.id}'),
+              key: ValueKey('d_${item.notificationId}'),
               direction: widget.selectMode
                   ? DismissDirection.none
                   : DismissDirection.endToStart,
@@ -642,23 +727,23 @@ class _NotifCardState extends State<_NotifCard>
                   color: const Color(0xFFFF4757),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: Column(
+                child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(CupertinoIcons.trash_fill,
                         color: Colors.white, size: 22),
                     SizedBox(height: 4),
                     Text('Delete',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11, fontWeight: FontWeight.bold,
-                        )),
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
               onDismissed: (_) => widget.onDismiss(),
               child: GestureDetector(
-                onTap: widget.onTap,
+                onTap:       widget.onTap,
                 onLongPress: widget.onLongPress,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 260),
@@ -667,7 +752,7 @@ class _NotifCardState extends State<_NotifCard>
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(18),
-                    border: item.isSelected
+                    border: isSelected
                         ? Border.all(color: const Color(0xFF4361EE), width: 2)
                         : (!item.isRead
                             ? Border.all(
@@ -686,7 +771,7 @@ class _NotifCardState extends State<_NotifCard>
                         blurRadius: 14,
                         offset: const Offset(0, 4),
                       ),
-                      if (item.isSelected)
+                      if (isSelected)
                         BoxShadow(
                           color: const Color(0xFF4361EE).withOpacity(0.22),
                           blurRadius: 16,
@@ -696,60 +781,56 @@ class _NotifCardState extends State<_NotifCard>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // select checkbox
                       if (widget.selectMode) ...[
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: Icon(
-                            item.isSelected
+                            isSelected
                                 ? CupertinoIcons.checkmark_circle_fill
                                 : CupertinoIcons.circle,
-                            key: ValueKey(item.isSelected),
-                            color: item.isSelected
+                            key: ValueKey(isSelected),
+                            color: isSelected
                                 ? const Color(0xFF4361EE)
-                                : (isDark ? Colors.white30 : Colors.grey.shade400),
+                                : (isDark
+                                    ? Colors.white30
+                                    : Colors.grey.shade400),
                             size: 22,
                           ),
                         ),
                         const SizedBox(width: 10),
                       ],
-
-                      // icon
+                      // Icon
                       Container(
                         width: 46, height: 46,
                         decoration: BoxDecoration(
                           color: color.withOpacity(isDark ? 0.18 : 0.11),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: color.withOpacity(isDark ? 0.38 : 0.22),
-                            width: 1,
-                          ),
+                              color: color.withOpacity(isDark ? 0.38 : 0.22),
+                              width: 1),
                         ),
                         child: Center(
                           child: Text(item.type.emoji,
                               style: const TextStyle(fontSize: 22)),
                         ),
                       ),
-
                       const SizedBox(width: 12),
-
+                      // Content
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // title row
                             Row(children: [
                               Expanded(
                                 child: Text(item.title,
                                     style: TextStyle(
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF1A1A2E),
-                                      fontWeight: item.isRead
-                                          ? FontWeight.w600
-                                          : FontWeight.bold,
-                                      fontSize: 13,
-                                    )),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1A1A2E),
+                                        fontWeight: item.isRead
+                                            ? FontWeight.w600
+                                            : FontWeight.bold,
+                                        fontSize: 13)),
                               ),
                               if (!item.isRead)
                                 Container(
@@ -760,25 +841,22 @@ class _NotifCardState extends State<_NotifCard>
                                     boxShadow: [
                                       BoxShadow(
                                         color: color.withOpacity(0.6),
-                                        blurRadius: 6, spreadRadius: 1,
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
                                       ),
                                     ],
                                   ),
                                 ),
                             ]),
                             const SizedBox(height: 5),
-
-                            // body
-                            Text(item.body,
+                            Text(item.message,   // ← message بدل body
                                 style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white.withOpacity(0.58)
-                                      : const Color(0xFF6B7280),
-                                  fontSize: 12, height: 1.45,
-                                )),
+                                    color: isDark
+                                        ? Colors.white.withOpacity(0.58)
+                                        : const Color(0xFF6B7280),
+                                    fontSize: 12,
+                                    height: 1.45)),
                             const SizedBox(height: 8),
-
-                            // footer
                             Row(children: [
                               Icon(CupertinoIcons.clock,
                                   size: 11,
@@ -788,13 +866,11 @@ class _NotifCardState extends State<_NotifCard>
                               const SizedBox(width: 4),
                               Text(item.time,
                                   style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white24
-                                        : const Color(0xFFB0B8CC),
-                                    fontSize: 11,
-                                  )),
+                                      color: isDark
+                                          ? Colors.white24
+                                          : const Color(0xFFB0B8CC),
+                                      fontSize: 11)),
                               const Spacer(),
-                              // type badge
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
@@ -803,9 +879,8 @@ class _NotifCardState extends State<_NotifCard>
                                       isDark ? 0.18 : 0.11),
                                   borderRadius: BorderRadius.circular(7),
                                   border: Border.all(
-                                    color: color.withOpacity(0.28),
-                                    width: 1,
-                                  ),
+                                      color: color.withOpacity(0.28),
+                                      width: 1),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -815,10 +890,9 @@ class _NotifCardState extends State<_NotifCard>
                                     const SizedBox(width: 3),
                                     Text(item.type.label,
                                         style: TextStyle(
-                                          color: color,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                        )),
+                                            color: color,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                               ),
