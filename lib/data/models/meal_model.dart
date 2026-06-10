@@ -29,8 +29,11 @@ class MealModel {
     );
   }
 
-  // Convert to FoodItem for use with existing FoodSwapService UI
- static String _emojiForMeal(String name) {
+  // ── Public wrapper — بيستخدمه ai_food_models.dart ─────────────────────────
+  static String getEmoji(String name) => _emojiForMeal(name);
+
+  // ── Private emoji mapper ───────────────────────────────────────────────────
+  static String _emojiForMeal(String name) {
     final n = name.toLowerCase();
 
     // 🍗 Poultry
@@ -143,7 +146,6 @@ class MealModel {
     if (n.contains('shawarma') || n.contains('شاورما'))           return '🌯';
     if (n.contains('falafel') || n.contains('فلافل'))             return '🧆';
     if (n.contains('pizza') || n.contains('بيتزا'))               return '🍕';
-    if (n.contains('hot dog'))                                     return '🌭';
     if (n.contains('fries') || n.contains('بطاطس مقلية'))         return '🍟';
     if (n.contains('nugget') || n.contains('ناجتس'))              return '🍗';
     if (n.contains('taco') || n.contains('تاكو'))                 return '🌮';
@@ -151,7 +153,6 @@ class MealModel {
     if (n.contains('nachos'))                                      return '🧀';
 
     // 🍱 Asian & International
-    if (n.contains('sushi') || n.contains('سوشي'))                return '🍣';
     if (n.contains('dumpling') || n.contains('ديمسام'))           return '🥟';
     if (n.contains('spring roll') || n.contains('سبرينج رول'))    return '🥢';
     if (n.contains('curry') || n.contains('كاري'))                return '🍛';
@@ -234,12 +235,12 @@ class MealModel {
     if (n.contains('detox') || n.contains('ديتوكس'))              return '🌿';
     if (n.contains('supplement') || n.contains('مكمل'))           return '💊';
 
-    // 🍽️ Default fallback
+    // 🍽️ Default
     return '🍽️';
   }
 }
 
-// Lightweight compat class so MealModel works with existing FoodItem UI
+// ── Lightweight compat class ───────────────────────────────────────────────
 class FoodItemCompat {
   final String id;
   final String name;

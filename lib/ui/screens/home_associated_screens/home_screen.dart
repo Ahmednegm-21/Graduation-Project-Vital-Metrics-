@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final Animation<double> _floatAnim;
   late final AnimationController _particleCtrl;
 
-  // Repository used to fetch daily metrics when user picks a date
   final DailyMetricsRepository _metricsRepo = DailyMetricsRepository();
 
   static const _meals = [
@@ -74,13 +73,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Opens date picker, fetches metric for selected date, shows bottom sheet
   Future<void> _showDatePicker(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
-      // Prevent picking future dates since no data exists yet
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
@@ -90,14 +87,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
 
-    // User dismissed the picker without selecting a date
     if (picked == null || !context.mounted) return;
 
-    // Format picked date as yyyy-MM-dd to match backend format
     final dateStr =
         '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
 
-    // Show loading spinner while API call is in progress
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -113,16 +107,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       metric = await _metricsRepo.getMetricByDate(dateStr);
     } catch (_) {
-      // If fetch fails show empty state rather than crashing
       metric = null;
     }
 
     if (!context.mounted) return;
 
-    // Dismiss the loading spinner
     Navigator.pop(context);
 
-    // Show the daily summary sheet with fetched data or empty state
     await DailyMetricBottomSheet.show(
       context,
       date: picked,
@@ -140,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           : const Color(0xFFF3F7FF),
       body: Stack(
         children: [
-          // Top right background glow blob
           Positioned(
             top: -120,
             right: -80,
@@ -159,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Bottom left background glow blob
           Positioned(
             bottom: -140,
             left: -100,
@@ -178,7 +167,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Subtle grid lines painted across the full screen
           Positioned.fill(child: CustomPaint(painter: _HomeGridPainter())),
 
           SafeArea(
@@ -194,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _buildMealRow(context, isDark),
                   const SizedBox(height: 24),
 
-                  // Water sync toggle placed just above the water tracker card
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Align(
@@ -226,15 +213,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Row(
         children: [
+          // ── Date chip ──────────────────────────────────────────────────────
           FadeInDown(
             child: GestureDetector(
-              // Tapping the date chip opens the picker and fetches history
               onTap: () => _showDatePicker(context),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(
                   color: cardBg,
                   borderRadius: BorderRadius.circular(14),
@@ -242,20 +226,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.calendar_month,
-                      color: Color(0xFF4361EE),
-                      size: 18,
-                    ),
+                    const Icon(Icons.calendar_month,
+                        color: Color(0xFF4361EE), size: 18),
                     const SizedBox(width: 7),
                     Text(
                       _todayLabel(),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: isDark
-                            ? Colors.white
-                            : const Color(0xFF2D3142),
+                        color: isDark ? Colors.white : const Color(0xFF2D3142),
                       ),
                     ),
                   ],
@@ -263,9 +242,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
+
           const Spacer(),
 
-          // Notification bell with unread indicator dot
+          // ── Notification bell ──────────────────────────────────────────────
           FadeInDown(
             delay: const Duration(milliseconds: 80),
             child: GestureDetector(
@@ -312,7 +292,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(width: 8),
 
-          // Settings button using filled icon matching other screens
+          // ── AI Assistant button ────────────────────────────────────────────
+          FadeInDown(
+            delay: const Duration(milliseconds: 110),
+            child: GestureDetector(
+              onTap: () => context.push('/ai-assistant'),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: shadow, blurRadius: 12)],
+                  border: Border.all(
+                    color: const Color(0xFF4361EE).withOpacity(0.25),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFF4361EE),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // ── Settings button ────────────────────────────────────────────────
           FadeInDown(
             delay: const Duration(milliseconds: 140),
             child: GestureDetector(
@@ -337,24 +342,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ── باقي الكود بدون أي تغيير ──────────────────────────────────────────────
+
   Widget _buildCalorieCard(BuildContext context, bool isDark) {
     return BlocBuilder<CalorieCubit, CalorieState>(
       builder: (context, state) {
-        final remaining = state.caloriesRemaining
-            .clamp(0, state.caloriesBudget);
-        final progress =
-            (state.totalCaloriesConsumed / state.caloriesBudget)
-                .clamp(0.0, 1.0);
-        final cardBg =
-            isDark ? const Color(0xFF1A2340) : Colors.white;
-        final cardShadow = isDark
-            ? Colors.black54
-            : Colors.black.withOpacity(0.10);
-        final numColor =
-            isDark ? Colors.white : const Color(0xFF1A1A2E);
-        final subColor = isDark
-            ? const Color(0xFFB0B8D0)
-            : const Color(0xFF7B8299);
+        final remaining = state.caloriesRemaining.clamp(0, state.caloriesBudget);
+        final progress = (state.totalCaloriesConsumed / state.caloriesBudget).clamp(0.0, 1.0);
+        final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
+        final cardShadow = isDark ? Colors.black54 : Colors.black.withOpacity(0.10);
+        final numColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+        final subColor = isDark ? const Color(0xFFB0B8D0) : const Color(0xFF7B8299);
 
         return FadeInDown(
           delay: const Duration(milliseconds: 120),
@@ -374,114 +372,64 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       color: cardBg,
                       borderRadius: BorderRadius.circular(28),
                       border: isDark
-                          ? Border.all(
-                              color: const Color(0xFF4361EE)
-                                  .withOpacity(0.20),
-                              width: 1,
-                            )
+                          ? Border.all(color: const Color(0xFF4361EE).withOpacity(0.20), width: 1)
                           : null,
                       boxShadow: [
-                        BoxShadow(
-                          color: cardShadow,
-                          blurRadius: 28,
-                          offset: const Offset(0, 10),
-                        ),
+                        BoxShadow(color: cardShadow, blurRadius: 28, offset: const Offset(0, 10)),
                         if (isDark)
-                          BoxShadow(
-                            color: const Color(0xFF4361EE)
-                                .withOpacity(0.07),
-                            blurRadius: 40,
-                            offset: const Offset(0, 4),
-                          ),
+                          BoxShadow(color: const Color(0xFF4361EE).withOpacity(0.07), blurRadius: 40, offset: const Offset(0, 4)),
                       ],
                     ),
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Food image on the left side of the calorie card
                         Positioned(
                           left: 0, top: 0, bottom: 0,
                           child: FadeInLeft(
                             duration: const Duration(milliseconds: 600),
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.horizontal(
-                                left: Radius.circular(28),
-                              ),
-                              child: Image.asset(
-                                'assets/images/home_food.png',
-                                width: 148,
-                                fit: BoxFit.cover,
-                              ),
+                              borderRadius: const BorderRadius.horizontal(left: Radius.circular(28)),
+                              child: Image.asset('assets/images/home_food.png', width: 148, fit: BoxFit.cover),
                             ),
                           ),
                         ),
-
                         Padding(
                           padding: const EdgeInsets.fromLTRB(156, 16, 14, 16),
                           child: Column(
                             children: [
-                              // Pulsing ring showing remaining kcal
                               AnimatedBuilder(
                                 animation: _pulseAnim,
-                                builder: (_, child) => Transform.scale(
-                                  scale: _pulseAnim.value,
-                                  child: child,
-                                ),
+                                builder: (_, child) => Transform.scale(scale: _pulseAnim.value, child: child),
                                 child: SizedBox(
-                                  width: 108,
-                                  height: 108,
+                                  width: 108, height: 108,
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
                                       SizedBox(
                                         width: 108, height: 108,
                                         child: CircularProgressIndicator(
-                                          value: 1,
-                                          strokeWidth: 10,
+                                          value: 1, strokeWidth: 10,
                                           color: isDark
-                                              ? const Color(0xFF4361EE)
-                                                  .withOpacity(0.30)
-                                              : const Color(0xFF4361EE)
-                                                  .withOpacity(0.12),
+                                              ? const Color(0xFF4361EE).withOpacity(0.30)
+                                              : const Color(0xFF4361EE).withOpacity(0.12),
                                         ),
                                       ),
                                       SizedBox(
                                         width: 108, height: 108,
                                         child: CircularProgressIndicator(
-                                          value: progress,
-                                          strokeWidth: 10,
+                                          value: progress, strokeWidth: 10,
                                           backgroundColor: Colors.transparent,
-                                          valueColor:
-                                              const AlwaysStoppedAnimation(
-                                            Color(0xFF4361EE),
-                                          ),
+                                          valueColor: const AlwaysStoppedAnimation(Color(0xFF4361EE)),
                                         ),
                                       ),
                                       Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(
-                                            Icons.local_fire_department,
-                                            color: isDark
-                                                ? const Color(0xFFFFB347)
-                                                : Colors.orange,
-                                            size: 16,
-                                          ),
-                                          Text(
-                                            '$remaining',
-                                            style: TextStyle(
-                                              color: numColor,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                          Text(
-                                            'kcal left',
-                                            style: TextStyle(
-                                              color: subColor,
-                                              fontSize: 9,
-                                            ),
-                                          ),
+                                          Icon(Icons.local_fire_department,
+                                              color: isDark ? const Color(0xFFFFB347) : Colors.orange, size: 16),
+                                          Text('$remaining',
+                                              style: TextStyle(color: numColor, fontWeight: FontWeight.bold, fontSize: 20)),
+                                          Text('kcal left', style: TextStyle(color: subColor, fontSize: 9)),
                                         ],
                                       ),
                                     ],
@@ -489,45 +437,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 ),
                               ),
                               const SizedBox(height: 10),
-
-                              // Macro progress bars
-                              _MacroBar(
-                                label: 'Protein',
-                                consumed: state.totalProtein,
-                                goal: state.proteinGoal,
-                                color: const Color(0xFFFF9A3C),
-                                isDark: isDark,
-                                delay: 200,
-                              ),
-                              _MacroBar(
-                                label: 'Carbs',
-                                consumed: state.totalCarbs,
-                                goal: state.carbsGoal,
-                                color: const Color(0xFF2ECC9A),
-                                isDark: isDark,
-                                delay: 320,
-                              ),
-                              _MacroBar(
-                                label: 'Fat',
-                                consumed: state.totalFat,
-                                goal: state.fatGoal,
-                                color: const Color(0xFFFF6B6B),
-                                isDark: isDark,
-                                delay: 440,
-                              ),
+                              _MacroBar(label: 'Protein', consumed: state.totalProtein, goal: state.proteinGoal, color: const Color(0xFFFF9A3C), isDark: isDark, delay: 200),
+                              _MacroBar(label: 'Carbs', consumed: state.totalCarbs, goal: state.carbsGoal, color: const Color(0xFF2ECC9A), isDark: isDark, delay: 320),
+                              _MacroBar(label: 'Fat', consumed: state.totalFat, goal: state.fatGoal, color: const Color(0xFFFF6B6B), isDark: isDark, delay: 440),
                             ],
                           ),
                         ),
-
-                        // Budget label overlaid on bottom left of food image
                         Positioned(
                           left: 0, bottom: 0,
                           child: Container(
                             width: 148,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: const BoxDecoration(
                               color: Color(0xDD4361EE),
                               borderRadius: BorderRadius.only(
@@ -536,15 +456,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 topRight: Radius.circular(10),
                               ),
                             ),
-                            child: Text(
-                              '${state.caloriesBudget} kcal budget',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                            child: Text('${state.caloriesBudget} kcal budget',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center),
                           ),
                         ),
                       ],
@@ -575,26 +489,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final t  = _particleCtrl.value;
           final dx = math.sin(t * 2 * math.pi * p.speed) * 4.0;
           final dy = math.cos(t * 2 * math.pi * p.speed) * 4.0;
-          final op = (0.25 + math.sin(t * 2 * math.pi * p.speed) * 0.25)
-              .clamp(0.0, 1.0);
+          final op = (0.25 + math.sin(t * 2 * math.pi * p.speed) * 0.25).clamp(0.0, 1.0);
           return Positioned(
-            top:   p.top + dy,
-            left:  p.left  != null ? p.left!  + dx : null,
+            top: p.top + dy,
+            left: p.left != null ? p.left! + dx : null,
             right: p.right != null ? p.right! - dx : null,
             child: Opacity(
               opacity: isDark ? op : op * 0.6,
               child: Container(
-                width: p.size,
-                height: p.size,
+                width: p.size, height: p.size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(p.color).withOpacity(0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(p.color).withOpacity(0.5),
-                      blurRadius: p.size * 1.5,
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: Color(p.color).withOpacity(0.5), blurRadius: p.size * 1.5)],
                 ),
               ),
             ),
@@ -617,13 +524,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 return Wrap(
                   spacing: 12.w,
                   runSpacing: 12.h,
-                  children: List.generate(
-                    4,
-                    (index) => SizedBox(
-                      width: itemWidth,
-                      child: _buildMealCard(context, state, index),
-                    ),
-                  ),
+                  children: List.generate(4, (index) => SizedBox(
+                    width: itemWidth,
+                    child: _buildMealCard(context, state, index),
+                  )),
                 );
               },
             ),
@@ -633,11 +537,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMealCard(
-    BuildContext context,
-    CalorieState state,
-    int index,
-  ) {
+  Widget _buildMealCard(BuildContext context, CalorieState state, int index) {
     final isDark        = context.isDark;
     final item          = _meals[index];
     final type          = item['type']!;
@@ -659,15 +559,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 : [Colors.white, const Color(0xFFF5F7FF)],
           ),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.black.withOpacity(0.04),
+            color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
           ),
           boxShadow: [
             BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.25)
-                  : Colors.black.withOpacity(0.05),
+              color: isDark ? Colors.black.withOpacity(0.25) : Colors.black.withOpacity(0.05),
               blurRadius: 14.r,
               offset: Offset(0, 6.h),
             ),
@@ -680,37 +576,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Text(item['emoji']!, style: TextStyle(fontSize: 34.sp)),
               SizedBox(height: 4.h),
-              Text(
-                item['label']!,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text(item['label']!, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1A1A2E), fontSize: 13.sp, fontWeight: FontWeight.w700)),
               SizedBox(height: 8.h),
               Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 10.w,
-                  vertical: 5.h,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFB84D).withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Text(
-                  '$totalCalories kcal',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFFFFB84D),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.sp,
-                  ),
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                decoration: BoxDecoration(color: const Color(0xFFFFB84D).withOpacity(0.16), borderRadius: BorderRadius.circular(12.r)),
+                child: Text('$totalCalories kcal', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: const Color(0xFFFFB84D), fontWeight: FontWeight.bold, fontSize: 10.sp)),
               ),
               SizedBox(height: 10.h),
               _compactMacro('Protein', protein, const Color(0xFFFF9A3C), isDark),
@@ -721,7 +594,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               SizedBox(height: 10.h),
               Row(
                 children: [
-                  // Add button opens the meal section bottom sheet
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
@@ -730,56 +602,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
                           builder: (_) => MealSection(
-                            mealType: type,
-                            label:    item['label']!,
-                            emoji:    item['emoji']!,
-                            index:    index,
-                            calories: totalCalories,
-                            protein:  protein,
-                            carbs:    carbs,
-                            fat:      fat,
+                            mealType: type, label: item['label']!, emoji: item['emoji']!,
+                            index: index, calories: totalCalories, protein: protein, carbs: carbs, fat: fat,
                           ),
                         );
                       },
                       child: Container(
                         height: 34.h,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF4361EE), Color(0xFF5B7FFF)],
-                          ),
+                          gradient: const LinearGradient(colors: [Color(0xFF4361EE), Color(0xFF5B7FFF)]),
                           borderRadius: BorderRadius.circular(14.r),
                         ),
-                        child: Center(
-                          child: Text(
-                            '+ Add',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11.sp,
-                            ),
-                          ),
-                        ),
+                        child: Center(child: Text('+ Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.sp))),
                       ),
                     ),
                   ),
                   SizedBox(width: 6.w),
-
-                  // Remove button clears all meals of this type
                   GestureDetector(
-                    onTap: () =>
-                        context.read<CalorieCubit>().resetMeal(type),
+                    onTap: () => context.read<CalorieCubit>().resetMeal(type),
                     child: Container(
-                      width: 36.w,
-                      height: 34.h,
+                      width: 36.w, height: 34.h,
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF6B6B).withOpacity(0.14),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
-                      child: Icon(
-                        Icons.remove_rounded,
-                        color: const Color(0xFFFF6B6B),
-                        size: 18.sp,
-                      ),
+                      child: Icon(Icons.remove_rounded, color: const Color(0xFFFF6B6B), size: 18.sp),
                     ),
                   ),
                 ],
@@ -794,38 +641,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _compactMacro(String label, int value, Color color, bool isDark) {
     return Row(
       children: [
-        Container(
-          width: 6.w,
-          height: 6.w,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        Container(width: 6.w, height: 6.w, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         SizedBox(width: 5.w),
         Expanded(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: TextStyle(
-              color: isDark
-                  ? Colors.white70
-                  : const Color(0xFF4A4A6A),
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1,
+              style: TextStyle(color: isDark ? Colors.white70 : const Color(0xFF4A4A6A), fontSize: 10.sp, fontWeight: FontWeight.w600)),
         ),
         SizedBox(width: 4.w),
         Flexible(
-          child: Text(
-            '${value}g',
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.sp,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          child: Text('${value}g', overflow: TextOverflow.ellipsis, maxLines: 1,
+              style: TextStyle(color: color, fontSize: 10.sp, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -833,9 +658,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildSleepCard(BuildContext context, bool isDark) {
     final cardBg = isDark ? const Color(0xFF1A2340) : Colors.white;
-    final shadow = isDark
-        ? Colors.black38
-        : Colors.black.withOpacity(0.07);
+    final shadow = isDark ? Colors.black38 : Colors.black.withOpacity(0.07);
 
     return BlocBuilder<SleepCubit, SleepState>(
       builder: (context, sleepState) {
@@ -854,36 +677,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           default:                 currentDayIndex = 6;
         }
 
-        final weekData = List.generate(
-          7,
-          (index) => {'day': days[index], 'hours': 0.0},
-        );
+        final weekData = List.generate(7, (index) => {'day': days[index], 'hours': 0.0});
         weekData[currentDayIndex]['hours'] = hours;
 
         Color mainColor;
         String insight, sleepEmoji, sleepTip;
 
         if (hours < 6) {
-          mainColor  = const Color(0xFFFF6B6B);
-          insight    = 'Not enough sleep';
-          sleepEmoji = '😴';
-          sleepTip   = 'Try sleeping earlier tonight for better recovery.';
+          mainColor = const Color(0xFFFF6B6B); insight = 'Not enough sleep'; sleepEmoji = '😴';
+          sleepTip = 'Try sleeping earlier tonight for better recovery.';
         } else if (hours < 7) {
-          mainColor  = const Color(0xFFFFB84D);
-          insight    = 'Almost there';
-          sleepEmoji = '🌙';
-          sleepTip   = 'You are close to the recommended sleep range.';
+          mainColor = const Color(0xFFFFB84D); insight = 'Almost there'; sleepEmoji = '🌙';
+          sleepTip = 'You are close to the recommended sleep range.';
         } else if (hours <= 9) {
-          mainColor  = const Color(0xFF63E6BE);
-          insight    = 'Optimal sleep';
-          sleepEmoji = '✨';
-          sleepTip   = 'Your sleep today looks healthy and balanced.';
+          mainColor = const Color(0xFF63E6BE); insight = 'Optimal sleep'; sleepEmoji = '✨';
+          sleepTip = 'Your sleep today looks healthy and balanced.';
         } else {
-          mainColor  = const Color(0xFF4CC9F0);
-          insight    = 'Too much sleep';
-          sleepEmoji = '💤';
-          sleepTip   =
-              'You slept longer than usual. Try balancing your sleep schedule.';
+          mainColor = const Color(0xFF4CC9F0); insight = 'Too much sleep'; sleepEmoji = '💤';
+          sleepTip = 'You slept longer than usual. Try balancing your sleep schedule.';
         }
 
         return FadeInUp(
@@ -893,110 +704,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Sleep sync toggle placed just above the sleep card
                 const Padding(
                   padding: EdgeInsets.only(bottom: 8),
                   child: SleepConnectToggle(),
                 ),
-
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(24),
-                    border: isDark
-                        ? Border.all(
-                            color: mainColor.withOpacity(0.20),
-                            width: 1,
-                          )
-                        : null,
-                    boxShadow: [
-                      BoxShadow(
-                        color: shadow,
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
+                    border: isDark ? Border.all(color: mainColor.withOpacity(0.20), width: 1) : null,
+                    boxShadow: [BoxShadow(color: shadow, blurRadius: 20, offset: const Offset(0, 6))],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Sleep card header with emoji icon, title and hours badge
                       Row(
                         children: [
                           Container(
                             width: 42, height: 42,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              color: mainColor.withOpacity(0.12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                sleepEmoji,
-                                style: const TextStyle(fontSize: 22),
-                              ),
-                            ),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: mainColor.withOpacity(0.12)),
+                            child: Center(child: Text(sleepEmoji, style: const TextStyle(fontSize: 22))),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Sleep Insights',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1A1A2E),
-                                  ),
-                                ),
+                                Text('Sleep Insights',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : const Color(0xFF1A1A2E))),
                                 const SizedBox(height: 2),
-                                Text(
-                                  insight,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: mainColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                Text(insight, style: TextStyle(fontSize: 12, color: mainColor, fontWeight: FontWeight.w600)),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: mainColor.withOpacity(0.12),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: mainColor.withOpacity(0.12)),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  sleepEmoji,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
+                                Text(sleepEmoji, style: const TextStyle(fontSize: 16)),
                                 const SizedBox(width: 6),
-                                Text(
-                                  '${hours.toStringAsFixed(1)}h',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: mainColor,
-                                  ),
-                                ),
+                                Text('${hours.toStringAsFixed(1)}h',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: mainColor)),
                               ],
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
-
-                      // Weekly bar chart showing sleep per day
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1004,182 +762,96 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           final day    = item['day']   as String;
                           final value  = item['hours'] as double;
                           final active = value > 0;
-                          // Scale bar height using 12h as max to match slider range
                           final height = (value / 12.0) * 90;
                           return Column(
                             children: [
                               Text(
-                                active
-                                    ? '${value.toStringAsFixed(1)}h'
-                                    : '--',
+                                active ? '${value.toStringAsFixed(1)}h' : '--',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: active
-                                      ? mainColor
-                                      : isDark
-                                          ? Colors.white24
-                                          : Colors.black26,
+                                  color: active ? mainColor : isDark ? Colors.white24 : Colors.black26,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
-                                width:  28,
-                                height: active
-                                    ? height.clamp(18, 90)
-                                    : 16,
+                                width: 28,
+                                height: active ? height.clamp(18, 90) : 16,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
                                   gradient: active
                                       ? LinearGradient(
-                                          begin: Alignment.bottomCenter,
-                                          end:   Alignment.topCenter,
-                                          colors: [
-                                            mainColor,
-                                            mainColor.withOpacity(0.65),
-                                          ],
-                                        )
+                                          begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                                          colors: [mainColor, mainColor.withOpacity(0.65)])
                                       : LinearGradient(
-                                          begin: Alignment.bottomCenter,
-                                          end:   Alignment.topCenter,
+                                          begin: Alignment.bottomCenter, end: Alignment.topCenter,
                                           colors: isDark
-                                              ? [
-                                                  Colors.white10,
-                                                  Colors.white.withOpacity(0.03),
-                                                ]
-                                              : [
-                                                  Colors.black12,
-                                                  Colors.black.withOpacity(0.03),
-                                                ],
-                                        ),
+                                              ? [Colors.white10, Colors.white.withOpacity(0.03)]
+                                              : [Colors.black12, Colors.black.withOpacity(0.03)]),
                                   boxShadow: active
-                                      ? [
-                                          BoxShadow(
-                                            color: mainColor.withOpacity(0.35),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ]
+                                      ? [BoxShadow(color: mainColor.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]
                                       : [],
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                day,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: active
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                  color: active
-                                      ? mainColor
-                                      : isDark
-                                          ? Colors.white38
-                                          : Colors.black38,
-                                ),
-                              ),
+                              Text(day,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                                    color: active ? mainColor : isDark ? Colors.white38 : Colors.black38,
+                                  )),
                             ],
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 26),
-
-                      Text(
-                        'Adjust your sleep',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? Colors.white70
-                              : const Color(0xFF4A4A6A),
-                        ),
-                      ),
+                      Text('Adjust your sleep',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : const Color(0xFF4A4A6A))),
                       const SizedBox(height: 12),
-
-                      // Slider to manually adjust sleep hours for today
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 5,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 10,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 18,
-                          ),
-                          activeTrackColor:   mainColor,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                          activeTrackColor: mainColor,
                           inactiveTrackColor: mainColor.withOpacity(0.15),
-                          thumbColor:   mainColor,
+                          thumbColor: mainColor,
                           overlayColor: mainColor.withOpacity(0.20),
                         ),
                         child: Slider(
-                          value:     hours,
-                          min:       0,
-                          max:       12,
-                          divisions: 24,
-                          label:     '${hours.toStringAsFixed(1)}h',
-                          onChanged: (v) =>
-                              context.read<SleepCubit>().updateHours(v),
-                          onChangeEnd: (_) =>
-                              context.read<SleepCubit>().saveSleep(),
+                          value: hours, min: 0, max: 12, divisions: 24,
+                          label: '${hours.toStringAsFixed(1)}h',
+                          onChanged: (v) => context.read<SleepCubit>().updateHours(v),
+                          onChangeEnd: (_) => context.read<SleepCubit>().saveSleep(),
                         ),
                       ),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '0h',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark
-                                  ? Colors.white30
-                                  : Colors.black38,
-                            ),
-                          ),
-                          Text(
-                            '12h',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark
-                                  ? Colors.white30
-                                  : Colors.black38,
-                            ),
-                          ),
+                          Text('0h', style: TextStyle(fontSize: 11, color: isDark ? Colors.white30 : Colors.black38)),
+                          Text('12h', style: TextStyle(fontSize: 11, color: isDark ? Colors.white30 : Colors.black38)),
                         ],
                       ),
                       const SizedBox(height: 20),
-
-                      // Tip card shown at the bottom of the sleep section
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           color: mainColor.withOpacity(0.08),
-                          border: Border.all(
-                            color: mainColor.withOpacity(0.15),
-                          ),
+                          border: Border.all(color: mainColor.withOpacity(0.15)),
                         ),
                         child: Row(
                           children: [
-                            const Text(
-                              '💡',
-                              style: TextStyle(fontSize: 18),
-                            ),
+                            const Text('💡', style: TextStyle(fontSize: 18)),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                sleepTip,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 1.5,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : const Color(0xFF4A4A6A),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              child: Text(sleepTip,
+                                  style: TextStyle(fontSize: 12, height: 1.5,
+                                      color: isDark ? Colors.white70 : const Color(0xFF4A4A6A),
+                                      fontWeight: FontWeight.w500)),
                             ),
                           ],
                         ),
@@ -1195,13 +867,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Returns today formatted as "May 30" for the date chip label
   String _todayLabel() {
     final now = DateTime.now();
-    const m = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return '${m[now.month - 1]} ${now.day}';
   }
 }
@@ -1211,15 +879,7 @@ class _Particle {
   final double? left, right;
   final double size, speed;
   final int color;
-
-  const _Particle({
-    required this.top,
-    this.left,
-    this.right,
-    required this.size,
-    required this.speed,
-    required this.color,
-  });
+  const _Particle({required this.top, this.left, this.right, required this.size, required this.speed, required this.color});
 }
 
 class _MacroBar extends StatefulWidget {
@@ -1228,65 +888,34 @@ class _MacroBar extends StatefulWidget {
   final Color color;
   final bool isDark;
   final int delay;
-
-  const _MacroBar({
-    required this.label,
-    required this.consumed,
-    required this.goal,
-    required this.color,
-    required this.isDark,
-    this.delay = 0,
-  });
-
+  const _MacroBar({required this.label, required this.consumed, required this.goal, required this.color, required this.isDark, this.delay = 0});
   @override
   State<_MacroBar> createState() => _MacroBarState();
 }
 
-class _MacroBarState extends State<_MacroBar>
-    with SingleTickerProviderStateMixin {
+class _MacroBarState extends State<_MacroBar> with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fillAnim, _fadeAnim, _slideAnim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _fillAnim = CurvedAnimation(
-      parent: _ctrl,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-    );
-    _fadeAnim = CurvedAnimation(
-      parent: _ctrl,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-    );
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _fillAnim  = CurvedAnimation(parent: _ctrl, curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic));
+    _fadeAnim  = CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.4, curve: Curves.easeOut));
     _slideAnim = Tween(begin: 16.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
-      ),
-    );
-    Future.delayed(
-      Duration(milliseconds: widget.delay),
-      () { if (mounted) _ctrl.forward(); },
-    );
+        CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic)));
+    Future.delayed(Duration(milliseconds: widget.delay), () { if (mounted) _ctrl.forward(); });
   }
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final color    = widget.color;
-    final isDark   = widget.isDark;
-    final pct      = widget.goal > 0
-        ? (widget.consumed / widget.goal).clamp(0.0, 1.0)
-        : 0.0;
+    final color   = widget.color;
+    final isDark  = widget.isDark;
+    final pct     = widget.goal > 0 ? (widget.consumed / widget.goal).clamp(0.0, 1.0) : 0.0;
     final labelCol = isDark ? Colors.white : const Color(0xFF2D3142);
     final badgeBg  = isDark ? color.withOpacity(0.18) : color;
     final badgeTxt = isDark ? color : Colors.white;
@@ -1306,130 +935,58 @@ class _MacroBarState extends State<_MacroBar>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: color.withOpacity(isDark ? 0.9 : 0.5),
-                                blurRadius:   isDark ? 8 : 4,
-                                spreadRadius: isDark ? 1 : 0,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          widget.label,
-                          style: TextStyle(
-                            color: labelCol,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Row(children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: color.withOpacity(isDark ? 0.9 : 0.5),
+                                blurRadius: isDark ? 8 : 4, spreadRadius: isDark ? 1 : 0)]),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(widget.label,
+                          style: TextStyle(color: labelCol, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+                    ]),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(6),
-                        border: isDark
-                            ? Border.all(
-                                color: color.withOpacity(0.55),
-                                width: 1,
-                              )
-                            : null,
+                        color: badgeBg, borderRadius: BorderRadius.circular(6),
+                        border: isDark ? Border.all(color: color.withOpacity(0.55), width: 1) : null,
                       ),
-                      child: Text(
-                        '${widget.consumed} / ${widget.goal}g',
-                        style: TextStyle(
-                          color: badgeTxt,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: Text('${widget.consumed} / ${widget.goal}g',
+                          style: TextStyle(color: badgeTxt, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 5),
-                LayoutBuilder(
-                  builder: (_, c) {
-                    final fillW = c.maxWidth * pct * _fillAnim.value;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Background track
-                        Container(
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: trackCol,
-                            borderRadius: BorderRadius.circular(4),
+                LayoutBuilder(builder: (_, c) {
+                  final fillW = c.maxWidth * pct * _fillAnim.value;
+                  return Stack(clipBehavior: Clip.none, children: [
+                    Container(height: 7, decoration: BoxDecoration(color: trackCol, borderRadius: BorderRadius.circular(4))),
+                    if (fillW > 2)
+                      Container(
+                        height: 7, width: fillW,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [color.withOpacity(isDark ? 0.7 : 0.85), color]),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [BoxShadow(color: color.withOpacity(isDark ? 0.6 : 0.35), blurRadius: isDark ? 8 : 4, offset: const Offset(0, 2))],
+                        ),
+                      ),
+                    if (fillW > 8)
+                      Positioned(
+                        left: fillW - 5, top: 0, bottom: 0,
+                        child: Center(
+                          child: Container(
+                            width: 5, height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(isDark ? 0.95 : 0.80),
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: color.withOpacity(0.9), blurRadius: 6, spreadRadius: 1)],
+                            ),
                           ),
                         ),
-                        // Filled portion with gradient
-                        if (fillW > 2)
-                          Container(
-                            height: 7,
-                            width: fillW,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  color.withOpacity(isDark ? 0.7 : 0.85),
-                                  color,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withOpacity(
-                                    isDark ? 0.6 : 0.35,
-                                  ),
-                                  blurRadius: isDark ? 8 : 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                        // Glowing dot at the leading edge of the fill
-                        if (fillW > 8)
-                          Positioned(
-                            left: fillW - 5,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(
-                                    isDark ? 0.95 : 0.80,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: color.withOpacity(0.9),
-                                      blurRadius: 6,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                  ]);
+                }),
               ],
             ),
           ),
@@ -1439,13 +996,10 @@ class _MacroBarState extends State<_MacroBar>
   }
 }
 
-// Faint grid lines painted as a background decoration across the whole screen
 class _HomeGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03)
-      ..strokeWidth = 1;
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.03)..strokeWidth = 1;
     const gap = 32.0;
     for (double x = 0; x < size.width; x += gap) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
@@ -1454,7 +1008,6 @@ class _HomeGridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

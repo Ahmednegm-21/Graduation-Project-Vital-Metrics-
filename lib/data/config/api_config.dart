@@ -7,7 +7,7 @@ class ApiConfig {
   // ── Base URL ───────────────────────────────────────────────────────────────
   static String get baseUrl {
     if (kIsWeb)             return 'http://localhost:3000';
-    if (Platform.isAndroid) return 'http://192.168.1.27:3000';
+    if (Platform.isAndroid) return 'http://192.168.1.5:3000';
     if (Platform.isIOS)     return 'http://localhost:3000';
     return 'http://localhost:3000';
   }

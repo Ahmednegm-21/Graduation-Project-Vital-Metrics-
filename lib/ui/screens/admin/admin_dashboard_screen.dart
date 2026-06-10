@@ -1,5 +1,3 @@
-// lib/ui/screens/admin/admin_dashboard_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -46,15 +44,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       final headers = ApiConfig.headers(token: token);
 
-      // ✅ استخدام adminOverview بدل adminStats
       final res = await _api.get(ApiConfig.adminOverview, headers: headers);
 
       setState(() {
         _stats = {
           'Users': (res['totalUsers'] as num?)?.toInt() ?? 0,
-          'Goals': (res['totalGoals'] as num?)?.toInt() ?? 0,
           'Meals': (res['totalMeals'] as num?)?.toInt() ?? 0,
-          // ✅ اسم الـ field الصح من الـ backend
           'Daily Metrics':
               (res['totalDailyMetricsRecords'] as num?)?.toInt() ?? 0,
         };
@@ -297,13 +292,11 @@ class _StatsGrid extends StatelessWidget {
 
   static const _icons = {
     'Users': Icons.people_outline,
-    'Goals': Icons.flag_outlined,
     'Meals': Icons.restaurant_menu_outlined,
     'Daily Metrics': Icons.bar_chart,
   };
   static const _colors = {
     'Users': Color(0xFF4361EE),
-    'Goals': Color(0xFFFFA94D),
     'Meals': Color(0xFF63E6BE),
     'Daily Metrics': Color(0xFF4CC9F0),
   };
