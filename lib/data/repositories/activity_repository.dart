@@ -22,7 +22,7 @@ class ActivityRepository {
 
   String _mapToBackendType(String displayType) {
     final normalized = displayType.trim().toLowerCase();
-    const walkTypes = {'walking', 'walk', 'yoga', 'stretching'};
+    const walkTypes  = {'walking', 'walk', 'yoga', 'stretching'};
     if (walkTypes.contains(normalized)) return 'walk';
     return 'run';
   }
@@ -34,6 +34,9 @@ class ActivityRepository {
 
   // =====================================================
   // CREATE ACTIVITY
+  // Only called for manually logged activities
+  // HC activities are never sent to the backend to avoid
+  // duplicate records in the activity list
   // =====================================================
 
   Future<ActivityModel> createActivity({
@@ -43,23 +46,23 @@ class ActivityRepository {
     DateTime? date,
   }) async {
     try {
-      final headers = await _authHeaders;
+      final headers      = await _authHeaders;
       final activityDate = date ?? DateTime.now();
-      final dateStr =
+      final dateStr      =
           '${activityDate.year}-${activityDate.month.toString().padLeft(2, '0')}-${activityDate.day.toString().padLeft(2, '0')}';
 
       final response = await _apiService.post(
         ApiConfig.createActivity,
         headers: headers,
         body: {
-          'date': dateStr,
-          'type': _mapToBackendType(type),
-          'duration': durationMinutes,
+          'date':            dateStr,
+          'type':            _mapToBackendType(type),
+          'duration':        durationMinutes,
           'calories_burned': caloriesBurned,
         },
       );
 
-      final data = response['data'] ?? response;
+      final data  = response['data'] ?? response;
       final saved = ActivityModel.fromBackendJson(data);
       return saved.copyWith(type: type);
     } on ApiException {
@@ -70,59 +73,24 @@ class ActivityRepository {
   }
 
   // =====================================================
-  // SYNC HC ACTIVITY TO BACKEND
-  // Sends a Health Connect workout to the backend so that
-  // burned_total is persisted in daily metrics for the chart
-  // Returns null silently on failure to avoid blocking the UI
-  // =====================================================
-
-  Future<ActivityModel?> syncHCActivity({
-    required String type,
-    required int durationMinutes,
-    required int caloriesBurned,
-    required DateTime date,
-  }) async {
-    try {
-      final headers = await _authHeaders;
-      final dateStr =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-      final response = await _apiService.post(
-        ApiConfig.createActivity,
-        headers: headers,
-        body: {
-          'date': dateStr,
-          'type': _mapToBackendType(type),
-          'duration': durationMinutes,
-          'calories_burned': caloriesBurned,
-        },
-      );
-
-      final data = response['data'] ?? response;
-      return ActivityModel.fromBackendJson(data);
-    } catch (e) {
-      print('[ActivityRepo] syncHCActivity failed (non-fatal): $e');
-      return null;
-    }
-  }
-
-  // =====================================================
   // GET ACTIVITIES
+  // Returns only today's manually logged activities
+  // HC activities are shown separately from the snapshot
   // =====================================================
 
   Future<List<ActivityModel>> getActivities({
-    int page = 1,
+    int page  = 1,
     int limit = 50,
   }) async {
     try {
       final headers = await _authHeaders;
-      final today = _todayStr();
+      final today   = _todayStr();
 
       final raw = await _apiService.getAsList(
         ApiConfig.getActivities,
         headers: headers,
         queryParameters: {
-          'page': page,
+          'page':  page,
           'limit': limit,
         },
       );
@@ -132,10 +100,11 @@ class ActivityRepository {
               ActivityModel.fromBackendJson(item as Map<String, dynamic>))
           .toList();
 
-      // Filter to today only
+      // Filter to today only using local time to avoid timezone mismatches
       final todayActivities = activities.where((a) {
+        final localTime    = a.timestamp.toLocal();
         final activityDate =
-            '${a.timestamp.year}-${a.timestamp.month.toString().padLeft(2, '0')}-${a.timestamp.day.toString().padLeft(2, '0')}';
+            '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}';
         return activityDate == today;
       }).toList();
 

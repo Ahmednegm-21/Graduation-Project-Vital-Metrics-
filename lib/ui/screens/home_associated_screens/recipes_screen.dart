@@ -54,13 +54,25 @@ class _RecipesScreenState extends State<RecipesScreen>
     _loadRecipes();
   }
 
+  // ✅ FIX: جيب كل الوجبات بدل limit: 50
   Future<void> _loadRecipes() async {
     setState(() => _loading = true);
     try {
-      final meals = await _mealRepo.getMeals(page: 1, limit: 50);
-      if (meals.isNotEmpty) {
+      const pageSize = 100;
+      final allMeals = [];
+      int page = 1;
+
+      while (true) {
+        final batch = await _mealRepo.getMeals(page: page, limit: pageSize);
+        if (batch.isEmpty) break;
+        allMeals.addAll(batch);
+        if (batch.length < pageSize) break; // آخر صفحة
+        page++;
+      }
+
+      if (allMeals.isNotEmpty) {
         setState(() {
-          _recipes = meals.map((m) => Recipe.fromMealModel(m)).toList();
+          _recipes = allMeals.map((m) => Recipe.fromMealModel(m)).toList();
           _isRealData = true;
           _loading = false;
         });
@@ -201,11 +213,8 @@ class _RecipesScreenState extends State<RecipesScreen>
     final hasSel = _chosen.isNotEmpty;
     const primary = Color(0xFF4361EE);
 
-    // Bottom nav height + extra spacing so FAB floats above it
     final bottomNavHeight = 80.0;
     final fabBottomPadding = bottomNavHeight + 48.0;
-
-    // Left padding to align FAB to the left side of the screen
 
     return Scaffold(
       backgroundColor: context.colors.bg,
@@ -247,7 +256,6 @@ class _RecipesScreenState extends State<RecipesScreen>
                     BoxShadow(color: context.colors.shadow, blurRadius: 8),
                   ],
                 ),
-                // Change from CupertinoIcons.settings to Icons.settings to match HomeScreen
                 child: const Icon(Icons.settings, color: primary, size: 20),
               ),
             ),
@@ -408,7 +416,6 @@ class _RecipesScreenState extends State<RecipesScreen>
                         color: primary,
                         onRefresh: _loadRecipes,
                         child: ListView.builder(
-                          // Extra bottom padding so last item stays above FAB and nav bar
                           padding: EdgeInsets.only(
                             left: 16,
                             right: 16,
@@ -441,8 +448,7 @@ class _RecipesScreenState extends State<RecipesScreen>
                   ],
                 ),
 
-                // FAB positioned above the bottom nav bar, aligned to the LEFT
-                // FAB centered and raised above the SWAP button
+                // FAB
                 Positioned(
                   bottom: fabBottomPadding,
                   left: 0,
@@ -561,7 +567,9 @@ class _RecipeTileState extends State<_RecipeTile>
         curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
       ),
     );
-    Future.delayed(Duration(milliseconds: 50 * widget.index), () {
+    // ✅ FIX: cap the delay عشان الـ 580 وجبة ما يخلوش الأنيميشن بطيء
+    final delay = (50 * widget.index).clamp(0, 800);
+    Future.delayed(Duration(milliseconds: delay), () {
       if (mounted) _ctrl.forward();
     });
   }
@@ -633,7 +641,6 @@ class _RecipeTileState extends State<_RecipeTile>
                 children: [
                   Row(
                     children: [
-                      // Toggle button to select/deselect recipe
                       GestureDetector(
                         onTap: widget.onToggle,
                         child: Padding(
@@ -695,14 +702,12 @@ class _RecipeTileState extends State<_RecipeTile>
                       ),
                       const SizedBox(width: 12),
 
-                      // Recipe emoji icon
                       Text(
                         widget.recipe.emoji,
                         style: const TextStyle(fontSize: 26),
                       ),
                       const SizedBox(width: 12),
 
-                      // Recipe name and calorie info
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -772,7 +777,6 @@ class _RecipeTileState extends State<_RecipeTile>
                         ),
                       ),
 
-                      // Serving size stepper control
                       IntrinsicWidth(
                         child: _ServingStepper(
                           mult: widget.mult,
@@ -790,7 +794,6 @@ class _RecipeTileState extends State<_RecipeTile>
                         color: context.colors.divider,
                       ),
 
-                      // Arrow button to open recipe detail screen
                       GestureDetector(
                         onTap: widget.onDetails,
                         behavior: HitTestBehavior.opaque,
@@ -809,7 +812,6 @@ class _RecipeTileState extends State<_RecipeTile>
                     ],
                   ),
 
-                  // Macros strip shown only when serving multiplier is not 1x
                   AnimatedSize(
                     duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
@@ -845,7 +847,6 @@ class _RecipeTileState extends State<_RecipeTile>
   }
 }
 
-// Stepper widget to increment or decrement serving size
 class _ServingStepper extends StatelessWidget {
   final double mult;
   final bool isDark;
@@ -917,7 +918,6 @@ class _ServingStepper extends StatelessWidget {
   }
 }
 
-// Individual step button for the serving stepper
 class _StepBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
@@ -943,7 +943,6 @@ class _StepBtn extends StatelessWidget {
   );
 }
 
-// Strip showing protein, carbs and fat macros in colored chips
 class _MacrosStrip extends StatelessWidget {
   final int protein, carbs, fat;
   final bool isDark;
@@ -984,7 +983,6 @@ class _MacrosStrip extends StatelessWidget {
   );
 }
 
-// Single macro chip showing label and gram value
 class _MacroChip extends StatelessWidget {
   final String label;
   final int value;
@@ -1031,7 +1029,6 @@ class _MacroChip extends StatelessWidget {
   );
 }
 
-// Bottom sheet for adjusting serving size with a slider and preset buttons
 class _ServingSheet extends StatefulWidget {
   final Recipe recipe;
   final bool isDark;
@@ -1093,7 +1090,6 @@ class _ServingSheetState extends State<_ServingSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
           Container(
             width: 40,
             height: 4,
@@ -1104,7 +1100,6 @@ class _ServingSheetState extends State<_ServingSheet> {
           ),
           const SizedBox(height: 18),
 
-          // Recipe header with live calorie count
           Row(
             children: [
               Text(widget.recipe.emoji, style: const TextStyle(fontSize: 28)),
@@ -1158,7 +1153,6 @@ class _ServingSheetState extends State<_ServingSheet> {
           ),
           const SizedBox(height: 20),
 
-          // Slider for continuous serving adjustment
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 5,
@@ -1188,7 +1182,6 @@ class _ServingSheetState extends State<_ServingSheet> {
             ),
           ),
 
-          // Quick preset buttons for common serving sizes
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: _presets.map((p) {
@@ -1228,7 +1221,6 @@ class _ServingSheetState extends State<_ServingSheet> {
           ),
           const SizedBox(height: 18),
 
-          // Macro breakdown updated live with serving changes
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -1254,7 +1246,6 @@ class _ServingSheetState extends State<_ServingSheet> {
           ),
           const SizedBox(height: 20),
 
-          // Confirm button to apply the selected serving size
           GestureDetector(
             onTap: () => widget.onConfirm(_mult),
             child: Container(
@@ -1293,7 +1284,6 @@ class _ServingSheetState extends State<_ServingSheet> {
   }
 }
 
-// Animated macro value display inside the serving sheet
 class _SheetMacro extends StatelessWidget {
   final String label;
   final int value;
@@ -1334,7 +1324,6 @@ class _SheetMacro extends StatelessWidget {
   );
 }
 
-// Bell icon with unread notification badge in the app bar
 class _BellAction extends StatelessWidget {
   final bool isDark;
   const _BellAction({required this.isDark});

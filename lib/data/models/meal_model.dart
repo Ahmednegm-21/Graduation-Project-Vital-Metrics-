@@ -29,18 +29,6 @@ class MealModel {
     );
   }
 
-  // Convert to FoodItem for use with existing FoodSwapService UI
-  FoodItemCompat toFoodItemCompat() => FoodItemCompat(
-        id:       id.toString(),
-        name:     name,
-        emoji:    '🍽️',
-        category: 'meals',
-        calories: calories,
-        protein:  protein,
-        carbs:    carbs,
-        fats:     fat,
-        fiber:    0,
-      );
 }
 
 // Lightweight compat class so MealModel works with existing FoodItem UI

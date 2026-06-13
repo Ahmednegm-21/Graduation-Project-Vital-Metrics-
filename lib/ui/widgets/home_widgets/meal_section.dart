@@ -33,14 +33,6 @@ class MealSection extends StatelessWidget {
         Theme.of(context).brightness ==
             Brightness.dark;
 
-    final cardBg = isDark
-        ? const Color(0xFF16213E)
-        : Colors.white;
-
-    final activeBg = isDark
-        ? const Color(0xFF1E2D50)
-        : const Color(0xFFF1F3FF);
-
     final textColor = isDark
         ? Colors.white
         : const Color(0xFF2D3142);

@@ -1,5 +1,3 @@
-// lib/ui/screens/auth_screens/sign_up_screen.dart
-
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

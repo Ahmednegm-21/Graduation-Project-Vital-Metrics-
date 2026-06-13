@@ -1,8 +1,6 @@
 import 'dart:async';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vital_metrics/data/models/daily_metric_model.dart';
 import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';

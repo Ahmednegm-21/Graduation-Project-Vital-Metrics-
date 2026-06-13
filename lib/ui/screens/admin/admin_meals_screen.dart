@@ -1,6 +1,9 @@
+// lib/ui/screens/admin/admin_meals_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/config/api_config.dart';
 import 'package:vital_metrics/data/exceptions/api_exception.dart';
@@ -17,36 +20,41 @@ class _Meal {
   final double protein, carbs, fat;
 
   const _Meal({
-    required this.id, required this.name, required this.description,
-    required this.calories, required this.protein,
-    required this.carbs, required this.fat,
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
   });
 
   factory _Meal.fromJson(Map<String, dynamic> j) => _Meal(
-    id:          (j['meal_id']     as num?)?.toInt() ?? 0,
-    name:         j['name']        as String? ?? '',
-    description:  j['description'] as String? ?? '',
-    calories:    (j['calories']    as num?)?.toInt() ?? 0,
-    protein:     double.tryParse(j['protein'].toString()) ?? 0,
-    carbs:       double.tryParse(j['carbs'].toString())   ?? 0,
-    fat:         double.tryParse(j['fat'].toString())     ?? 0,
-  );
+        id:          (j['meal_id']     as num?)?.toInt() ?? 0,
+        name:         j['name']        as String? ?? '',
+        description:  j['description'] as String? ?? '',
+        calories:    (j['calories']    as num?)?.toInt() ?? 0,
+        protein:     double.tryParse(j['protein'].toString()) ?? 0,
+        carbs:       double.tryParse(j['carbs'].toString())   ?? 0,
+        fat:         double.tryParse(j['fat'].toString())     ?? 0,
+      );
 
+  // Simple emoji picker based on meal name keywords
   String get emoji {
     final n = name.toLowerCase();
-    if (n.contains('chicken'))  return '🍗';
-    if (n.contains('beef') || n.contains('steak')) return '🥩';
-    if (n.contains('fish') || n.contains('salmon')) return '🐟';
-    if (n.contains('egg'))      return '🥚';
-    if (n.contains('rice'))     return '🍚';
-    if (n.contains('pasta'))    return '🍝';
-    if (n.contains('salad'))    return '🥗';
-    if (n.contains('oat'))      return '🥣';
-    if (n.contains('yogurt'))   return '🥛';
-    if (n.contains('pizza'))    return '🍕';
-    if (n.contains('burger'))   return '🍔';
-    if (n.contains('avocado'))  return '🥑';
-    if (n.contains('nut'))      return '🥜';
+    if (n.contains('chicken'))                        return '🍗';
+    if (n.contains('beef') || n.contains('steak'))    return '🥩';
+    if (n.contains('fish') || n.contains('salmon'))   return '🐟';
+    if (n.contains('egg'))                            return '🥚';
+    if (n.contains('rice'))                           return '🍚';
+    if (n.contains('pasta'))                          return '🍝';
+    if (n.contains('salad'))                          return '🥗';
+    if (n.contains('oat'))                            return '🥣';
+    if (n.contains('yogurt'))                         return '🥛';
+    if (n.contains('pizza'))                          return '🍕';
+    if (n.contains('burger'))                         return '🍔';
+    if (n.contains('avocado'))                        return '🥑';
+    if (n.contains('nut'))                            return '🥜';
     return '🍽️';
   }
 }
@@ -56,7 +64,9 @@ class _Meal {
 // ══════════════════════════════════════════════════════════════════════════════
 class AdminMealsScreen extends StatefulWidget {
   const AdminMealsScreen({super.key});
-  @override State<AdminMealsScreen> createState() => _AdminMealsScreenState();
+
+  @override
+  State<AdminMealsScreen> createState() => _AdminMealsScreenState();
 }
 
 class _AdminMealsScreenState extends State<AdminMealsScreen> {
@@ -70,16 +80,24 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
   String?     _error;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
-  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
+  // Build auth headers using the stored token
   Future<Map<String, String>> get _headers async {
     final token = await _tokenStorage.getToken();
     return ApiConfig.headers(token: token);
   }
 
+  // ── Fetch all meals from the backend ────────────────────────────────────────
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
@@ -88,7 +106,11 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
       final meals   = raw
           .map((e) => _Meal.fromJson(e as Map<String, dynamic>))
           .toList();
-      setState(() { _meals = meals; _filtered = meals; _loading = false; });
+      setState(() {
+        _meals    = meals;
+        _filtered = meals;
+        _loading  = false;
+      });
     } on ApiException catch (e) {
       setState(() { _error = e.message; _loading = false; });
     } catch (e) {
@@ -96,29 +118,33 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
     }
   }
 
+  // ── Filter meals by name or id ───────────────────────────────────────────────
   void _onSearch(String q) {
     setState(() {
       _filtered = _meals.where((m) =>
         m.name.toLowerCase().contains(q.toLowerCase()) ||
-        m.id.toString().contains(q)
+        m.id.toString().contains(q),
       ).toList();
     });
   }
 
+  // ── Delete a single meal with confirmation ──────────────────────────────────
   Future<void> _deleteMeal(_Meal meal) async {
     final ok = await showCupertinoDialog<bool>(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Delete Meal'),
+        title:   const Text('Delete Meal'),
         content: Text('Delete "${meal.name}"?\nThis cannot be undone.'),
         actions: [
           CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -128,7 +154,7 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
       final headers = await _headers;
       await _api.delete(ApiConfig.deleteMeal(meal.id), headers: headers);
       setState(() {
-        _meals.removeWhere((m) => m.id == meal.id);
+        _meals.removeWhere((m)    => m.id == meal.id);
         _filtered.removeWhere((m) => m.id == meal.id);
       });
       _snack('"${meal.name}" deleted', error: false);
@@ -137,17 +163,19 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
     }
   }
 
+  // ── Open add/edit bottom sheet ──────────────────────────────────────────────
   void _showForm({_Meal? meal}) {
     showModalBottomSheet(
-      context: context,
+      context:            context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor:    Colors.transparent,
       builder: (_) => _MealForm(
-        meal: meal,
+        meal:   meal,
         onSave: (data) async {
           final headers = await _headers;
           if (meal == null) {
-            final res = await _api.post(
+            // Create new meal
+            final res     = await _api.post(
                 ApiConfig.createMeal, headers: headers, body: data);
             final created = _Meal.fromJson(res);
             setState(() {
@@ -156,7 +184,8 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
             });
             _snack('Meal added!', error: false);
           } else {
-            final res = await _api.put(
+            // Update existing meal
+            final res     = await _api.put(
                 ApiConfig.updateMeal(meal.id), headers: headers, body: data);
             final updated = _Meal.fromJson(res);
             setState(() {
@@ -171,77 +200,112 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
     );
   }
 
-  void _snack(String msg, {required bool error}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: error
-          ? const Color(0xFFFF4757) : const Color(0xFF63E6BE),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
-  }
+  // ── Import pre-defined Egyptian meals, skipping duplicates ──────────────────
   Future<void> _importEgyptianMeals() async {
-  try {
-    final headers = await _headers;
-
-    showDialog(
+    // Step 1: confirm before doing anything — prevents accidental double import
+    final confirmed = await showCupertinoDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
+      builder: (_) => CupertinoAlertDialog(
+        title:   const Text('Import Egyptian Meals'),
+        content: const Text(
+          'This will add all Egyptian meals not already in the catalog.\n\n'
+          'If you have imported before, duplicates will be skipped automatically.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Import'),
+          ),
+        ],
       ),
     );
 
-    final existingNames = _meals
-        .map((e) => e.name.trim().toLowerCase())
-        .toSet();
+    // User tapped Cancel — abort
+    if (confirmed != true || !mounted) return;
 
-    int imported = 0;
+    try {
+      final headers = await _headers;
 
-    for (final meal in egyptianMeals()) {
-      if (existingNames.contains(meal.name.trim().toLowerCase())) {
-        continue;
+      // Show loading spinner while working
+      showDialog(
+        context:            context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Step 2: fetch the latest meal list directly from the server
+      // so duplicate check reflects real DB state, not stale local cache
+      final raw   = await _api.getAsList(ApiConfig.getMeals, headers: headers);
+      final fresh = raw
+          .map((e) => _Meal.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final existingNames = fresh
+          .map((e) => e.name.trim().toLowerCase())
+          .toSet();
+
+      int imported = 0;
+      int skipped  = 0;
+
+      for (final meal in egyptianMeals()) {
+        // Skip any meal whose name already exists in the server list
+        if (existingNames.contains(meal.name.trim().toLowerCase())) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await _api.post(
+            ApiConfig.createMeal,
+            headers: headers,
+            body: {
+              'name':        meal.name,
+              'description': meal.description,
+              'calories':    meal.calories,
+              'protein':     meal.protein,
+              'carbs':       meal.carbs,
+              'fat':         meal.fat,
+            },
+          );
+          imported++;
+        } catch (_) {
+          // Continue even if a single meal fails
+        }
       }
 
-      try {
-        await _api.post(
-          ApiConfig.createMeal,
-          headers: headers,
-          body: {
-            'name': meal.name,
-            'description': meal.description,
-            'calories': meal.calories,
-            'protein': meal.protein,
-            'carbs': meal.carbs,
-            'fat': meal.fat,
-          },
-        );
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
 
-        imported++;
-      } catch (_) {}
+      await _load();
+
+      // Inform the admin how many were added vs skipped
+      _snack(
+        imported == 0
+            ? 'All meals already exist — $skipped skipped'
+            : '$imported meals imported, $skipped already existed',
+        error: false,
+      );
+    } catch (e) {
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      _snack('Import failed: $e', error: true);
     }
-
-    if (mounted && Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-
-    await _load();
-
-    _snack(
-      '$imported meals imported successfully',
-      error: false,
-    );
-  } catch (e) {
-    if (mounted && Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-
-    _snack(
-      'Import failed: $e',
-      error: true,
-    );
   }
-}
+
+  // ── Show a floating snack bar ───────────────────────────────────────────────
+  void _snack(String msg, {required bool error}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content:         Text(msg),
+      backgroundColor: error
+          ? const Color(0xFFFF4757)
+          : const Color(0xFF63E6BE),
+      behavior: SnackBarBehavior.floating,
+      shape:    RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r)),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -254,283 +318,404 @@ class _AdminMealsScreenState extends State<AdminMealsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ────────────────────────────────────────────────────
+            // ── Header: two rows to avoid horizontal overflow ────────────
             FadeInDown(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
-                child: Row(children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Meals',
-                        style: TextStyle(
-                          color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                          fontWeight: FontWeight.bold, fontSize: 24)),
-                    Text('${_filtered.length} meals in catalog',
-                        style: TextStyle(
-                          color: isDark ? Colors.white38 : const Color(0xFF9B9B9B),
-                          fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh,
-                        color: Color(0xFF4361EE), size: 22)),
-                        const SizedBox(width: 8),
-
-GestureDetector(
-  onTap: _importEgyptianMeals,
-  child: Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 14,
-      vertical: 10,
-    ),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [
-          Color(0xFF10B981),
-          Color(0xFF34D399),
-        ],
-      ),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Row(
-      children: [
-        Icon(
-          Icons.file_download,
-          color: Colors.white,
-          size: 16,
-        ),
-        SizedBox(width: 5),
-        Text(
-          'Import',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-                  // Add button
-                  GestureDetector(
-                    onTap: () => _showForm(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4361EE), Color(0xFF4CC9F0)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 12.h),
+                child: Column(
+                  children: [
+                    // ── Row 1: title + catalog count + refresh ───────────
+                    Row(
+                      children: [
+                        // Screen title + catalog count
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Meals',
+                              style: TextStyle(
+                                color:      isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1A1A2E),
+                                fontWeight: FontWeight.bold,
+                                fontSize:   24.sp,
+                              ),
+                            ),
+                            Text(
+                              '${_filtered.length} meals in catalog',
+                              style: TextStyle(
+                                color:    isDark
+                                    ? Colors.white38
+                                    : const Color(0xFF9B9B9B),
+                                fontSize: 12.sp,
+                              ),
+                            ),
+                          ],
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(
-                          color: const Color(0xFF4361EE).withOpacity(0.35),
-                          blurRadius: 10, offset: const Offset(0, 4),
-                        )],
-                      ),
-                      child: const Row(children: [
-                        Icon(Icons.add, color: Colors.white, size: 16),
-                        SizedBox(width: 5),
-                        Text('Add Meal',
-                            style: TextStyle(color: Colors.white,
-                                fontWeight: FontWeight.bold, fontSize: 12)),
-                      ]),
+
+                        const Spacer(),
+
+                        // Refresh icon button
+                        GestureDetector(
+                          onTap: _load,
+                          child: Container(
+                            padding: EdgeInsets.all(9.w),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF1A2340)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(10.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:      Colors.black.withOpacity(
+                                      isDark ? 0.3 : 0.07),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Icon(Icons.refresh,
+                                color: const Color(0xFF4361EE), size: 20.sp),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ]),
+
+                    SizedBox(height: 12.h),
+
+                    // ── Row 2: import + add meal (full width, no overflow) ─
+                    Row(
+                      children: [
+                        // Import Egyptian meals button — takes half the width
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _importEgyptianMeals,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 11.h),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF10B981),
+                                    Color(0xFF34D399),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.file_download,
+                                      color: Colors.white, size: 16.sp),
+                                  SizedBox(width: 6.w),
+                                  Text(
+                                    'Import Meals',
+                                    style: TextStyle(
+                                      color:      Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize:   13.sp,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(width: 10.w),
+
+                        // Add meal button — takes the other half
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _showForm(),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 11.h),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF4361EE), Color(0xFF4CC9F0)],
+                                  begin:  Alignment.topLeft,
+                                  end:    Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:      const Color(0xFF4361EE)
+                                        .withOpacity(0.35),
+                                    blurRadius: 10,
+                                    offset:     const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add,
+                                      color: Colors.white, size: 16.sp),
+                                  SizedBox(width: 6.w),
+                                  Text(
+                                    'Add Meal',
+                                    style: TextStyle(
+                                      color:      Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize:   13.sp,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
-            // ── Search ────────────────────────────────────────────────────
+            // ── Search bar ───────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 60),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: card,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-                      blurRadius: 10,
-                    )],
+                    color:        card,
+                    borderRadius: BorderRadius.circular(14.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color:      Colors.black
+                            .withOpacity(isDark ? 0.3 : 0.06),
+                        blurRadius: 10,
+                      ),
+                    ],
                   ),
                   child: TextField(
                     controller: _searchCtrl,
-                    onChanged: _onSearch,
+                    onChanged:  _onSearch,
                     style: TextStyle(
-                        color: isDark ? Colors.white : const Color(0xFF1A1A2E)),
+                      color:    isDark ? Colors.white : const Color(0xFF1A1A2E),
+                      fontSize: 14.sp,
+                    ),
                     decoration: InputDecoration(
-                      hintText: 'Search meals...',
+                      hintText:  'Search meals...',
                       hintStyle: TextStyle(
-                          color: isDark ? Colors.white30 : Colors.grey),
-                      prefixIcon: const Icon(CupertinoIcons.search,
-                          color: Color(0xFF4361EE), size: 20),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                        color:    isDark ? Colors.white30 : Colors.grey,
+                        fontSize: 14.sp,
+                      ),
+                      prefixIcon: Icon(CupertinoIcons.search,
+                          color: const Color(0xFF4361EE), size: 20.sp),
+                      border:         InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 14.h),
                     ),
                   ),
                 ),
               ),
             ),
 
-            // ── List ──────────────────────────────────────────────────────
+            // ── Meal list / loading / error / empty state ────────────────
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(
-                      color: Color(0xFF4361EE), strokeWidth: 2.5))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color:       Color(0xFF4361EE),
+                        strokeWidth: 2.5,
+                      ),
+                    )
                   : _error != null
-                      ? Center(child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.error_outline,
-                                color: Color(0xFFFF4757), size: 48),
-                            const SizedBox(height: 12),
-                            Text(_error!,
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.error_outline,
+                                  color: const Color(0xFFFF4757), size: 48.sp),
+                              SizedBox(height: 12.h),
+                              Text(
+                                _error!,
                                 style: TextStyle(
-                                    color: isDark ? Colors.white70
-                                        : const Color(0xFF2D3142)),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _load,
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4361EE)),
-                              child: const Text('Retry',
-                                  style: TextStyle(color: Colors.white)),
-                            ),
-                          ],
-                        ))
-                      : _filtered.isEmpty
-                          ? Center(child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('🍽️',
-                                    style: TextStyle(fontSize: 48)),
-                                const SizedBox(height: 12),
-                                Text('No meals yet',
-                                    style: TextStyle(
-                                        color: isDark ? Colors.white38
-                                            : Colors.grey, fontSize: 16)),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: () => _showForm(),
-                                  icon: const Icon(Icons.add, size: 16),
-                                  label: const Text('Add First Meal'),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF4361EE),
-                                      foregroundColor: Colors.white),
+                                  color:    isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF2D3142),
+                                  fontSize: 14.sp,
                                 ),
-                              ],
-                            ))
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 16.h),
+                              ElevatedButton(
+                                onPressed: _load,
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4361EE)),
+                                child: Text('Retry',
+                                    style: TextStyle(
+                                      color:    Colors.white,
+                                      fontSize: 14.sp,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _filtered.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('🍽️',
+                                      style: TextStyle(fontSize: 48.sp)),
+                                  SizedBox(height: 12.h),
+                                  Text(
+                                    'No meals yet',
+                                    style: TextStyle(
+                                      color:    isDark
+                                          ? Colors.white38
+                                          : Colors.grey,
+                                      fontSize: 16.sp,
+                                    ),
+                                  ),
+                                  SizedBox(height: 16.h),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showForm(),
+                                    icon:  Icon(Icons.add, size: 16.sp),
+                                    label: const Text('Add First Meal'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF4361EE),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
                           : ListView.builder(
-                              physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                              physics:   const BouncingScrollPhysics(),
+                              padding:   EdgeInsets.fromLTRB(
+                                  16.w, 0, 16.w, 30.h),
                               itemCount: _filtered.length,
                               itemBuilder: (_, i) {
                                 final m = _filtered[i];
                                 return FadeInLeft(
                                   delay: Duration(milliseconds: 40 * i),
                                   child: Container(
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    padding: const EdgeInsets.all(14),
+                                    margin:  EdgeInsets.only(bottom: 10.h),
+                                    padding: EdgeInsets.all(14.w),
                                     decoration: BoxDecoration(
-                                      color: card,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: isDark ? Border.all(
-                                          color: Colors.white.withOpacity(0.05))
+                                      color:        card,
+                                      borderRadius: BorderRadius.circular(16.r),
+                                      border: isDark
+                                          ? Border.all(
+                                              color: Colors.white
+                                                  .withOpacity(0.05))
                                           : null,
-                                      boxShadow: [BoxShadow(
-                                        color: Colors.black.withOpacity(
-                                            isDark ? 0.3 : 0.06),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      )],
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color:      Colors.black.withOpacity(
+                                              isDark ? 0.3 : 0.06),
+                                          blurRadius: 10,
+                                          offset:     const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
-                                    child: Row(children: [
-                                      // Emoji
-                                      Text(m.emoji,
-                                          style: const TextStyle(fontSize: 30)),
-                                      const SizedBox(width: 12),
+                                    child: Row(
+                                      children: [
+                                        // Meal emoji icon
+                                        Text(m.emoji,
+                                            style: TextStyle(fontSize: 30.sp)),
+                                        SizedBox(width: 12.w),
 
-                                      // Info
-                                      Expanded(child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(m.name,
-                                              style: TextStyle(
-                                                color: isDark ? Colors.white
-                                                    : const Color(0xFF1A1A2E),
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              )),
-                                          if (m.description.isNotEmpty)
-                                            Text(m.description,
+                                        // Meal info: name, description, macros
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                m.name,
                                                 style: TextStyle(
-                                                  color: isDark ? Colors.white38
-                                                      : const Color(0xFF9B9B9B),
-                                                  fontSize: 11,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : const Color(0xFF1A1A2E),
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize:   14.sp,
                                                 ),
-                                                overflow: TextOverflow.ellipsis),
-                                          const SizedBox(height: 6),
-                                          // Macros row
-                                          Row(children: [
-                                            _MacroBadge('${m.calories} kcal',
-                                                const Color(0xFFFF9A3C)),
-                                            const SizedBox(width: 4),
-                                            _MacroBadge('P ${m.protein.toStringAsFixed(0)}g',
-                                                const Color(0xFFFFA94D)),
-                                            const SizedBox(width: 4),
-                                            _MacroBadge('C ${m.carbs.toStringAsFixed(0)}g',
-                                                const Color(0xFF63E6BE)),
-                                            const SizedBox(width: 4),
-                                            _MacroBadge('F ${m.fat.toStringAsFixed(0)}g',
-                                                const Color(0xFFFF8787)),
-                                          ]),
-                                        ],
-                                      )),
+                                              ),
+                                              if (m.description.isNotEmpty)
+                                                Text(
+                                                  m.description,
+                                                  style: TextStyle(
+                                                    color:    isDark
+                                                        ? Colors.white38
+                                                        : const Color(
+                                                            0xFF9B9B9B),
+                                                    fontSize: 11.sp,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              SizedBox(height: 6.h),
+                                              // Macro badges row
+                                              Wrap(
+                                                spacing:  4.w,
+                                                runSpacing: 4.h,
+                                                children: [
+                                                  _MacroBadge(
+                                                      '${m.calories} kcal',
+                                                      const Color(0xFFFF9A3C)),
+                                                  _MacroBadge(
+                                                      'P ${m.protein.toStringAsFixed(0)}g',
+                                                      const Color(0xFFFFA94D)),
+                                                  _MacroBadge(
+                                                      'C ${m.carbs.toStringAsFixed(0)}g',
+                                                      const Color(0xFF63E6BE)),
+                                                  _MacroBadge(
+                                                      'F ${m.fat.toStringAsFixed(0)}g',
+                                                      const Color(0xFFFF8787)),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
 
-                                      // Actions
-                                      Column(children: [
-                                        GestureDetector(
-                                          onTap: () => _showForm(meal: m),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(7),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF4361EE)
-                                                  .withOpacity(0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                        // Edit + delete action buttons
+                                        Column(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () =>
+                                                  _showForm(meal: m),
+                                              child: Container(
+                                                padding: EdgeInsets.all(7.w),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF4361EE)
+                                                      .withOpacity(0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8.r),
+                                                ),
+                                                child: Icon(
+                                                  Icons.edit_outlined,
+                                                  color: const Color(0xFF4361EE),
+                                                  size: 16.sp,
+                                                ),
+                                              ),
                                             ),
-                                            child: const Icon(
-                                                Icons.edit_outlined,
-                                                color: Color(0xFF4361EE),
-                                                size: 16),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        GestureDetector(
-                                          onTap: () => _deleteMeal(m),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(7),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFFF4757)
-                                                  .withOpacity(0.12),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                            SizedBox(height: 6.h),
+                                            GestureDetector(
+                                              onTap: () => _deleteMeal(m),
+                                              child: Container(
+                                                padding: EdgeInsets.all(7.w),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFF4757)
+                                                      .withOpacity(0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8.r),
+                                                ),
+                                                child: Icon(
+                                                  CupertinoIcons.trash,
+                                                  color: const Color(0xFFFF4757),
+                                                  size: 16.sp,
+                                                ),
+                                              ),
                                             ),
-                                            child: const Icon(
-                                                CupertinoIcons.trash,
-                                                color: Color(0xFFFF4757),
-                                                size: 16),
-                                          ),
+                                          ],
                                         ),
-                                      ]),
-                                    ]),
+                                      ],
+                                    ),
                                   ),
                                 );
                               },
@@ -543,29 +728,40 @@ GestureDetector(
   }
 }
 
+// ── Macro badge chip ──────────────────────────────────────────────────────────
 class _MacroBadge extends StatelessWidget {
   final String label;
   final Color  color;
+
   const _MacroBadge(this.label, this.color);
+
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(label,
-        style: TextStyle(color: color,
-            fontSize: 10, fontWeight: FontWeight.bold)),
-  );
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+        decoration: BoxDecoration(
+          color:        color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(6.r),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color:      color,
+            fontSize:   10.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
 }
 
-// ── Meal Form ─────────────────────────────────────────────────────────────────
+// ── Meal add/edit form (bottom sheet) ─────────────────────────────────────────
 class _MealForm extends StatefulWidget {
-  final _Meal?  meal;
+  final _Meal?                              meal;
   final Future<void> Function(Map<String, dynamic>) onSave;
+
   const _MealForm({this.meal, required this.onSave});
-  @override State<_MealForm> createState() => _MealFormState();
+
+  @override
+  State<_MealForm> createState() => _MealFormState();
 }
 
 class _MealFormState extends State<_MealForm> {
@@ -580,9 +776,9 @@ class _MealFormState extends State<_MealForm> {
     _name  = TextEditingController(text: m?.name ?? '');
     _desc  = TextEditingController(text: m?.description ?? '');
     _cal   = TextEditingController(text: m != null ? '${m.calories}' : '');
-    _prot  = TextEditingController(text: m != null ? '${m.protein}' : '');
-    _carbs = TextEditingController(text: m != null ? '${m.carbs}' : '');
-    _fat   = TextEditingController(text: m != null ? '${m.fat}' : '');
+    _prot  = TextEditingController(text: m != null ? '${m.protein}'  : '');
+    _carbs = TextEditingController(text: m != null ? '${m.carbs}'    : '');
+    _fat   = TextEditingController(text: m != null ? '${m.fat}'      : '');
   }
 
   @override
@@ -591,6 +787,7 @@ class _MealFormState extends State<_MealForm> {
     super.dispose();
   }
 
+  // ── Validate and submit the form ─────────────────────────────────────────────
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -607,9 +804,9 @@ class _MealFormState extends State<_MealForm> {
     } catch (e) {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e.toString()),
+        content:         Text(e.toString()),
         backgroundColor: const Color(0xFFFF4757),
-        behavior: SnackBarBehavior.floating,
+        behavior:        SnackBarBehavior.floating,
       ));
     }
   }
@@ -621,51 +818,63 @@ class _MealFormState extends State<_MealForm> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom),
+          bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          color:        bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
         ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 30.h),
         child: Form(
           key: _form,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle
-              Container(width: 40, height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 18),
-              Text(widget.meal == null ? 'Add New Meal' : 'Edit Meal',
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                    fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 20),
+              // Drag handle
+              Container(
+                width:  40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color:        isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              SizedBox(height: 18.h),
 
-              _field(_name,  'Meal Name *',     isDark, required: true),
-              const SizedBox(height: 10),
-              _field(_desc,  'Description',     isDark),
-              const SizedBox(height: 10),
+              Text(
+                widget.meal == null ? 'Add New Meal' : 'Edit Meal',
+                style: TextStyle(
+                  color:      isDark ? Colors.white : const Color(0xFF1A1A2E),
+                  fontWeight: FontWeight.bold,
+                  fontSize:   18.sp,
+                ),
+              ),
+              SizedBox(height: 20.h),
+
+              _field(_name,  'Meal Name *',    isDark, required: true),
+              SizedBox(height: 10.h),
+              _field(_desc,  'Description',    isDark),
+              SizedBox(height: 10.h),
+
               Row(children: [
-                Expanded(child: _field(_cal,   'Calories *', isDark,
+                Expanded(child: _field(_cal,  'Calories *',   isDark,
                     num: true, required: true)),
-                const SizedBox(width: 10),
-                Expanded(child: _field(_prot,  'Protein (g) *', isDark,
+                SizedBox(width: 10.w),
+                Expanded(child: _field(_prot, 'Protein (g) *', isDark,
                     num: true, required: true)),
               ]),
-              const SizedBox(height: 10),
+              SizedBox(height: 10.h),
+
               Row(children: [
                 Expanded(child: _field(_carbs, 'Carbs (g) *', isDark,
                     num: true, required: true)),
-                const SizedBox(width: 10),
-                Expanded(child: _field(_fat,   'Fat (g) *', isDark,
+                SizedBox(width: 10.w),
+                Expanded(child: _field(_fat,   'Fat (g) *',   isDark,
                     num: true, required: true)),
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
+              // Submit button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -673,17 +882,24 @@ class _MealFormState extends State<_MealForm> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4361EE),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
+                        borderRadius: BorderRadius.circular(14.r)),
+                    padding: EdgeInsets.symmetric(vertical: 15.h),
                   ),
                   child: _saving
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                      ? SizedBox(
+                          width:  20.w,
+                          height: 20.h,
+                          child: const CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
                       : Text(
                           widget.meal == null ? 'Add Meal' : 'Save Changes',
-                          style: const TextStyle(color: Colors.white,
-                              fontWeight: FontWeight.bold, fontSize: 15)),
+                          style: TextStyle(
+                            color:      Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize:   15.sp,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -693,44 +909,52 @@ class _MealFormState extends State<_MealForm> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, bool isDark,
-      {bool num = false, bool required = false}) =>
+  // ── Reusable text field with validation ──────────────────────────────────────
+  Widget _field(
+    TextEditingController ctrl,
+    String label,
+    bool isDark, {
+    bool num      = false,
+    bool required = false,
+  }) =>
       TextFormField(
-        controller: ctrl,
+        controller:  ctrl,
         keyboardType: num ? TextInputType.number : TextInputType.text,
         style: TextStyle(
-            color: isDark ? Colors.white : const Color(0xFF1A1A2E)),
+          color:    isDark ? Colors.white : const Color(0xFF1A1A2E),
+          fontSize: 14.sp,
+        ),
         validator: (v) {
           if (required && (v == null || v.trim().isEmpty)) return 'Required';
           if (num && v != null && v.isNotEmpty &&
-              double.tryParse(v) == null) return 'Must be a number';
+              double.tryParse(v) == null)               return 'Must be a number';
           return null;
         },
         decoration: InputDecoration(
-          labelText: label,
+          labelText:  label,
           labelStyle: TextStyle(
-              color: isDark ? Colors.white38 : Colors.grey, fontSize: 13),
-          filled: true,
+              color: isDark ? Colors.white38 : Colors.grey, fontSize: 13.sp),
+          filled:    true,
           fillColor: isDark
               ? Colors.white.withOpacity(0.06)
               : const Color(0xFFF5F7FF),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide:   BorderSide(
                 color: isDark ? Colors.white12 : Colors.grey.shade200),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide:   BorderSide(
                 color: isDark ? Colors.white12 : Colors.grey.shade200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF4361EE)),
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide:   const BorderSide(color: Color(0xFF4361EE)),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFFF4757)),
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide:   const BorderSide(color: Color(0xFFFF4757)),
           ),
           isDense: true,
         ),

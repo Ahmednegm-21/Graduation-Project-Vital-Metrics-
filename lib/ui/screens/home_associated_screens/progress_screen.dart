@@ -10,8 +10,6 @@ import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
-import 'package:vital_metrics/services/google_fit_service.dart';
-import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/data/models/activity_level.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';

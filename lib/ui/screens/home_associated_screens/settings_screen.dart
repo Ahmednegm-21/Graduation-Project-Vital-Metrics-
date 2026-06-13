@@ -22,8 +22,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notifications = true;
+  // ── Single source of truth للـ preferences ─────────────────────────────
+  NotificationPreferencesModel _currentPrefs =
+      const NotificationPreferencesModel();
   bool _notifLoading = false;
+
   String _language = 'English';
   String _username = 'Abdelrhman';
   String _email = 'Abdelrhman@gmail.com';
@@ -49,12 +52,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  /// GET /notifications/preferences — بيجيب الـ object كامل ويحتفظ بيه
   Future<void> _loadNotifPreference() async {
     try {
       final pref = await _notifService.getPreferences();
-      if (mounted) setState(() => _notifications = pref.pushEnabled);
+      if (mounted) setState(() => _currentPrefs = pref);
     } catch (_) {
-      // keep default true on error
+      // keep default on error
     }
   }
 
@@ -79,25 +83,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Toggle Notifications ───────────────────────────────────────────────────
-
+  // ── Toggle master push switch ──────────────────────────────────────────────
   Future<void> _toggleNotifications(bool value) async {
-    // optimistic update — بيتغير على الفور
+    // منع double-tap أثناء الـ loading
+    if (_notifLoading) return;
+
+    final previous = _currentPrefs;
+
+    // ✅ optimistic update فوري — بيتغير الـ UI على طول
     setState(() {
-      _notifications = value;
+      _currentPrefs = _currentPrefs.copyWith(pushEnabled: value);
       _notifLoading = true;
     });
+
     try {
-      // بنبعت الـ value مباشرةً من غير ما نعمل GET الأول
-      await _notifService.updatePreferences(
-        NotificationPreferencesModel(pushEnabled: value),
-      );
+      // بنبعت الـ object كامل — ومش بنعمل setState من الـ response
+      // عشان السيرفر ممكن يرجع pushEnabled: true حتى لو بعتنا false
+      await _notifService.updatePreferences(_currentPrefs);
     } catch (e) {
       debugPrint('[Settings] toggleNotifications error: $e');
-      // revert لو السيرفر رد بـ error
-      if (mounted) setState(() => _notifications = !value);
+      // revert بس لو في error فعلي من السيرفر
+      if (mounted) setState(() => _currentPrefs = previous);
     } finally {
       if (mounted) setState(() => _notifLoading = false);
+    }
+  }
+
+  // ── Update a single preference field ──────────────────────────────────────
+  /// بيستخدمه الـ NotificationTypesDialog لما يغير أي نوع
+  Future<void> _updatePrefs(NotificationPreferencesModel updated) async {
+    final previous = _currentPrefs;
+    setState(() => _currentPrefs = updated);
+    try {
+      final fromServer = await _notifService.updatePreferences(updated);
+      if (mounted) setState(() => _currentPrefs = fromServer);
+    } catch (e) {
+      debugPrint('[Settings] updatePrefs error: $e');
+      if (mounted) setState(() => _currentPrefs = previous);
     }
   }
 
@@ -151,10 +173,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    // 1. Unregister FCM device token
     await DeviceTokenManager.instance.unregisterOnLogout();
 
-    // 2. Clear stored tokens
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('accessToken');
@@ -162,7 +182,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.remove('refresh_token');
     await prefs.remove('user_id');
 
-    // 3. Navigate to sign-in
     if (mounted) context.go('/signin');
   }
 
@@ -495,6 +514,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ── Notification Types Dialog ──────────────────────────────────────────────
+  /// Bottom sheet كامل بيعرض كل أنواع الإشعارات مع switch لكل نوع
+  void _showNotificationTypesDialog(bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _NotificationTypesSheet(
+        isDark: isDark,
+        currentPrefs: _currentPrefs,
+        onSave: (updated) {
+          Navigator.pop(ctx);
+          _updatePrefs(updated);
+        },
+      ),
+    );
+  }
+
   // ── Reset Water Dialog ─────────────────────────────────────────────────────
 
   void _showResetWaterDialog(bool isDark) {
@@ -588,7 +625,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // ── Profile Card ───────────────────────────────────────────────
+            // ── Profile Card ─────────────────────────────────────────────
             FadeInDown(
               child: GestureDetector(
                 onTap: () => _showEditProfileDialog(isDark),
@@ -697,7 +734,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Account ────────────────────────────────────────────────────
+            // ── Account ──────────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 100),
               child: _SectionCard(
@@ -740,14 +777,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     onTap: () => _showPersonalInfoDialog(isDark),
                   ),
-                  // ✅ Change Password شيل — مش موجود
                 ],
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // ── General ────────────────────────────────────────────────────
+            // ── General ───────────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 200),
               child: Column(
@@ -782,14 +818,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     child: Column(
                       children: [
-                        // ✅ Notification toggle مربوط بالـ API
+                        // ✅ master push toggle — بيحتفظ بكل الـ prefs
                         _GradSwitch(
                           icon: Icons.notifications_outlined,
                           label: 'Notifications',
-                          value: _notifications,
+                          value: _currentPrefs.pushEnabled,
                           loading: _notifLoading,
                           onChanged: _toggleNotifications,
                         ),
+
+                        // ✅ Notification Types — يفتح الـ sheet
+                        if (_currentPrefs.pushEnabled) ...[
+                          const _GradDivider(),
+                          _GradTileRow(
+                            icon: Icons.tune_outlined,
+                            label: 'Notification Types',
+                            subtitle: _activeTypesLabel,
+                            onTap: () => _showNotificationTypesDialog(isDark),
+                          ),
+                        ],
+
                         const _GradDivider(),
                         _GradLanguage(
                           value: _language,
@@ -813,7 +861,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Water ──────────────────────────────────────────────────────
+            // ── Water ────────────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 300),
               child: _SectionCard(
@@ -854,7 +902,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── More ───────────────────────────────────────────────────────
+            // ── More ─────────────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 400),
               child: _SectionCard(
@@ -890,7 +938,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Log Out Button ─────────────────────────────────────────────
+            // ── Log Out Button ────────────────────────────────────────────
             FadeInDown(
               delay: const Duration(milliseconds: 500),
               child: SizedBox(
@@ -919,6 +967,517 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// label مختصر بيوضح الـ active types في الـ tile
+  String get _activeTypesLabel {
+    final p = _currentPrefs;
+    final active = <String>[];
+    if (p.waterReminders) active.add('💧');
+    if (p.sleepReminders) active.add('🌙');
+    if (p.activityReminders) active.add('🏃');
+    if (p.mealReminders) active.add('🥗');
+    if (p.goalAlerts) active.add('🎉');
+    if (p.dailyReminder) active.add('🔔');
+    if (active.isEmpty) return 'All off';
+    if (active.length == 6) return 'All on';
+    return active.join(' ');
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// _NotificationTypesSheet — Bottom Sheet لتحكم في أنواع الإشعارات
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _NotificationTypesSheet extends StatefulWidget {
+  final bool isDark;
+  final NotificationPreferencesModel currentPrefs;
+  final ValueChanged<NotificationPreferencesModel> onSave;
+
+  const _NotificationTypesSheet({
+    required this.isDark,
+    required this.currentPrefs,
+    required this.onSave,
+  });
+
+  @override
+  State<_NotificationTypesSheet> createState() =>
+      _NotificationTypesSheetState();
+}
+
+class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
+  late NotificationPreferencesModel _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefs = widget.currentPrefs;
+  }
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final bg = isDark ? const Color(0xFF16213E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final subColor = isDark ? Colors.white54 : Colors.grey.shade600;
+    final divColor = isDark ? Colors.white12 : Colors.grey.shade200;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      // ✅ maxHeight يمنع الـ sheet من تجاوز 90% من الشاشة
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.90),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Handle (خارج الـ scroll — ثابت في الأعلى) ──────────────────
+          const SizedBox(height: 12),
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white24 : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Header (ثابت في الأعلى) ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4361EE), Color(0xFF7B5EA7)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Notification Types',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        'Choose which alerts you want to receive',
+                        style: TextStyle(color: subColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          Divider(height: 1, color: divColor),
+
+          // ✅ الجزء القابل للـ scroll (القائمة + Quiet Hours)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: bottomInset + 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Toggle List ────────────────────────────────────────
+                  _TypeTile(
+                    emoji: '🔔',
+                    label: 'Daily Reminder',
+                    description: 'Morning summary & daily goals',
+                    value: _prefs.dailyReminder,
+                    color: const Color(0xFF9B9B9B),
+                    isDark: isDark,
+                    onChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(dailyReminder: v),
+                    ),
+                  ),
+                  Divider(height: 1, indent: 68, color: divColor),
+
+                  _TypeTile(
+                    emoji: '🎉',
+                    label: 'Goal Alerts',
+                    description: 'Get notified when you hit your goals',
+                    value: _prefs.goalAlerts,
+                    color: const Color(0xFF4361EE),
+                    isDark: isDark,
+                    onChanged: (v) =>
+                        setState(() => _prefs = _prefs.copyWith(goalAlerts: v)),
+                  ),
+                  Divider(height: 1, indent: 68, color: divColor),
+
+                  _TypeTile(
+                    emoji: '💧',
+                    label: 'Water Reminders',
+                    description: 'Stay hydrated throughout the day',
+                    value: _prefs.waterReminders,
+                    color: const Color(0xFF4CC9F0),
+                    isDark: isDark,
+                    onChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(waterReminders: v),
+                    ),
+                  ),
+                  Divider(height: 1, indent: 68, color: divColor),
+
+                  _TypeTile(
+                    emoji: '🥗',
+                    label: 'Meal Reminders',
+                    description: 'Log your meals on time',
+                    value: _prefs.mealReminders,
+                    color: const Color(0xFF51CF66),
+                    isDark: isDark,
+                    onChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(mealReminders: v),
+                    ),
+                  ),
+                  Divider(height: 1, indent: 68, color: divColor),
+
+                  _TypeTile(
+                    emoji: '🏃',
+                    label: 'Activity Reminders',
+                    description: 'Move your body & hit step goals',
+                    value: _prefs.activityReminders,
+                    color: const Color(0xFF63E6BE),
+                    isDark: isDark,
+                    onChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(activityReminders: v),
+                    ),
+                  ),
+                  Divider(height: 1, indent: 68, color: divColor),
+
+                  _TypeTile(
+                    emoji: '🌙',
+                    label: 'Sleep Reminders',
+                    description: 'Wind down & improve sleep quality',
+                    value: _prefs.sleepReminders,
+                    color: const Color(0xFF7B5EA7),
+                    isDark: isDark,
+                    onChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(sleepReminders: v),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ── Quiet Hours ──────────────────────────────────────────
+                  _QuietHoursRow(
+                    isDark: isDark,
+                    start: _prefs.quietHoursStart,
+                    end: _prefs.quietHoursEnd,
+                    textColor: textColor,
+                    subColor: subColor,
+                    onStartChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(quietHoursStart: v),
+                    ),
+                    onEndChanged: (v) => setState(
+                      () => _prefs = _prefs.copyWith(quietHoursEnd: v),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Save Button (ثابت في الأسفل) ──────────────────────────────
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, bottomInset + 20),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: const Color(0xFF4361EE),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () => widget.onSave(_prefs),
+                child: const Text(
+                  'Save Preferences',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Single type toggle tile ────────────────────────────────────────────────
+
+class _TypeTile extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String description;
+  final bool value;
+  final Color color;
+  final bool isDark;
+  final ValueChanged<bool> onChanged;
+
+  const _TypeTile({
+    required this.emoji,
+    required this.label,
+    required this.description,
+    required this.value,
+    required this.color,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final subColor = isDark ? Colors.white54 : Colors.grey.shade600;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+      subtitle: Text(
+        description,
+        style: TextStyle(color: subColor, fontSize: 11),
+      ),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: color,
+        activeTrackColor: color.withOpacity(0.25),
+        inactiveThumbColor: isDark ? Colors.white38 : Colors.grey.shade400,
+        inactiveTrackColor: isDark ? Colors.white12 : Colors.grey.shade200,
+      ),
+    );
+  }
+}
+
+// ── Quiet Hours Row ────────────────────────────────────────────────────────
+
+class _QuietHoursRow extends StatelessWidget {
+  final bool isDark;
+  final String start;
+  final String end;
+  final Color textColor;
+  final Color subColor;
+  final ValueChanged<String> onStartChanged;
+  final ValueChanged<String> onEndChanged;
+
+  const _QuietHoursRow({
+    required this.isDark,
+    required this.start,
+    required this.end,
+    required this.textColor,
+    required this.subColor,
+    required this.onStartChanged,
+    required this.onEndChanged,
+  });
+
+  Future<void> _pick(
+    BuildContext context,
+    String current,
+    ValueChanged<String> onChanged,
+  ) async {
+    final parts = current.split(':');
+    final initial = TimeOfDay(
+      hour: int.tryParse(parts[0]) ?? 22,
+      minute: int.tryParse(parts[1]) ?? 0,
+    );
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF4361EE),
+            brightness: isDark ? Brightness.dark : Brightness.light,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      final formatted =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      onChanged(formatted);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF1A1A2E) : const Color(0xFFF6F8FF);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.bedtime_outlined,
+                  color: Color(0xFF7B5EA7),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Quiet Hours',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'No notifications during this period',
+              style: TextStyle(color: subColor, fontSize: 11),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _TimeChip(
+                    label: 'From',
+                    time: start,
+                    isDark: isDark,
+                    onTap: () => _pick(context, start, onStartChanged),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimeChip(
+                    label: 'To',
+                    time: end,
+                    isDark: isDark,
+                    onTap: () => _pick(context, end, onEndChanged),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeChip extends StatelessWidget {
+  final String label;
+  final String time;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _TimeChip({
+    required this.label,
+    required this.time,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF4361EE).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF4361EE).withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF4361EE),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                const Icon(
+                  Icons.access_time_rounded,
+                  color: Color(0xFF4361EE),
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  time,
+                  style: const TextStyle(
+                    color: Color(0xFF4361EE),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1040,7 +1599,62 @@ class _TileRow extends StatelessWidget {
   }
 }
 
-// ✅ _GradSwitch — أضاف loading indicator
+/// Tile داخل الـ gradient card بيوديك لشاشة تانية
+class _GradTileRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _GradTileRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.65),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GradSwitch extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1086,7 +1700,8 @@ class _GradSwitch extends StatelessWidget {
           else
             Switch(
               value: value,
-              onChanged: onChanged,
+              // ✅ null = disabled أثناء الـ loading يمنع double-tap
+              onChanged: loading ? null : onChanged,
               activeColor: Colors.white,
               activeTrackColor: Colors.white.withOpacity(0.4),
               inactiveThumbColor: Colors.white.withOpacity(0.7),

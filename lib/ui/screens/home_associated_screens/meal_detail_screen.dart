@@ -1120,7 +1120,6 @@ class _MacroBreakdownCard extends StatelessWidget {
           const SizedBox(height: 18),
 
           ...macros.asMap().entries.map((e) {
-            final i = e.key;
             final m = e.value;
             final v = m['value'] as int;
             final c = m['color'] as Color;

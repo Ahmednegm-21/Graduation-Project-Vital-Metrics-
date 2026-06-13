@@ -1,5 +1,4 @@
 import 'package:vital_metrics/data/config/api_config.dart';
-import 'package:vital_metrics/data/exceptions/api_exception.dart';
 import 'package:vital_metrics/data/models/egyptian_meals_data.dart';
 import 'package:vital_metrics/services/api_service.dart';
 import 'package:vital_metrics/services/token_storage_service.dart';
