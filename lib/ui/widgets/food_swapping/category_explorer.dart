@@ -1,15 +1,17 @@
+// lib/ui/widgets/food_swapping/category_explorer.dart
+
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/data/models/food_item.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
 import 'package:vital_metrics/services/food_swap_service.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Category definitions
-// ─────────────────────────────────────────────────────────────────────────────
 class _CatDef {
   final String id;
   final String label;
@@ -33,7 +35,7 @@ class _CatDef {
 const _kPageSize = 30; // items shown per "load more" page
 
 final _cats = <_CatDef>[
-  // ── Protein pair
+  // Protein pair
   _CatDef(
     id: 'high_protein',
     label: 'High Protein',
@@ -52,7 +54,7 @@ final _cats = <_CatDef>[
     matches: (f) => f.protein <= 5,
     sort: (a, b) => a.protein.compareTo(b.protein),
   ),
-  // ── Calorie pair
+  // Calorie pair
   _CatDef(
     id: 'high_calorie',
     label: 'High Calorie',
@@ -71,7 +73,7 @@ final _cats = <_CatDef>[
     matches: (f) => f.calories <= 200,
     sort: (a, b) => a.calories.compareTo(b.calories),
   ),
-  // ── Carb pair
+  // Carb pair
   _CatDef(
     id: 'high_carb',
     label: 'High Carb',
@@ -90,7 +92,7 @@ final _cats = <_CatDef>[
     matches: (f) => f.carbs <= 10,
     sort: (a, b) => a.carbs.compareTo(b.carbs),
   ),
-  // ── Fat pair
+  // Fat pair
   _CatDef(
     id: 'high_fat',
     label: 'High Fat',
@@ -111,9 +113,7 @@ final _cats = <_CatDef>[
   ),
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CategoryExplorer — الشاشة الرئيسية
-// ─────────────────────────────────────────────────────────────────────────────
+// CategoryExplorer — main screen widget
 class CategoryExplorer extends StatefulWidget {
   final ValueChanged<FoodItem> onSelect;
   const CategoryExplorer({super.key, required this.onSelect});
@@ -131,6 +131,11 @@ class _CategoryExplorerState extends State<CategoryExplorer>
 
   List<FoodItem> _backendMeals = [];
   bool _loading = false;
+
+  // Tracks a manual refresh separately from the initial _loading flag so
+  // the refresh icon can show its own small spinner without re-triggering
+  // the big entrance animation or the top-of-screen loading indicator.
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -155,6 +160,23 @@ class _CategoryExplorerState extends State<CategoryExplorer>
     }
   }
 
+  // Forces FoodSwapService to re-fetch the meals catalog from the backend
+  // (replacing its in-memory cache), then re-runs the screen's own _load()
+  // so _backendMeals picks up the fresh data too. Needed because
+  // FoodSwapService is a long-lived singleton — without this, changes made
+  // server-side (e.g. an admin re-importing meals) never show up here
+  // until the app is fully restarted.
+  Future<void> _onRefresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await FoodSwapService().refreshCatalog();
+      await _load();
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   List<FoodItem> get _allFoods {
     final local = FoodSwapService().allFoods;
     final ids = _backendMeals.map((f) => f.id).toSet();
@@ -166,7 +188,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
 
   int _countFor(_CatDef def) => _allFoods.where(def.matches).length;
 
-  void _open(_CatDef def) {
+  void _open(_CatDef def, bool isArabic) {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
@@ -176,6 +198,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
       builder: (_) => _CategorySheet(
         def: def,
         allFoods: _foodsFor(def),
+        isArabic: isArabic,
         onSelect: widget.onSelect,
       ),
     );
@@ -183,13 +206,14 @@ class _CategoryExplorerState extends State<CategoryExplorer>
 
   @override
   Widget build(BuildContext context) {
-    // CustomScrollView بدل SingleChildScrollView + GridView عشان ما فيش overflow
+    final isArabic = context.watch<LocaleCubit>().state;
+
+    // CustomScrollView instead of SingleChildScrollView + GridView to avoid overflow
     return CustomScrollView(
       slivers: [
-        // ── padding top
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
 
-        // ── Hero
+        // Hero
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 20.w),
           sliver: SliverToBoxAdapter(
@@ -204,7 +228,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
 
         SliverToBoxAdapter(child: SizedBox(height: 24.h)),
 
-        // ── Title row
+        // Title row
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 20.w),
           sliver: SliverToBoxAdapter(
@@ -232,6 +256,30 @@ class _CategoryExplorerState extends State<CategoryExplorer>
                         color: AppColors.swapGreen,
                       ),
                     ),
+                  SizedBox(width: 8.w),
+                  // Manual refresh — re-fetches the catalog from the
+                  // backend so changes made by an admin (e.g. re-import)
+                  // show up here without needing a full app restart.
+                  GestureDetector(
+                    onTap: _refreshing ? null : _onRefresh,
+                    child: Padding(
+                      padding: EdgeInsets.all(4.w),
+                      child: _refreshing
+                          ? SizedBox(
+                              width: 14.w,
+                              height: 14.h,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.swapGreen,
+                              ),
+                            )
+                          : Icon(
+                              Icons.refresh_rounded,
+                              size: 18.sp,
+                              color: AppColors.swapGreen,
+                            ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -240,7 +288,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
 
         SliverToBoxAdapter(child: SizedBox(height: 14.h)),
 
-        // ── 2-column grid — SliverGrid لا overflow أبداً
+        // 2-column grid — SliverGrid avoids overflow
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 20.w),
           sliver: SliverGrid(
@@ -248,7 +296,6 @@ class _CategoryExplorerState extends State<CategoryExplorer>
               crossAxisCount: 2,
               crossAxisSpacing: 12.w,
               mainAxisSpacing: 12.h,
-              // glass card height
               mainAxisExtent: 185.h,
             ),
             delegate: SliverChildBuilderDelegate(
@@ -274,7 +321,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
                   child: _CategoryCard(
                     def: def,
                     count: _countFor(def),
-                    onTap: () => _open(def),
+                    onTap: () => _open(def, isArabic),
                   ),
                 );
               },
@@ -289,9 +336,7 @@ class _CategoryExplorerState extends State<CategoryExplorer>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Category card — Glassmorphism + shimmer + arc + tilt + particles
-// ─────────────────────────────────────────────────────────────────────────────
 class _CategoryCard extends StatefulWidget {
   final _CatDef def;
   final int count;
@@ -303,7 +348,7 @@ class _CategoryCard extends StatefulWidget {
   State<_CategoryCard> createState() => _CategoryCardState();
 }
 
-// ── tiny particle data
+// tiny particle data
 class _Particle {
   double x, y, size, speed, opacity, phase;
   _Particle(this.x, this.y, this.size, this.speed, this.opacity, this.phase);
@@ -418,7 +463,6 @@ class _CategoryCardState extends State<_CategoryCard>
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22.r),
-        // outer glow
         boxShadow: [
           BoxShadow(
             color: accent.withOpacity(.28 + _press.value * .12),
@@ -454,7 +498,7 @@ class _CategoryCardState extends State<_CategoryCard>
             ),
             child: Stack(
               children: [
-                // ── background accent blob
+                // background accent blob
                 Positioned(
                   bottom: -20.h,
                   right: -20.w,
@@ -471,7 +515,7 @@ class _CategoryCardState extends State<_CategoryCard>
                   ),
                 ),
 
-                // ── particles
+                // particles
                 ..._pts.map((p) {
                   final t = (_particles.value + p.phase / (math.pi * 2)) % 1.0;
                   final py = (p.y - t * p.speed) % 1.0;
@@ -490,7 +534,7 @@ class _CategoryCardState extends State<_CategoryCard>
                   );
                 }),
 
-                // ── shimmer sweep
+                // shimmer sweep
                 Positioned.fill(
                   child: ShaderMask(
                     blendMode: BlendMode.srcIn,
@@ -512,7 +556,7 @@ class _CategoryCardState extends State<_CategoryCard>
                   ),
                 ),
 
-                // ── main content
+                // main content
                 Padding(
                   padding: EdgeInsets.fromLTRB(13.w, 13.h, 13.w, 11.h),
                   child: Column(
@@ -523,7 +567,6 @@ class _CategoryCardState extends State<_CategoryCard>
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Animated circular arc
                           SizedBox(
                             width: 46.w,
                             height: 46.w,
@@ -536,7 +579,6 @@ class _CategoryCardState extends State<_CategoryCard>
                             ),
                           ),
                           const Spacer(),
-                          // glass chip — count
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10.r),
                             child: BackdropFilter(
@@ -603,9 +645,7 @@ class _CategoryCardState extends State<_CategoryCard>
                         child: SizedBox(
                           height: 3.5.h,
                           child: Stack(children: [
-                            // track
                             Container(color: trackColor),
-                            // fill
                             FractionallySizedBox(
                               widthFactor: _arcVal.value * ratio,
                               child: Container(
@@ -639,9 +679,7 @@ class _CategoryCardState extends State<_CategoryCard>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Arc painter — رسم الدايري + emoji في النص
-// ─────────────────────────────────────────────────────────────────────────────
+// Arc painter — draws the circular progress ring + emoji in the center
 class _ArcPainter extends CustomPainter {
   final double progress;
   final Color accent;
@@ -661,7 +699,6 @@ class _ArcPainter extends CustomPainter {
     const startAngle = -math.pi / 2;
     const fullSweep = math.pi * 2;
 
-    // track
     canvas.drawCircle(
       Offset(cx, cy),
       r,
@@ -672,7 +709,6 @@ class _ArcPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // arc fill with gradient
     if (progress > 0.01) {
       final rect = Rect.fromCircle(center: Offset(cx, cy), radius: r);
       final gradPaint = Paint()
@@ -686,7 +722,6 @@ class _ArcPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(rect, startAngle, fullSweep * progress, false, gradPaint);
 
-      // glow dot at tip
       final tipAngle = startAngle + fullSweep * progress;
       final tx = cx + r * math.cos(tipAngle);
       final ty = cy + r * math.sin(tipAngle);
@@ -700,7 +735,6 @@ class _ArcPainter extends CustomPainter {
       canvas.drawCircle(Offset(tx, ty), 2.5, Paint()..color = Colors.white);
     }
 
-    // emoji in center
     final tp = TextPainter(
       text: TextSpan(
         text: emoji,
@@ -719,17 +753,17 @@ class _ArcPainter extends CustomPainter {
       old.progress != progress || old.accent != accent;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom sheet — كل الداتا + load more
-// ─────────────────────────────────────────────────────────────────────────────
+// Bottom sheet — full data + load more
 class _CategorySheet extends StatefulWidget {
   final _CatDef def;
-  final List<FoodItem> allFoods; // كل الداتا بدون حد
+  final List<FoodItem> allFoods;
+  final bool isArabic;
   final ValueChanged<FoodItem> onSelect;
 
   const _CategorySheet({
     required this.def,
     required this.allFoods,
+    required this.isArabic,
     required this.onSelect,
   });
 
@@ -739,7 +773,6 @@ class _CategorySheet extends StatefulWidget {
 
 class _CategorySheetState extends State<_CategorySheet>
     with TickerProviderStateMixin {
-  // ── animations
   late final AnimationController _sheetCtrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 420))
     ..forward();
@@ -748,7 +781,6 @@ class _CategorySheetState extends State<_CategorySheet>
   late final AnimationController _gridCtrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 650));
 
-  // ── pagination
   int _shownCount = _kPageSize;
   late final ScrollController _scrollCtrl;
   bool _loadingMore = false;
@@ -776,7 +808,6 @@ class _CategorySheetState extends State<_CategorySheet>
   }
 
   void _onScroll() {
-    // لما يوصل لـ 80% من الـ scroll يحمل المزيد
     if (_loadingMore || !_hasMore) return;
     final pos = _scrollCtrl.position;
     if (pos.pixels >= pos.maxScrollExtent * 0.8) {
@@ -786,7 +817,6 @@ class _CategorySheetState extends State<_CategorySheet>
 
   Future<void> _loadMore() async {
     setState(() => _loadingMore = true);
-    // Simulate tiny delay for smooth UX
     await Future.delayed(const Duration(milliseconds: 300));
     if (mounted) {
       setState(() {
@@ -799,8 +829,8 @@ class _CategorySheetState extends State<_CategorySheet>
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.def.accent;
-    final bg = widget.def.bg;
+    final accent  = widget.def.accent;
+    final bg      = widget.def.bg;
     final visible = _visibleFoods;
 
     return SlideTransition(
@@ -820,7 +850,7 @@ class _CategorySheetState extends State<_CategorySheet>
           ),
           child: Column(
             children: [
-              // ── drag handle
+              // drag handle
               Container(
                 margin: EdgeInsets.only(top: 10.h),
                 width: 38.w,
@@ -831,7 +861,7 @@ class _CategorySheetState extends State<_CategorySheet>
                 ),
               ),
 
-              // ── header
+              // header
               AnimatedBuilder(
                 animation: _headerCtrl,
                 builder: (_, child) {
@@ -869,7 +899,6 @@ class _CategorySheetState extends State<_CategorySheet>
                   ),
                   child: Row(
                     children: [
-                      // Emoji glow
                       Container(
                         width: 60.w,
                         height: 60.w,
@@ -924,7 +953,6 @@ class _CategorySheetState extends State<_CategorySheet>
                           ],
                         ),
                       ),
-                      // Close
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
@@ -943,7 +971,7 @@ class _CategorySheetState extends State<_CategorySheet>
                 ),
               ),
 
-              // ── grid — CustomScrollView داخل الـ sheet
+              // grid — CustomScrollView inside the sheet
               Expanded(
                 child: widget.allFoods.isEmpty
                     ? Center(
@@ -970,7 +998,6 @@ class _CategorySheetState extends State<_CategorySheet>
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (_, i) {
-                                  // انيميشن بس على أول batch
                                   final animated = i < _kPageSize;
                                   final delay =
                                       (i * .035).clamp(0.0, .55);
@@ -999,6 +1026,7 @@ class _CategorySheetState extends State<_CategorySheet>
                                           child: _FoodTile(
                                             food: visible[i],
                                             accent: accent,
+                                            isArabic: widget.isArabic,
                                             onTap: () {
                                               HapticFeedback
                                                   .selectionClick();
@@ -1010,6 +1038,7 @@ class _CategorySheetState extends State<_CategorySheet>
                                       : _FoodTile(
                                           food: visible[i],
                                           accent: accent,
+                                          isArabic: widget.isArabic,
                                           onTap: () {
                                             HapticFeedback.selectionClick();
                                             Navigator.pop(context);
@@ -1022,7 +1051,7 @@ class _CategorySheetState extends State<_CategorySheet>
                             ),
                           ),
 
-                          // ── Load more indicator
+                          // Load more indicator
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: EdgeInsets.symmetric(
@@ -1091,9 +1120,7 @@ class _CategorySheetState extends State<_CategorySheet>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Hero section
-// ─────────────────────────────────────────────────────────────────────────────
 class _HeroSection extends StatelessWidget {
   const _HeroSection();
 
@@ -1175,17 +1202,17 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Food tile
-// ─────────────────────────────────────────────────────────────────────────────
 class _FoodTile extends StatefulWidget {
   final FoodItem food;
   final Color accent;
+  final bool isArabic;
   final VoidCallback onTap;
 
   const _FoodTile({
     required this.food,
     required this.accent,
+    required this.isArabic,
     required this.onTap,
   });
 
@@ -1251,7 +1278,7 @@ class _FoodTileState extends State<_FoodTile>
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 5.w),
                 child: Text(
-                  widget.food.name,
+                  widget.food.displayName(isArabic: widget.isArabic),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

@@ -1,9 +1,13 @@
+// lib/data/models/recipe.dart
+
 import 'package:vital_metrics/data/models/meal_model.dart';
 import 'package:vital_metrics/data/utils/food_categorizer.dart';
+import 'package:vital_metrics/data/utils/meal_translation_lookup.dart';
 
 class Recipe {
   final String id;
   final String name;
+  final String nameEn;
   final int calories;
   final int protein;
   final int carbs;
@@ -15,6 +19,7 @@ class Recipe {
   const Recipe({
     required this.id,
     required this.name,
+    this.nameEn = '',
     required this.calories,
     required this.servingSize,
     required this.category,
@@ -24,19 +29,37 @@ class Recipe {
     this.fat = 0,
   });
 
-  // Emoji and category logic now lives in food_categorizer.dart
+  // Returns the right name based on locale.
+  // Falls back to the Arabic name if no English name was set.
+  String displayName({bool isArabic = true}) =>
+      isArabic || nameEn.isEmpty ? name : nameEn;
+
+  // Emoji and category logic lives in food_categorizer.dart
   // (single source of truth, shared with FoodSwapService).
-  factory Recipe.fromMealModel(MealModel meal) => Recipe(
-    id: meal.id.toString(),
-    name: meal.name,
-    calories: meal.calories.round(),
-    protein: meal.protein.round(),
-    carbs: meal.carbs.round(),
-    fat: meal.fat.round(),
-    servingSize: '1 Serving',
-    category: guessFoodCategory(meal.name),
-    emoji: guessFoodEmoji(meal.name),
-  );
+  //
+  // The admin panel backend only stores Arabic names (name_en is always
+  // empty from the API). When that happens, we translate locally using
+  // MealTranslationLookup, which matches against the egyptianMeals()
+  // dataset that already has English names for ~539 meals.
+  factory Recipe.fromMealModel(MealModel meal) {
+    final backendNameEn = meal.nameEn;
+    final resolvedNameEn = backendNameEn.isNotEmpty
+        ? backendNameEn
+        : MealTranslationLookup.englishForFuzzy(meal.name);
+
+    return Recipe(
+      id: meal.id.toString(),
+      name: meal.name,
+      nameEn: resolvedNameEn,
+      calories: meal.calories.round(),
+      protein: meal.protein.round(),
+      carbs: meal.carbs.round(),
+      fat: meal.fat.round(),
+      servingSize: '1 Serving',
+      category: guessFoodCategory(meal.name),
+      emoji: guessFoodEmoji(meal.name),
+    );
+  }
 
   static const List<Recipe> sampleRecipes = [
     Recipe(

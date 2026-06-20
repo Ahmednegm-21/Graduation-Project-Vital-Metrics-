@@ -123,7 +123,9 @@ class ProgressCubit extends Cubit<ProgressState> {
   // =====================================================
   // LOAD WEEKLY METRICS
   // Does not call HC directly — all live data comes from
-  // ActivityCubit via updateLocalBurned and updateLocalSteps
+  // ActivityCubit via updateLocalBurned and updateLocalSteps.
+  // For today: local value wins only if > 0, otherwise falls
+  // back to backend value so we never show 0 when data exists.
   // =====================================================
 
   Future<void> loadWeeklyMetrics({
@@ -206,20 +208,26 @@ class ProgressCubit extends Cubit<ProgressState> {
           return DailyMetricModel(
             metricId: metric.metricId,
             date: metric.date,
+            // For today: prefer local value if > 0, fallback to backend
+            // This prevents showing 0 when the user has not yet triggered
+            // ActivityCubit to push a live value
             totalSteps: isToday
                 ? (localSteps > 0 ? localSteps : metric.totalSteps)
                 : metric.totalSteps,
-            caloriesConsumed:
-                isToday ? localCalories : metric.caloriesConsumed,
-            // Today uses live value from ActivityCubit
-            // Previous days always use backend value
-            burnedTotal: isToday ? localBurned : metric.burnedTotal,
-            totalWaterMl: isToday ? localWater : metric.totalWaterMl,
+            caloriesConsumed: isToday
+                ? (localCalories > 0 ? localCalories : metric.caloriesConsumed)
+                : metric.caloriesConsumed,
+            burnedTotal: isToday
+                ? (localBurned > 0 ? localBurned : metric.burnedTotal)
+                : metric.burnedTotal,
+            totalWaterMl: isToday
+                ? (localWater > 0 ? localWater : metric.totalWaterMl)
+                : metric.totalWaterMl,
             totalSleepMinutes: metric.totalSleepMinutes,
           );
         }
 
-        // Current day with no backend record yet
+        // Current day with no backend record yet — use live local values
         if (isToday) {
           return DailyMetricModel(
             metricId: 0,

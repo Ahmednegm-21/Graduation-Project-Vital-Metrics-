@@ -62,13 +62,52 @@ class ActivityRepository {
         },
       );
 
-      final data  = response['data'] ?? response;
-      final saved = ActivityModel.fromBackendJson(data);
+      final data = response['data'] ?? response;
+
+      // The create response never includes a date field, only metrics_id
+      // We already know the real date since we just sent it, so inject it
+      // manually before parsing to avoid falling back to DateTime.now()
+      final enriched = Map<String, dynamic>.from(data as Map<String, dynamic>);
+      enriched['date'] = dateStr;
+
+      final saved = ActivityModel.fromBackendJson(enriched);
       return saved.copyWith(type: type);
     } on ApiException {
       rethrow;
     } catch (e) {
       throw ApiException(message: 'Failed to create activity: $e');
+    }
+  }
+
+  // =====================================================
+  // GET DAILY METRICS DATE MAP
+  // The /activities endpoint only returns metrics_id, not a date.
+  // We fetch daily-metrics and build metrics_id -> date so every
+  // activity can be resolved to its real day instead of "now".
+  // =====================================================
+
+  Future<Map<int, String>> _getMetricsIdToDateMap() async {
+    try {
+      final headers = await _authHeaders;
+      final raw = await _apiService.getAsList(
+        ApiConfig.getDailyMetrics,
+        headers: headers,
+        queryParameters: {'page': 1, 'limit': 60},
+      );
+
+      final map = <int, String>{};
+      for (final item in raw) {
+        final m = item as Map<String, dynamic>;
+        final id = (m['metrics_id'] ?? m['metric_id'] ?? m['id']) as int?;
+        final date = m['date']?.toString();
+        if (id != null && date != null) {
+          map[id] = date.length >= 10 ? date.substring(0, 10) : date;
+        }
+      }
+      return map;
+    } catch (e) {
+      print('[ActivityRepo] failed to load metrics date map: $e');
+      return {};
     }
   }
 
@@ -95,10 +134,24 @@ class ActivityRepository {
         },
       );
 
-      final activities = raw
-          .map((item) =>
-              ActivityModel.fromBackendJson(item as Map<String, dynamic>))
-          .toList();
+      // Resolve each activity's real date through its metrics_id
+      // since the /activities response itself has no date field
+      final metricsDateMap = await _getMetricsIdToDateMap();
+
+      final activities = raw.map((item) {
+        final m = item as Map<String, dynamic>;
+        final metricsId = (m['metrics_id'] ?? m['metricsId']) as int?;
+        final resolvedDate = metricsId != null ? metricsDateMap[metricsId] : null;
+
+        // Inject the resolved date before parsing so fromBackendJson
+        // uses the real day instead of falling back to DateTime.now()
+        final enriched = Map<String, dynamic>.from(m);
+        if (resolvedDate != null) {
+          enriched['date'] = resolvedDate;
+        }
+
+        return ActivityModel.fromBackendJson(enriched);
+      }).toList();
 
       // Filter to today only using local time to avoid timezone mismatches
       final todayActivities = activities.where((a) {

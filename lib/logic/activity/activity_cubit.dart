@@ -169,13 +169,13 @@ class ActivityCubit extends Cubit<ActivityState> {
         await prefs.remove(_kCachedDate);
         _localActivities.clear();
         print('[ActivityCubit] new day detected — cleared cached activities');
-        _rebuildLoaded();
+        _rebuildLoaded(pushToProgress: false);
         return;
       }
 
       final raw = prefs.getString(_kCachedActivities);
       if (raw == null) {
-        _rebuildLoaded();
+        _rebuildLoaded(pushToProgress: false);
         return;
       }
 
@@ -188,10 +188,10 @@ class ActivityCubit extends Cubit<ActivityState> {
         ..addAll(list);
 
       print('[ActivityCubit] loaded ${list.length} cached activities for $today');
-      _rebuildLoaded();
+      _rebuildLoaded(pushToProgress: false);
     } catch (e) {
       print('[ActivityCubit] _loadCachedActivities error: $e');
-      _rebuildLoaded();
+      _rebuildLoaded(pushToProgress: false);
     }
   }
 
@@ -225,7 +225,7 @@ class ActivityCubit extends Cubit<ActivityState> {
   void clearSnapshot() {
     _lastSnapshot = null;
     _fitService.clearPermissionCache();
-    _rebuildLoaded();
+    _rebuildLoaded(pushToProgress: true);
   }
 
   Future<void> _checkAndResetIfNewDay() async {
@@ -247,7 +247,7 @@ class ActivityCubit extends Cubit<ActivityState> {
     _activityLevel = level;
     onboardingCubit.updateActivityLevel(level);
     _saveActivityLevel();
-    _rebuildLoaded();
+    _rebuildLoaded(pushToProgress: true);
   }
 
   // =====================================================
@@ -265,7 +265,7 @@ class ActivityCubit extends Cubit<ActivityState> {
     if (!exists) _localActivities.add(activity);
 
     await _saveCachedActivities();
-    _rebuildLoaded();
+    _rebuildLoaded(pushToProgress: true);
 
     if (_isHealthConnectId(tempId)) return;
 
@@ -285,7 +285,7 @@ class ActivityCubit extends Cubit<ActivityState> {
       _localActivities.add(saved.copyWith(type: originalType));
 
       await _saveCachedActivities();
-      _rebuildLoaded();
+      _rebuildLoaded(pushToProgress: true);
     } catch (e) {
       print('[ActivityCubit] createActivity failed: $e | keeping temp entry');
     }
@@ -300,7 +300,7 @@ class ActivityCubit extends Cubit<ActivityState> {
     _localActivities.removeWhere((a) => a.id == id);
     await _removeOriginalType(id);
     await _saveCachedActivities();
-    _rebuildLoaded();
+    _rebuildLoaded(pushToProgress: true);
 
     if (_isHealthConnectId(id)) return;
 
@@ -311,7 +311,7 @@ class ActivityCubit extends Cubit<ActivityState> {
       await _saveOriginalTypes();
       _localActivities.addAll(removed);
       await _saveCachedActivities();
-      _rebuildLoaded();
+      _rebuildLoaded(pushToProgress: true);
     }
   }
 
@@ -378,23 +378,28 @@ class ActivityCubit extends Cubit<ActivityState> {
 
       if (_localActivities.isNotEmpty && cachedDate == today) {
         print('[ActivityCubit] using ${_localActivities.length} cached activities (same day)');
-        _rebuildLoaded();
+        // Load is done — safe to push to ProgressCubit now
+        _rebuildLoaded(pushToProgress: true);
         return;
       }
 
       _localActivities.clear();
-      _rebuildLoaded();
+      _rebuildLoaded(pushToProgress: true);
       return;
     }
 
-    _rebuildLoaded();
+    // Load fully completed — safe to push burned/steps to ProgressCubit
+    _rebuildLoaded(pushToProgress: true);
   }
 
   // =====================================================
   // REBUILD STATE
+  // pushToProgress: true only after _load() completes fully,
+  // false during intermediate steps like cache loading to avoid
+  // pushing 0 values that overwrite backend data in ProgressCubit
   // =====================================================
 
-  void _rebuildLoaded() {
+  void _rebuildLoaded({required bool pushToProgress}) {
     final snap     = _lastSnapshot;
     final userData = onboardingCubit.currentData;
 
@@ -434,12 +439,15 @@ class ActivityCubit extends Cubit<ActivityState> {
       }
     }
 
-    // Pass total burned including HC calories to ProgressCubit
-    // so the burned chart shows the correct value for today
-    final totalBurned = (snap?.caloriesBurned ?? 0) + extraCalories;
-    _progressCubit?.updateLocalBurned(totalBurned);
-    _progressCubit?.updateLocalSteps(snap?.steps ?? 0);
-    _progressCubit?.refresh();
+    // Only push to ProgressCubit after full load to avoid overwriting
+    // backend burned/steps data with 0 during intermediate loading steps
+    if (pushToProgress) {
+      final totalBurned = (snap?.caloriesBurned ?? 0) + extraCalories;
+      _progressCubit?.updateLocalBurned(totalBurned);
+      _progressCubit?.updateLocalSteps(snap?.steps ?? 0);
+      _progressCubit?.refresh();
+      print('[ActivityCubit] pushed to ProgressCubit => burned=$totalBurned steps=${snap?.steps ?? 0}');
+    }
   }
 
   // =====================================================

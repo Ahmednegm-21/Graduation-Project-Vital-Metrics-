@@ -1,3 +1,5 @@
+// lib/ui/screens/.../food_swapping_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,8 +13,10 @@ import 'package:vital_metrics/data/models/user_goal.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_cubit.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_state.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/category_explorer.dart';
+import 'package:vital_metrics/ui/widgets/home_widgets/voice_search_button.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/search_category_bar.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/swap_card.dart';
 
@@ -78,6 +82,8 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = context.watch<LocaleCubit>().state;
+
     return Scaffold(
       backgroundColor: context.colors.bg,
       body: Column(
@@ -87,7 +93,7 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
             child: _Header(onBack: () => context.pop()),
           ),
 
-          // ── Search bar
+          // Search bar
           Padding(
             padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXL),
             child: _SearchBar(
@@ -101,20 +107,20 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
             ),
           ),
 
-          // ── Category filter bar
+          // Category filter bar
           BlocBuilder<FoodSwapCubit, FoodSwapState>(
             builder: (ctx, state) {
               final cubit   = ctx.read<FoodSwapCubit>();
               final catId   = cubit.searchCategory;
-              // اظهر الـ bar لو: focused أو فيه category مختار
               final visible = _searchFocused || catId != null;
               return SearchCategoryBar(
                 visible:           visible,
                 activeId:          catId,
                 onCategoryChanged: (id) {
-                  // ✅ دايماً نستدعي setSearchCategory
-                  // الـ cubit هو اللي يقرر يعمل search أو لأ
                   cubit.setSearchCategory(id);
+                  if (_searchCtrl.text.isNotEmpty) {
+                    cubit.search(_searchCtrl.text);
+                  }
                 },
               );
             },
@@ -125,41 +131,37 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
           Expanded(
             child: BlocBuilder<FoodSwapCubit, FoodSwapState>(
               builder: (ctx, state) {
-                // ── Initial: اظهر CategoryExplorer
                 if (state is FoodSwapInitial) {
                   return CategoryExplorer(
                     onSelect: (f) {
-                      _searchCtrl.text = f.name;
+                      _searchCtrl.text = f.displayName(isArabic: isArabic);
                       _searchFocusNode.unfocus();
                       ctx.read<FoodSwapCubit>().selectFood(f);
                     },
                   );
                 }
-
-                // ── Searching: اظهر نتايج البحث
                 if (state is FoodSwapSearching) {
                   return _SearchResults(
                     results:  state.results,
                     query:    state.query,
+                    isArabic: isArabic,
                     onSelect: (f) {
-                      _searchCtrl.text = f.name;
+                      _searchCtrl.text = f.displayName(isArabic: isArabic);
                       _searchFocusNode.unfocus();
                       ctx.read<FoodSwapCubit>().selectFood(f);
                     },
                   );
                 }
-
-                // ── Loaded: اظهر الـ swaps
                 if (state is FoodSwapLoaded) {
                   return _SwapResults(
-                    state:   state,
+                    state:    state,
+                    isArabic: isArabic,
                     onReset: () {
                       _searchCtrl.clear();
                       ctx.read<FoodSwapCubit>().reset();
                     },
                   );
                 }
-
                 return const SizedBox.shrink();
               },
             ),
@@ -170,7 +172,7 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
   const _Header({required this.onBack});
@@ -255,7 +257,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Search bar ────────────────────────────────────────────────────────────────
+// Search bar
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode             focusNode;
@@ -315,7 +317,17 @@ class _SearchBar extends StatelessWidget {
                       size:  18.sp,
                     ),
                   )
-                : const SizedBox.shrink(),
+                : VoiceSearchButton(
+                    onResult: (text) {
+                      final cleaned = text.trim().replaceAll(RegExp(r'[،,.]'), '');
+                      controller.value = controller.value.copyWith(
+                        text: cleaned,
+                        selection: TextSelection.collapsed(offset: cleaned.length),
+                      );
+                      onChanged(cleaned);
+                    },
+                    idleColor: context.colors.subText,
+                  ),
           ),
           border:         InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
@@ -328,15 +340,17 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-// ── Search results ────────────────────────────────────────────────────────────
+// Search results
 class _SearchResults extends StatelessWidget {
-  final List<FoodItem>         results;
-  final String                 query;
+  final List<FoodItem>      results;
+  final String              query;
+  final bool                isArabic;
   final ValueChanged<FoodItem> onSelect;
 
   const _SearchResults({
     required this.results,
     required this.query,
+    required this.isArabic,
     required this.onSelect,
   });
 
@@ -348,9 +362,7 @@ class _SearchResults extends StatelessWidget {
           Text('😕', style: TextStyle(fontSize: 44.sp)),
           SizedBox(height: AppConstants.spaceM),
           Text(
-            query.isEmpty
-                ? 'No foods in this category'
-                : 'No results for "$query"',
+            'No results for "$query"',
             style: TextStyle(fontSize: 14.sp, color: context.colors.subText),
           ),
         ]),
@@ -395,7 +407,7 @@ class _SearchResults extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      f.name,
+                      f.displayName(isArabic: isArabic),
                       style: TextStyle(
                         fontSize:   14.sp,
                         fontWeight: FontWeight.w700,
@@ -451,11 +463,12 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── Swap results ──────────────────────────────────────────────────────────────
+// Swap results
 class _SwapResults extends StatefulWidget {
   final FoodSwapLoaded state;
-  final VoidCallback   onReset;
-  const _SwapResults({required this.state, required this.onReset});
+  final bool isArabic;
+  final VoidCallback onReset;
+  const _SwapResults({required this.state, required this.isArabic, required this.onReset});
 
   @override
   State<_SwapResults> createState() => _SwapResultsState();
@@ -479,14 +492,15 @@ class _SwapResultsState extends State<_SwapResults>
 
   @override
   Widget build(BuildContext context) {
-    final s    = widget.state;
-    final orig = s.result.original;
-    final alts = s.result.alternatives;
+    final s        = widget.state;
+    final isArabic = widget.isArabic;
+    final orig     = s.result.original;
+    final alts     = s.result.alternatives;
 
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXL),
       children: [
-        _OriginalCard(food: orig, onReset: widget.onReset),
+        _OriginalCard(food: orig, isArabic: isArabic, onReset: widget.onReset),
         SizedBox(height: AppConstants.spaceL),
         _PortionSlider(grams: s.portionGrams, food: orig),
         SizedBox(height: AppConstants.spaceL),
@@ -550,11 +564,12 @@ class _SwapResultsState extends State<_SwapResults>
                 alt:              alts[i],
                 original:         orig,
                 index:            i,
+                isArabic:         isArabic,
                 isFavorite:       s.favoriteIds.contains(alts[i].food.id),
                 onFavoriteToggle: () =>
                     context.read<FoodSwapCubit>().toggleFavorite(alts[i].food.id),
                 onAddToLog: () =>
-                    _showAddToLogSheet(context, alts[i], s.portionGrams),
+                    _showAddToLogSheet(context, alts[i], s.portionGrams, isArabic),
               ),
             );
           }),
@@ -568,10 +583,12 @@ class _SwapResultsState extends State<_SwapResults>
     BuildContext context,
     SwapAlternative alt,
     double portionGrams,
+    bool isArabic,
   ) {
     String selectedMeal = 'lunch';
-    final idx  = widget.state.result.alternatives.indexOf(alt);
-    final grad = AppColors.swapGradient(idx);
+    final idx     = widget.state.result.alternatives.indexOf(alt);
+    final grad    = AppColors.swapGradient(idx);
+    final altName = alt.food.displayName(isArabic: isArabic);
 
     showModalBottomSheet(
       context:         context,
@@ -605,7 +622,7 @@ class _SwapResultsState extends State<_SwapResults>
             ),
             SizedBox(height: 6.h),
             Text(
-              '${alt.food.emoji} ${alt.food.name}  •  ${portionGrams.round()}g',
+              '${alt.food.emoji} $altName  •  ${portionGrams.round()}g',
               style: TextStyle(fontSize: 13.sp, color: context.colors.subText),
             ),
             SizedBox(height: AppConstants.spaceXL),
@@ -663,7 +680,7 @@ class _SwapResultsState extends State<_SwapResults>
               onTap: () {
                 final scaled = alt.food.scaledTo(portionGrams);
                 context.read<CalorieCubit>().addMeal(MealEntry(
-                  name:     alt.food.name,
+                  name:     altName,
                   calories: scaled.calories.round(),
                   protein:  scaled.protein.round(),
                   carbs:    scaled.carbs.round(),
@@ -673,7 +690,7 @@ class _SwapResultsState extends State<_SwapResults>
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                    '${alt.food.emoji} ${alt.food.name} added to $selectedMeal!',
+                    '${alt.food.emoji} $altName added to $selectedMeal!',
                     style: const TextStyle(color: AppColors.white),
                   ),
                   backgroundColor: AppColors.swapGreen,
@@ -727,7 +744,7 @@ class _SwapResultsState extends State<_SwapResults>
   }
 }
 
-// ── Portion slider ────────────────────────────────────────────────────────────
+// Portion slider
 class _PortionSlider extends StatelessWidget {
   final double   grams;
   final FoodItem food;
@@ -843,11 +860,12 @@ class _MiniMacro extends StatelessWidget {
   }
 }
 
-// ── Original card ─────────────────────────────────────────────────────────────
+// Original card
 class _OriginalCard extends StatelessWidget {
   final FoodItem     food;
+  final bool         isArabic;
   final VoidCallback onReset;
-  const _OriginalCard({required this.food, required this.onReset});
+  const _OriginalCard({required this.food, required this.isArabic, required this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -877,7 +895,7 @@ class _OriginalCard extends StatelessWidget {
                 ),
               ),
               Text(
-                food.name,
+                food.displayName(isArabic: isArabic),
                 style: TextStyle(
                   fontSize:   18.sp,
                   fontWeight: FontWeight.w900,
@@ -908,7 +926,7 @@ class _OriginalCard extends StatelessWidget {
   }
 }
 
-// ── Empty alternatives ────────────────────────────────────────────────────────
+// Empty alternatives
 class _EmptyAlts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
 import 'package:vital_metrics/services/notification_api_service.dart';
 import 'package:vital_metrics/data/models/notification_preferences_model.dart';
@@ -22,12 +23,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // ── Single source of truth للـ preferences ─────────────────────────────
+  // Single source of truth for notification preferences
   NotificationPreferencesModel _currentPrefs =
       const NotificationPreferencesModel();
   bool _notifLoading = false;
 
-  String _language = 'English';
   String _username = 'Abdelrhman';
   String _email = 'Abdelrhman@gmail.com';
   String? _avatarPath;
@@ -41,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadNotifPreference();
   }
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // Load
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
@@ -52,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  /// GET /notifications/preferences — بيجيب الـ object كامل ويحتفظ بيه
+  // GET /notifications/preferences — fetches the full object and keeps it
   Future<void> _loadNotifPreference() async {
     try {
       final pref = await _notifService.getPreferences();
@@ -62,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  // Save
 
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
@@ -83,34 +83,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Toggle master push switch ──────────────────────────────────────────────
+  // Toggle master push switch
   Future<void> _toggleNotifications(bool value) async {
-    // منع double-tap أثناء الـ loading
+    // prevent double-tap while loading
     if (_notifLoading) return;
 
     final previous = _currentPrefs;
 
-    // ✅ optimistic update فوري — بيتغير الـ UI على طول
+    // optimistic update — UI changes immediately
     setState(() {
       _currentPrefs = _currentPrefs.copyWith(pushEnabled: value);
       _notifLoading = true;
     });
 
     try {
-      // بنبعت الـ object كامل — ومش بنعمل setState من الـ response
-      // عشان السيرفر ممكن يرجع pushEnabled: true حتى لو بعتنا false
+      // send the full object — we don't setState from the response
+      // because the server might return pushEnabled: true even if we sent false
       await _notifService.updatePreferences(_currentPrefs);
     } catch (e) {
       debugPrint('[Settings] toggleNotifications error: $e');
-      // revert بس لو في error فعلي من السيرفر
+      // revert only if there was an actual server error
       if (mounted) setState(() => _currentPrefs = previous);
     } finally {
       if (mounted) setState(() => _notifLoading = false);
     }
   }
 
-  // ── Update a single preference field ──────────────────────────────────────
-  /// بيستخدمه الـ NotificationTypesDialog لما يغير أي نوع
+  // Update a single preference field
+  // Used by the NotificationTypesDialog whenever any type changes
   Future<void> _updatePrefs(NotificationPreferencesModel updated) async {
     final previous = _currentPrefs;
     setState(() => _currentPrefs = updated);
@@ -123,7 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
+  // Logout
 
   Future<void> _logout() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) context.go('/signin');
   }
 
-  // ── TextField builder ──────────────────────────────────────────────────────
+  // TextField builder
 
   Widget _buildTextField(
     TextEditingController ctrl,
@@ -222,7 +222,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Edit Profile Dialog ────────────────────────────────────────────────────
+  // Edit Profile Dialog
 
   void _showEditProfileDialog(bool isDark) {
     final nameCtrl = TextEditingController(text: _username);
@@ -285,7 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Personal Information Dialog ────────────────────────────────────────────
+  // Personal Information Dialog
 
   void _showPersonalInfoDialog(bool isDark) {
     final info = context.read<PersonalInfoCubit>().state;
@@ -514,8 +514,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Notification Types Dialog ──────────────────────────────────────────────
-  /// Bottom sheet كامل بيعرض كل أنواع الإشعارات مع switch لكل نوع
+  // Notification Types Dialog
+  // Full bottom sheet with a switch for each notification type
   void _showNotificationTypesDialog(bool isDark) {
     showModalBottomSheet(
       context: context,
@@ -532,7 +532,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Reset Water Dialog ─────────────────────────────────────────────────────
+  // Reset Water Dialog
 
   void _showResetWaterDialog(bool isDark) {
     final dlgBg = isDark ? const Color(0xFF16213E) : Colors.white;
@@ -587,7 +587,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // Build
 
   @override
   Widget build(BuildContext context) {
@@ -625,7 +625,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // ── Profile Card ─────────────────────────────────────────────
+            // Profile Card
             FadeInDown(
               child: GestureDetector(
                 onTap: () => _showEditProfileDialog(isDark),
@@ -734,7 +734,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Account ──────────────────────────────────────────────────
+            // Account
             FadeInDown(
               delay: const Duration(milliseconds: 100),
               child: _SectionCard(
@@ -783,7 +783,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── General ───────────────────────────────────────────────────
+            // General
             FadeInDown(
               delay: const Duration(milliseconds: 200),
               child: Column(
@@ -818,7 +818,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     child: Column(
                       children: [
-                        // ✅ master push toggle — بيحتفظ بكل الـ prefs
+                        // master push toggle — keeps all the prefs
                         _GradSwitch(
                           icon: Icons.notifications_outlined,
                           label: 'Notifications',
@@ -827,7 +827,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onChanged: _toggleNotifications,
                         ),
 
-                        // ✅ Notification Types — يفتح الـ sheet
+                        // Notification Types — opens the sheet
                         if (_currentPrefs.pushEnabled) ...[
                           const _GradDivider(),
                           _GradTileRow(
@@ -839,10 +839,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
 
                         const _GradDivider(),
-                        _GradLanguage(
-                          value: _language,
-                          onChanged: (v) => setState(() => _language = v),
-                        ),
+                        // Language toggle — Arabic / English only, drives LocaleCubit
+                        const _GradLanguage(),
+
                         const _GradDivider(),
                         BlocBuilder<ThemeCubit, bool>(
                           builder: (ctx, dark) => _GradSwitch(
@@ -861,7 +860,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Water ────────────────────────────────────────────────────
+            // Water
             FadeInDown(
               delay: const Duration(milliseconds: 300),
               child: _SectionCard(
@@ -902,7 +901,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── More ─────────────────────────────────────────────────────
+            // More
             FadeInDown(
               delay: const Duration(milliseconds: 400),
               child: _SectionCard(
@@ -938,7 +937,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Log Out Button ────────────────────────────────────────────
+            // Log Out Button
             FadeInDown(
               delay: const Duration(milliseconds: 500),
               child: SizedBox(
@@ -973,7 +972,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// label مختصر بيوضح الـ active types في الـ tile
+  // short label that shows the active types in the tile
   String get _activeTypesLabel {
     final p = _currentPrefs;
     final active = <String>[];
@@ -989,9 +988,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// _NotificationTypesSheet — Bottom Sheet لتحكم في أنواع الإشعارات
-// ═════════════════════════════════════════════════════════════════════════════
+// _NotificationTypesSheet — bottom sheet that controls notification types
 
 class _NotificationTypesSheet extends StatefulWidget {
   final bool isDark;
@@ -1018,7 +1015,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
     _prefs = widget.currentPrefs;
   }
 
-  // ── UI ────────────────────────────────────────────────────────────────────
+  // UI
 
   @override
   Widget build(BuildContext context) {
@@ -1032,7 +1029,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      // ✅ maxHeight يمنع الـ sheet من تجاوز 90% من الشاشة
+      // maxHeight prevents the sheet from exceeding 90% of the screen
       constraints: BoxConstraints(maxHeight: screenHeight * 0.90),
       decoration: BoxDecoration(
         color: bg,
@@ -1048,7 +1045,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Handle (خارج الـ scroll — ثابت في الأعلى) ──────────────────
+          // Handle (fixed, outside the scroll)
           const SizedBox(height: 12),
           Container(
             width: 42,
@@ -1060,7 +1057,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
           ),
           const SizedBox(height: 20),
 
-          // ── Header (ثابت في الأعلى) ──────────────────────────────────────
+          // Header (fixed)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -1106,14 +1103,14 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
           const SizedBox(height: 16),
           Divider(height: 1, color: divColor),
 
-          // ✅ الجزء القابل للـ scroll (القائمة + Quiet Hours)
+          // scrollable part (list + Quiet Hours)
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: bottomInset + 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Toggle List ────────────────────────────────────────
+                  // Toggle List
                   _TypeTile(
                     emoji: '🔔',
                     label: 'Daily Reminder',
@@ -1192,7 +1189,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
 
                   const SizedBox(height: 20),
 
-                  // ── Quiet Hours ──────────────────────────────────────────
+                  // Quiet Hours
                   _QuietHoursRow(
                     isDark: isDark,
                     start: _prefs.quietHoursStart,
@@ -1213,7 +1210,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
             ),
           ),
 
-          // ── Save Button (ثابت في الأسفل) ──────────────────────────────
+          // Save Button (fixed at the bottom)
           Padding(
             padding: EdgeInsets.fromLTRB(20, 0, 20, bottomInset + 20),
             child: SizedBox(
@@ -1245,7 +1242,7 @@ class _NotificationTypesSheetState extends State<_NotificationTypesSheet> {
   }
 }
 
-// ── Single type toggle tile ────────────────────────────────────────────────
+// Single type toggle tile
 
 class _TypeTile extends StatelessWidget {
   final String emoji;
@@ -1306,7 +1303,7 @@ class _TypeTile extends StatelessWidget {
   }
 }
 
-// ── Quiet Hours Row ────────────────────────────────────────────────────────
+// Quiet Hours Row
 
 class _QuietHoursRow extends StatelessWidget {
   final bool isDark;
@@ -1485,9 +1482,7 @@ class _TimeChip extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
 // Helper Widgets
-// ═════════════════════════════════════════════════════════════════════════════
 
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -1599,7 +1594,7 @@ class _TileRow extends StatelessWidget {
   }
 }
 
-/// Tile داخل الـ gradient card بيوديك لشاشة تانية
+// Tile inside the gradient card that navigates to another screen
 class _GradTileRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1700,7 +1695,7 @@ class _GradSwitch extends StatelessWidget {
           else
             Switch(
               value: value,
-              // ✅ null = disabled أثناء الـ loading يمنع double-tap
+              // null = disabled while loading, prevents double-tap
               onChanged: loading ? null : onChanged,
               activeColor: Colors.white,
               activeTrackColor: Colors.white.withOpacity(0.4),
@@ -1713,14 +1708,16 @@ class _GradSwitch extends StatelessWidget {
   }
 }
 
+// Language row — Arabic / English toggle wired to LocaleCubit.
+// This is the single switch that controls which language is used
+// everywhere FoodItem.displayName / Recipe.displayName are read.
 class _GradLanguage extends StatelessWidget {
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  const _GradLanguage({required this.value, required this.onChanged});
+  const _GradLanguage();
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = context.watch<LocaleCubit>().state;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -1737,22 +1734,64 @@ class _GradLanguage extends StatelessWidget {
               ),
             ),
           ),
-          DropdownButton<String>(
-            value: value,
-            dropdownColor: const Color(0xFF4361EE),
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            iconEnabledColor: Colors.white,
-            underline: const SizedBox(),
-            items: [
-              'English',
-              'Arabic',
-              'French',
-            ].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
-            onChanged: (v) {
-              if (v != null) onChanged(v);
-            },
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _LangChip(
+                  label: 'EN',
+                  selected: !isArabic,
+                  onTap: () => context.read<LocaleCubit>().setArabic(false),
+                ),
+                _LangChip(
+                  label: 'عربي',
+                  selected: isArabic,
+                  onTap: () => context.read<LocaleCubit>().setArabic(true),
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LangChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LangChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF4361EE) : Colors.white70,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }

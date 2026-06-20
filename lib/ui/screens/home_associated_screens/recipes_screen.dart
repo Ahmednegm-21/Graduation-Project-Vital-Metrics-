@@ -1,3 +1,5 @@
+// lib/ui/screens/.../recipes_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,8 @@ import 'package:vital_metrics/data/models/recipe.dart';
 import 'package:vital_metrics/data/repositories/meal_repository.dart';
 import 'package:vital_metrics/data/repositories/consumed_meal_repository.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
+import 'package:vital_metrics/ui/widgets/home_widgets/voice_search_button.dart';
 import 'meal_detail_screen.dart';
 
 class RecipesScreen extends StatefulWidget {
@@ -54,7 +58,6 @@ class _RecipesScreenState extends State<RecipesScreen>
     _loadRecipes();
   }
 
-  // ✅ FIX: جيب كل الوجبات بدل limit: 50
   Future<void> _loadRecipes() async {
     setState(() => _loading = true);
     try {
@@ -66,7 +69,7 @@ class _RecipesScreenState extends State<RecipesScreen>
         final batch = await _mealRepo.getMeals(page: page, limit: pageSize);
         if (batch.isEmpty) break;
         allMeals.addAll(batch);
-        if (batch.length < pageSize) break; // آخر صفحة
+        if (batch.length < pageSize) break;
         page++;
       }
 
@@ -99,12 +102,36 @@ class _RecipesScreenState extends State<RecipesScreen>
     super.dispose();
   }
 
+  // normalize — strip diacritics, unify alef/taa marbuta/yaa
+  static String _norm(String s) => s
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '')
+      .replaceAll(RegExp(r'[أإآٱ]'), 'ا')
+      .replaceAll(RegExp(r'ة'), 'ه')
+      .replaceAll(RegExp(r'ى'), 'ي')
+      .replaceAll(RegExp(r'[،,.\-_]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static bool _fuzzy(String name, String q) {
+    if (name.contains(q)) return true;
+    final words = q.split(' ').where((w) => w.length >= 2).toList();
+    if (words.isEmpty) return false;
+    return words.every((w) => name.contains(w));
+  }
+
+  // Search matches against both Arabic and English names
   List<Recipe> get _filtered => _recipes.where((r) {
-    final matchCat = _selectedFilter == 'ALL' || r.category == _selectedFilter;
-    final matchQ =
-        _query.isEmpty || r.name.toLowerCase().contains(_query.toLowerCase());
-    return matchCat && matchQ;
-  }).toList();
+        final matchCat =
+            _selectedFilter == 'ALL' || r.category == _selectedFilter;
+        if (!matchCat) return false;
+        if (_query.isEmpty) return true;
+        final q = _norm(_query);
+        final matchesArabic = _fuzzy(_norm(r.name), q);
+        final matchesEnglish =
+            r.nameEn.isNotEmpty && _fuzzy(_norm(r.nameEn), q);
+        return matchesArabic || matchesEnglish;
+      }).toList();
 
   double _mult(String id) => _servings[id] ?? 1.0;
   int _kcal(Recipe r) => (r.calories * _mult(r.id)).round();
@@ -123,6 +150,7 @@ class _RecipesScreenState extends State<RecipesScreen>
   }
 
   Future<void> _addSelected() async {
+    final isArabic = context.read<LocaleCubit>().state;
     final chosen = Set<String>.from(_chosen);
 
     for (final id in chosen) {
@@ -138,15 +166,15 @@ class _RecipesScreenState extends State<RecipesScreen>
       }
 
       context.read<CalorieCubit>().addMeal(
-        MealEntry(
-          name: r.name,
-          calories: _kcal(r),
-          protein: _protein(r),
-          carbs: _carbs(r),
-          fat: _fat(r),
-          mealType: _mealType ?? r.category,
-        ),
-      );
+            MealEntry(
+              name: r.displayName(isArabic: isArabic),
+              calories: _kcal(r),
+              protein: _protein(r),
+              carbs: _carbs(r),
+              fat: _fat(r),
+              mealType: _mealType ?? r.category,
+            ),
+          );
     }
 
     final total = chosen.fold(0, (s, id) {
@@ -161,9 +189,7 @@ class _RecipesScreenState extends State<RecipesScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '$count meal${count > 1 ? 's' : ''} added · +$total kcal',
-        ),
+        content: Text('$count meal${count > 1 ? 's' : ''} added · +$total kcal'),
         backgroundColor: const Color(0xFF4361EE),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -172,6 +198,7 @@ class _RecipesScreenState extends State<RecipesScreen>
   }
 
   Future<void> _openDetail(Recipe recipe) async {
+    final isArabic = context.read<LocaleCubit>().state;
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       PageRouteBuilder(
@@ -179,6 +206,7 @@ class _RecipesScreenState extends State<RecipesScreen>
         reverseTransitionDuration: const Duration(milliseconds: 320),
         pageBuilder: (_, __, ___) => MealDetailScreen(
           recipe: recipe,
+          isArabic: isArabic,
           mealType: _mealType,
           initiallySelected: _chosen.contains(recipe.id),
         ),
@@ -207,14 +235,24 @@ class _RecipesScreenState extends State<RecipesScreen>
     }
   }
 
+  // voice callback
+  void _onVoiceResult(String text) {
+    final cleaned = text.trim().replaceAll(RegExp(r'[،,.]'), '');
+    // notifyListeners manually since onChanged doesn't fire on programmatic text changes
+    _searchCtrl.value = _searchCtrl.value.copyWith(
+      text: cleaned,
+      selection: TextSelection.collapsed(offset: cleaned.length),
+    );
+    setState(() => _query = cleaned);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
+    final isArabic = context.watch<LocaleCubit>().state;
     final hasSel = _chosen.isNotEmpty;
     const primary = Color(0xFF4361EE);
-
-    final bottomNavHeight = 80.0;
-    final fabBottomPadding = bottomNavHeight + 48.0;
+    const fabBottomPadding = 80.0 + 48.0;
 
     return Scaffold(
       backgroundColor: context.colors.bg,
@@ -273,7 +311,7 @@ class _RecipesScreenState extends State<RecipesScreen>
               children: [
                 Column(
                   children: [
-                    // Search bar
+                    // Search bar + mic
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       child: Container(
@@ -293,7 +331,8 @@ class _RecipesScreenState extends State<RecipesScreen>
                           style: TextStyle(color: context.colors.text),
                           decoration: InputDecoration(
                             hintText: 'Search recipes',
-                            hintStyle: TextStyle(color: context.colors.subText),
+                            hintStyle:
+                                TextStyle(color: context.colors.subText),
                             prefixIcon: const Icon(
                               CupertinoIcons.search,
                               color: primary,
@@ -310,10 +349,9 @@ class _RecipesScreenState extends State<RecipesScreen>
                                       size: 18,
                                     ),
                                   )
-                                : Icon(
-                                    CupertinoIcons.mic,
-                                    color: context.colors.subText,
-                                    size: 20,
+                                : VoiceSearchButton(
+                                    onResult: _onVoiceResult,
+                                    idleColor: context.colors.subText,
                                   ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
@@ -332,12 +370,14 @@ class _RecipesScreenState extends State<RecipesScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         scrollDirection: Axis.horizontal,
                         itemCount: _filters.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: 8),
                         itemBuilder: (_, i) {
                           final f = _filters[i];
                           final sel = _selectedFilter == f;
                           return GestureDetector(
-                            onTap: () => setState(() => _selectedFilter = f),
+                            onTap: () =>
+                                setState(() => _selectedFilter = f),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
                               curve: Curves.easeOutCubic,
@@ -351,7 +391,8 @@ class _RecipesScreenState extends State<RecipesScreen>
                                 boxShadow: sel
                                     ? [
                                         BoxShadow(
-                                          color: primary.withOpacity(0.35),
+                                          color:
+                                              primary.withOpacity(0.35),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),
                                         ),
@@ -378,9 +419,7 @@ class _RecipesScreenState extends State<RecipesScreen>
                     // Header row
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
+                          horizontal: 16, vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -404,7 +443,8 @@ class _RecipesScreenState extends State<RecipesScreen>
                                       fontSize: 12,
                                     ),
                                   )
-                                : const SizedBox.shrink(key: ValueKey('e')),
+                                : const SizedBox.shrink(
+                                    key: ValueKey('e')),
                           ),
                         ],
                       ),
@@ -416,7 +456,7 @@ class _RecipesScreenState extends State<RecipesScreen>
                         color: primary,
                         onRefresh: _loadRecipes,
                         child: ListView.builder(
-                          padding: EdgeInsets.only(
+                          padding: const EdgeInsets.only(
                             left: 16,
                             right: 16,
                             bottom: fabBottomPadding + 64,
@@ -429,6 +469,7 @@ class _RecipesScreenState extends State<RecipesScreen>
                             return _RecipeTile(
                               key: ValueKey(recipe.id),
                               recipe: recipe,
+                              isArabic: isArabic,
                               isChosen: isChosen,
                               isDark: isDark,
                               mult: _mult(recipe.id),
@@ -439,7 +480,8 @@ class _RecipesScreenState extends State<RecipesScreen>
                               index: i,
                               onToggle: () => _toggle(recipe.id),
                               onDetails: () => _openDetail(recipe),
-                              onMultChange: (v) => _setMult(recipe.id, v),
+                              onMultChange: (v) =>
+                                  _setMult(recipe.id, v),
                             );
                           },
                         ),
@@ -460,21 +502,21 @@ class _RecipesScreenState extends State<RecipesScreen>
                         onTap: hasSel ? _addSelected : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 16,
-                          ),
+                              horizontal: 28, vertical: 16),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF4361EE), Color(0xFF4CC9F0)],
+                              colors: [
+                                Color(0xFF4361EE),
+                                Color(0xFF4CC9F0)
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(32),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFF4361EE,
-                                ).withOpacity(0.45),
+                                color: const Color(0xFF4361EE)
+                                    .withOpacity(0.45),
                                 blurRadius: 20,
                                 offset: const Offset(0, 8),
                               ),
@@ -510,10 +552,11 @@ class _RecipesScreenState extends State<RecipesScreen>
   }
 }
 
-// _RecipeTile widget
+// remaining widgets
+
 class _RecipeTile extends StatefulWidget {
   final Recipe recipe;
-  final bool isChosen, isDark;
+  final bool isChosen, isDark, isArabic;
   final double mult;
   final int kcal, protein, carbs, fat, index;
   final VoidCallback onToggle, onDetails;
@@ -524,6 +567,7 @@ class _RecipeTile extends StatefulWidget {
     required this.recipe,
     required this.isChosen,
     required this.isDark,
+    required this.isArabic,
     required this.mult,
     required this.kcal,
     required this.protein,
@@ -567,7 +611,6 @@ class _RecipeTileState extends State<_RecipeTile>
         curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
       ),
     );
-    // ✅ FIX: cap the delay عشان الـ 580 وجبة ما يخلوش الأنيميشن بطيء
     final delay = (50 * widget.index).clamp(0, 800);
     Future.delayed(Duration(milliseconds: delay), () {
       if (mounted) _ctrl.forward();
@@ -588,6 +631,7 @@ class _RecipeTileState extends State<_RecipeTile>
       builder: (_) => _ServingSheet(
         recipe: widget.recipe,
         isDark: widget.isDark,
+        isArabic: widget.isArabic,
         initMult: widget.mult,
         onConfirm: (v) {
           widget.onMultChange(v);
@@ -620,13 +664,13 @@ class _RecipeTileState extends State<_RecipeTile>
                     : context.colors.card,
                 borderRadius: BorderRadius.circular(16),
                 border: widget.isChosen
-                    ? Border.all(color: primary.withOpacity(0.38), width: 1.5)
+                    ? Border.all(
+                        color: primary.withOpacity(0.38), width: 1.5)
                     : (isDark
-                          ? Border.all(
-                              color: Colors.white.withOpacity(0.05),
-                              width: 1,
-                            )
-                          : null),
+                        ? Border.all(
+                            color: Colors.white.withOpacity(0.05),
+                            width: 1)
+                        : null),
                 boxShadow: [
                   BoxShadow(
                     color: widget.isChosen
@@ -644,13 +688,15 @@ class _RecipeTileState extends State<_RecipeTile>
                       GestureDetector(
                         onTap: widget.onToggle,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+                          padding:
+                              const EdgeInsets.fromLTRB(12, 12, 0, 12),
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
                               AnimatedOpacity(
                                 opacity: widget.isChosen ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 280),
+                                duration:
+                                    const Duration(milliseconds: 280),
                                 child: Container(
                                   width: 44,
                                   height: 44,
@@ -658,7 +704,8 @@ class _RecipeTileState extends State<_RecipeTile>
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: primary.withOpacity(0.38),
+                                        color:
+                                            primary.withOpacity(0.38),
                                         blurRadius: 14,
                                         spreadRadius: 2,
                                       ),
@@ -667,7 +714,8 @@ class _RecipeTileState extends State<_RecipeTile>
                                 ),
                               ),
                               AnimatedContainer(
-                                duration: const Duration(milliseconds: 280),
+                                duration:
+                                    const Duration(milliseconds: 280),
                                 curve: Curves.easeOutBack,
                                 width: 36,
                                 height: 36,
@@ -678,12 +726,11 @@ class _RecipeTileState extends State<_RecipeTile>
                                   shape: BoxShape.circle,
                                 ),
                                 child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 230),
+                                  duration:
+                                      const Duration(milliseconds: 230),
                                   transitionBuilder: (child, anim) =>
                                       ScaleTransition(
-                                        scale: anim,
-                                        child: child,
-                                      ),
+                                          scale: anim, child: child),
                                   child: Icon(
                                     widget.isChosen
                                         ? CupertinoIcons.checkmark_alt
@@ -701,21 +748,19 @@ class _RecipeTileState extends State<_RecipeTile>
                         ),
                       ),
                       const SizedBox(width: 12),
-
-                      Text(
-                        widget.recipe.emoji,
-                        style: const TextStyle(fontSize: 26),
-                      ),
+                      Text(widget.recipe.emoji,
+                          style: const TextStyle(fontSize: 26)),
                       const SizedBox(width: 12),
-
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.recipe.name,
+                                widget.recipe.displayName(
+                                    isArabic: widget.isArabic),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
@@ -726,21 +771,20 @@ class _RecipeTileState extends State<_RecipeTile>
                               Row(
                                 children: [
                                   AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 250),
+                                    duration: const Duration(
+                                        milliseconds: 250),
                                     transitionBuilder: (child, anim) =>
                                         FadeTransition(
-                                          opacity: anim,
-                                          child: child,
-                                        ),
+                                            opacity: anim, child: child),
                                     child: Container(
                                       key: ValueKey(widget.kcal),
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2,
-                                      ),
+                                          horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: primary.withOpacity(0.10),
-                                        borderRadius: BorderRadius.circular(6),
+                                        color:
+                                            primary.withOpacity(0.10),
+                                        borderRadius:
+                                            BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         '${widget.kcal} kcal',
@@ -756,8 +800,7 @@ class _RecipeTileState extends State<_RecipeTile>
                                   Flexible(
                                     child: AnimatedSwitcher(
                                       duration: const Duration(
-                                        milliseconds: 200,
-                                      ),
+                                          milliseconds: 200),
                                       child: Text(
                                         _servingLabel(),
                                         key: ValueKey(widget.mult),
@@ -776,7 +819,6 @@ class _RecipeTileState extends State<_RecipeTile>
                           ),
                         ),
                       ),
-
                       IntrinsicWidth(
                         child: _ServingStepper(
                           mult: widget.mult,
@@ -784,16 +826,14 @@ class _RecipeTileState extends State<_RecipeTile>
                           onTap: () => _showServingSheet(context),
                           onMinus: () =>
                               widget.onMultChange(widget.mult - 0.25),
-                          onPlus: () => widget.onMultChange(widget.mult + 0.25),
+                          onPlus: () =>
+                              widget.onMultChange(widget.mult + 0.25),
                         ),
                       ),
-
                       Container(
-                        width: 1,
-                        height: 40,
-                        color: context.colors.divider,
-                      ),
-
+                          width: 1,
+                          height: 40,
+                          color: context.colors.divider),
                       GestureDetector(
                         onTap: widget.onDetails,
                         behavior: HitTestBehavior.opaque,
@@ -801,17 +841,13 @@ class _RecipeTileState extends State<_RecipeTile>
                           width: 44,
                           height: 60,
                           child: Center(
-                            child: Icon(
-                              CupertinoIcons.chevron_right,
-                              color: primary,
-                              size: 18,
-                            ),
+                            child: Icon(CupertinoIcons.chevron_right,
+                                color: primary, size: 18),
                           ),
                         ),
                       ),
                     ],
                   ),
-
                   AnimatedSize(
                     duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
@@ -838,7 +874,8 @@ class _RecipeTileState extends State<_RecipeTile>
     final orig = widget.recipe.servingSize;
     final numMatch = RegExp(r'(\d+\.?\d*)').firstMatch(orig);
     if (numMatch != null) {
-      final base = double.tryParse(numMatch.group(1) ?? '') ?? 100.0;
+      final base =
+          double.tryParse(numMatch.group(1) ?? '') ?? 100.0;
       final unit = orig.replaceAll(numMatch.group(0)!, '').trim();
       final newVal = (base * widget.mult).round();
       return '$newVal $unit';
@@ -872,7 +909,8 @@ class _ServingStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const primary = Color(0xFF4361EE);
-    final bg = isDark ? const Color(0xFF1E2D4A) : const Color(0xFFF0F3FF);
+    final bg =
+        isDark ? const Color(0xFF1E2D4A) : const Color(0xFFF0F3FF);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Container(
@@ -885,32 +923,27 @@ class _ServingStepper extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _StepBtn(
-              icon: CupertinoIcons.minus,
-              onTap: mult > 0.25 ? onMinus : null,
-              primary: primary,
-            ),
+                icon: CupertinoIcons.minus,
+                onTap: mult > 0.25 ? onMinus : null,
+                primary: primary),
             GestureDetector(
               onTap: onTap,
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 transitionBuilder: (child, anim) =>
                     ScaleTransition(scale: anim, child: child),
-                child: Text(
-                  _multLabel(mult),
-                  key: ValueKey(mult),
-                  style: const TextStyle(
-                    color: primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text(_multLabel(mult),
+                    key: ValueKey(mult),
+                    style: const TextStyle(
+                        color: primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
               ),
             ),
             _StepBtn(
-              icon: CupertinoIcons.plus,
-              onTap: mult < 5.0 ? onPlus : null,
-              primary: primary,
-            ),
+                icon: CupertinoIcons.plus,
+                onTap: mult < 5.0 ? onPlus : null,
+                primary: primary),
           ],
         ),
       ),
@@ -923,64 +956,58 @@ class _StepBtn extends StatelessWidget {
   final VoidCallback? onTap;
   final Color primary;
 
-  const _StepBtn({
-    required this.icon,
-    required this.onTap,
-    required this.primary,
-  });
+  const _StepBtn(
+      {required this.icon, required this.onTap, required this.primary});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedOpacity(
-      opacity: onTap != null ? 1.0 : 0.30,
-      duration: const Duration(milliseconds: 200),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Icon(icon, color: primary, size: 13),
-      ),
-    ),
-  );
+        onTap: onTap,
+        child: AnimatedOpacity(
+          opacity: onTap != null ? 1.0 : 0.30,
+          duration: const Duration(milliseconds: 200),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Icon(icon, color: primary, size: 13),
+          ),
+        ),
+      );
 }
 
 class _MacrosStrip extends StatelessWidget {
   final int protein, carbs, fat;
   final bool isDark;
 
-  const _MacrosStrip({
-    required this.protein,
-    required this.carbs,
-    required this.fat,
-    required this.isDark,
-  });
+  const _MacrosStrip(
+      {required this.protein,
+      required this.carbs,
+      required this.fat,
+      required this.isDark});
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _MacroChip(
-          label: 'P',
-          value: protein,
-          color: const Color(0xFFFF9A3C),
-          isDark: isDark,
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _MacroChip(
+                label: 'P',
+                value: protein,
+                color: const Color(0xFFFF9A3C),
+                isDark: isDark),
+            _MacroChip(
+                label: 'C',
+                value: carbs,
+                color: const Color(0xFF2ECC9A),
+                isDark: isDark),
+            _MacroChip(
+                label: 'F',
+                value: fat,
+                color: const Color(0xFFFF6B6B),
+                isDark: isDark),
+          ],
         ),
-        _MacroChip(
-          label: 'C',
-          value: carbs,
-          color: const Color(0xFF2ECC9A),
-          isDark: isDark,
-        ),
-        _MacroChip(
-          label: 'F',
-          value: fat,
-          color: const Color(0xFFFF6B6B),
-          isDark: isDark,
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 class _MacroChip extends StatelessWidget {
@@ -989,58 +1016,57 @@ class _MacroChip extends StatelessWidget {
   final Color color;
   final bool isDark;
 
-  const _MacroChip({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.isDark,
-  });
+  const _MacroChip(
+      {required this.label,
+      required this.value,
+      required this.color,
+      required this.isDark});
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: color.withOpacity(isDark ? 0.18 : 0.11),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: color.withOpacity(0.28), width: 1),
-    ),
-    child: RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: '$label  ',
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.18 : 0.11),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.28), width: 1),
+        ),
+        child: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                  text: '$label  ',
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800)),
+              TextSpan(
+                  text: '${value}g',
+                  style: TextStyle(
+                      color: isDark
+                          ? Colors.white70
+                          : const Color(0xFF2D3142),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600)),
+            ],
           ),
-          TextSpan(
-            text: '${value}g',
-            style: TextStyle(
-              color: isDark ? Colors.white70 : const Color(0xFF2D3142),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class _ServingSheet extends StatefulWidget {
   final Recipe recipe;
   final bool isDark;
+  final bool isArabic;
   final double initMult;
   final ValueChanged<double> onConfirm;
 
-  const _ServingSheet({
-    required this.recipe,
-    required this.isDark,
-    required this.initMult,
-    required this.onConfirm,
-  });
+  const _ServingSheet(
+      {required this.recipe,
+      required this.isDark,
+      required this.isArabic,
+      required this.initMult,
+      required this.onConfirm});
 
   @override
   State<_ServingSheet> createState() => _ServingSheetState();
@@ -1067,18 +1093,20 @@ class _ServingSheetState extends State<_ServingSheet> {
     const primary = Color(0xFF4361EE);
     final isDark = widget.isDark;
     final bg = isDark ? const Color(0xFF1A2340) : Colors.white;
-    final textCol = isDark ? Colors.white : const Color(0xFF1A1A2E);
-    final subCol = isDark ? Colors.white54 : const Color(0xFF7B8299);
+    final textCol =
+        isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final subCol =
+        isDark ? Colors.white54 : const Color(0xFF7B8299);
 
     return Container(
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.5 : 0.12),
-            blurRadius: 30,
-          ),
+              color: Colors.black.withOpacity(isDark ? 0.5 : 0.12),
+              blurRadius: 30),
         ],
       ),
       padding: EdgeInsets.only(
@@ -1099,27 +1127,23 @@ class _ServingSheetState extends State<_ServingSheet> {
             ),
           ),
           const SizedBox(height: 18),
-
           Row(
             children: [
-              Text(widget.recipe.emoji, style: const TextStyle(fontSize: 28)),
+              Text(widget.recipe.emoji,
+                  style: const TextStyle(fontSize: 28)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      widget.recipe.name,
-                      style: TextStyle(
-                        color: textCol,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      'Adjust serving size',
-                      style: TextStyle(color: subCol, fontSize: 11),
-                    ),
+                    Text(widget.recipe.displayName(isArabic: widget.isArabic),
+                        style: TextStyle(
+                            color: textCol,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                    Text('Adjust serving size',
+                        style:
+                            TextStyle(color: subCol, fontSize: 11)),
                   ],
                 ),
               ),
@@ -1128,36 +1152,31 @@ class _ServingSheetState extends State<_ServingSheet> {
                 child: Container(
                   key: ValueKey(_kcal),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                      horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: primary.withOpacity(isDark ? 0.22 : 0.10),
+                    color:
+                        primary.withOpacity(isDark ? 0.22 : 0.10),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: primary.withOpacity(0.35),
-                      width: 1,
-                    ),
+                        color: primary.withOpacity(0.35), width: 1),
                   ),
-                  child: Text(
-                    '$_kcal kcal',
-                    style: const TextStyle(
-                      color: primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
+                  child: Text('$_kcal kcal',
+                      style: const TextStyle(
+                          color: primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 5,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+              thumbShape:
+                  const RoundSliderThumbShape(enabledThumbRadius: 11),
+              overlayShape:
+                  const RoundSliderOverlayShape(overlayRadius: 20),
               activeTrackColor: primary,
               inactiveTrackColor: isDark
                   ? Colors.white12
@@ -1166,9 +1185,7 @@ class _ServingSheetState extends State<_ServingSheet> {
               overlayColor: primary.withOpacity(0.18),
               valueIndicatorColor: primary,
               valueIndicatorTextStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+                  color: Colors.white, fontWeight: FontWeight.bold),
               showValueIndicator: ShowValueIndicator.always,
             ),
             child: Slider(
@@ -1181,7 +1198,6 @@ class _ServingSheetState extends State<_ServingSheet> {
               onChanged: (v) => setState(() => _mult = v),
             ),
           ),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: _presets.map((p) {
@@ -1191,61 +1207,55 @@ class _ServingSheetState extends State<_ServingSheet> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                      horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: sel
                         ? primary
-                        : primary.withOpacity(isDark ? 0.15 : 0.08),
+                        : primary
+                            .withOpacity(isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: sel ? primary : primary.withOpacity(0.25),
-                    ),
+                        color: sel
+                            ? primary
+                            : primary.withOpacity(0.25)),
                   ),
                   child: Text(
                     p == 0.25
                         ? '¼×'
                         : p == 0.5
-                        ? '½×'
-                        : '${p.toInt()}×',
+                            ? '½×'
+                            : '${p.toInt()}×',
                     style: TextStyle(
-                      color: sel ? Colors.white : primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                        color: sel ? Colors.white : primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
                   ),
                 ),
               );
             }).toList(),
           ),
           const SizedBox(height: 18),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _SheetMacro(
-                label: 'Protein',
-                value: _protein,
-                color: const Color(0xFFFF9A3C),
-                isDark: isDark,
-              ),
+                  label: 'Protein',
+                  value: _protein,
+                  color: const Color(0xFFFF9A3C),
+                  isDark: isDark),
               _SheetMacro(
-                label: 'Carbs',
-                value: _carbs,
-                color: const Color(0xFF2ECC9A),
-                isDark: isDark,
-              ),
+                  label: 'Carbs',
+                  value: _carbs,
+                  color: const Color(0xFF2ECC9A),
+                  isDark: isDark),
               _SheetMacro(
-                label: 'Fat',
-                value: _fat,
-                color: const Color(0xFFFF6B6B),
-                isDark: isDark,
-              ),
+                  label: 'Fat',
+                  value: _fat,
+                  color: const Color(0xFFFF6B6B),
+                  isDark: isDark),
             ],
           ),
           const SizedBox(height: 20),
-
           GestureDetector(
             onTap: () => widget.onConfirm(_mult),
             child: Container(
@@ -1260,21 +1270,17 @@ class _ServingSheetState extends State<_ServingSheet> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: primary.withOpacity(0.38),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
+                      color: primary.withOpacity(0.38),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6)),
                 ],
               ),
               child: const Center(
-                child: Text(
-                  'Confirm Serving',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
+                child: Text('Confirm Serving',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15)),
               ),
             ),
           ),
@@ -1290,38 +1296,33 @@ class _SheetMacro extends StatelessWidget {
   final Color color;
   final bool isDark;
 
-  const _SheetMacro({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.isDark,
-  });
+  const _SheetMacro(
+      {required this.label,
+      required this.value,
+      required this.color,
+      required this.isDark});
 
   @override
   Widget build(BuildContext context) => AnimatedSwitcher(
-    duration: const Duration(milliseconds: 220),
-    child: Column(
-      key: ValueKey(value),
-      children: [
-        Text(
-          '${value}g',
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+        duration: const Duration(milliseconds: 220),
+        child: Column(
+          key: ValueKey(value),
+          children: [
+            Text('${value}g',
+                style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+            const SizedBox(height: 3),
+            Text(label,
+                style: TextStyle(
+                    color: isDark
+                        ? Colors.white38
+                        : const Color(0xFF9B9B9B),
+                    fontSize: 11)),
+          ],
         ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(
-            color: isDark ? Colors.white38 : const Color(0xFF9B9B9B),
-            fontSize: 11,
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 }
 
 class _BellAction extends StatelessWidget {
@@ -1331,50 +1332,50 @@ class _BellAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: () => context.push('/notifications'),
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: context.colors.card,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: context.colors.shadow, blurRadius: 8)],
-          ),
-          child: Icon(
-            CupertinoIcons.bell_fill,
-            color: isDark ? const Color(0xFFFFA94D) : const Color(0xFF4361EE),
-            size: 20,
-          ),
-        ),
-        if (_unread > 0)
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        onTap: () => context.push('/notifications'),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF4757),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
+                color: context.colors.card,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                      color: context.colors.shadow, blurRadius: 8)
+                ],
+              ),
+              child: Icon(CupertinoIcons.bell_fill,
                   color: isDark
-                      ? const Color(0xFF0F1221)
-                      : const Color(0xFFF0F3FF),
-                  width: 1.5,
-                ),
-              ),
-              child: const Text(
-                '$_unread',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+                      ? const Color(0xFFFFA94D)
+                      : const Color(0xFF4361EE),
+                  size: 20),
             ),
-          ),
-      ],
-    ),
-  );
+            if (_unread > 0)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4757),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF0F1221)
+                            : const Color(0xFFF0F3FF),
+                        width: 1.5),
+                  ),
+                  child: const Text('$_unread',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+          ],
+        ),
+      );
 }

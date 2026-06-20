@@ -65,3 +65,18 @@ class AuthOTPResent extends AuthState {
   AuthOTPResent(this.email) : timestamp = DateTime.now();
   @override List<Object?> get props => [email, timestamp];
 }
+
+/// Google Sign-In — أول مرة بيسجل بيها، محتاج بيانات بروفايل زيادة
+/// (هيفتح bottom sheet يطلب الاسم/الجنس/تاريخ الميلاد/الطول/الوزن
+/// وبعدين يستدعي AuthCubit.completeGoogleSignIn)
+class AuthGoogleNeedsProfile extends AuthState {
+  final String idToken;
+  final String displayName;
+  final String email;
+  const AuthGoogleNeedsProfile({
+    required this.idToken,
+    required this.displayName,
+    required this.email,
+  });
+  @override List<Object?> get props => [idToken, displayName, email];
+}

@@ -4,6 +4,7 @@
 
     <!-- INTERNET -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <!-- LOCATION -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -19,13 +20,10 @@
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
     <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
-
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/>
-
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.WRITE_SLEEP"/>
-
     <uses-permission android:name="android.permission.health.READ_HYDRATION"/>
     <uses-permission android:name="android.permission.health.WRITE_HYDRATION"/>
 
@@ -33,14 +31,22 @@
     <uses-permission
         android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
 
-    <!-- REQUIRED FOR HEALTH CONNECT -->
     <queries>
 
+        <!-- HEALTH CONNECT -->
         <package android:name="com.google.android.apps.healthdata"/>
-
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
         </intent>
+
+        <!-- SPEECH RECOGNITION -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
+        </intent>
+        <package android:name="com.google.android.googlequicksearchbox"/>
 
     </queries>
 
@@ -56,11 +62,9 @@
             android:exported="true"
             android:targetActivity=".MainActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
             </intent-filter>
-
         </activity-alias>
 
         <!-- HEALTH PERMISSION ACTIVITY -->
@@ -68,6 +72,15 @@
             android:name="dev.fluttercommunity.plus.health.HealthPermissionActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+
+        <!-- ملحوظة: متاجش الـ Client ID هنا تاني. مفيش meta-data اسمها
+             com.google.android.gms.auth.api.signin.DEFAULT_SIGN_IN فعلاً —
+             ده مش مفتاح حقيقي تابع لجوجل وملوش أي تأثير. الـ Android
+             Client ID نفسه أصلاً مش لازم يتكتب في أي كود؛ هو بس لازم يكون
+             مسجل في Google Cloud Console مربوط بـ package name + SHA-1
+             fingerprint بتاع الـ keystore (debug و release). أما الـ Web
+             Client ID هو اللي بيتبعت من كود Flutter (ApiConfig.googleWebClientId
+             في GoogleSignIn) وهو نفسه اللي الباك إند بيتحقق بيه. -->
 
         <!-- MAIN ACTIVITY -->
         <activity
@@ -96,7 +109,6 @@
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
