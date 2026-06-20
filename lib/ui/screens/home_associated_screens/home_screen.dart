@@ -7,12 +7,14 @@ import 'package:vital_metrics/core/imports.dart';
 import 'package:vital_metrics/data/models/daily_metric_bottom_sheet.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/sleep_cubit.dart';
+import 'package:vital_metrics/logic/tips/tips_cubit.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/water_tracker_card.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/meal_section.dart';
 import 'package:vital_metrics/ui/widgets/home_widgets/health_connect_toggle.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/repositories/daily_metrics_repository.dart';
 import 'package:vital_metrics/data/models/daily_metric_model.dart';
+import 'package:vital_metrics/ui/widgets/tips/daily_tip_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,6 +65,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 6000),
     )..repeat();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final cubit = context.read<TipsCubit>();
+      await cubit.loadTodayTip();
+      final should = await cubit.shouldShowTodayTip();
+      if (should && mounted) {
+        await DailyTipDialog.show(context);
+        cubit.markTipShown();
+      }
+    });
   }
 
   @override

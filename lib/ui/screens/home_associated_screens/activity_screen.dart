@@ -8,6 +8,8 @@ import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/models/activity_level_card.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';
+import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_state.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/ui/widgets/activity/activity_stats_row.dart';
 import 'package:vital_metrics/ui/widgets/activity/circular_progress_rings.dart';
@@ -119,55 +121,59 @@ class _TodayScreenView extends StatelessWidget {
           Row(
             children: [
               FadeInDown(
-                delay: const Duration(milliseconds: 80),
-                child: GestureDetector(
-                  onTap: () => context.push('/notifications'),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(10.w),
-                        decoration: BoxDecoration(
-                          color: context.colors.card,
-                          borderRadius: BorderRadius.circular(14.r),
-                          boxShadow: [BoxShadow(color: context.colors.shadow, blurRadius: 12)],
-                        ),
-                        child: Icon(CupertinoIcons.bell_fill,
-                            color: isDark ? const Color(0xFFFFA94D) : const Color(0xFF4361EE), size: 20),
-                      ),
-                      Positioned(
-                        top: -4, right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF4757),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: isDark ? const Color(0xFF0F1221) : const Color(0xFFF0F3FF), width: 1.5),
-                          ),
-                          child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  delay: const Duration(milliseconds: 80),
+  child: BlocBuilder<NotificationsCubit, NotificationsState>(
+    builder: (context, state) {
+      final hasUnread =
+          state is NotificationsLoaded ? state.unreadCount > 0 : false;
+ 
+      return GestureDetector(
+        onTap: () => context.push('/notifications'),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: context.colors.card,
+                borderRadius: BorderRadius.circular(14.r),
+                boxShadow: [
+                  BoxShadow(color: context.colors.shadow, blurRadius: 12),
+                ],
               ),
-              SizedBox(width: 8.w),
-              FadeInDown(
-                delay: const Duration(milliseconds: 140),
-                child: GestureDetector(
-                  onTap: () => context.push('/settings'),
-                  child: Container(
-                    padding: EdgeInsets.all(10.w),
-                    decoration: BoxDecoration(
-                      color: context.colors.card,
-                      borderRadius: BorderRadius.circular(14.r),
-                      boxShadow: [BoxShadow(color: context.colors.shadow, blurRadius: 12)],
+              child: Icon(
+                CupertinoIcons.bell_fill,
+                color: isDark
+                    ? const Color(0xFFFFA94D)
+                    : const Color(0xFF4361EE),
+                size: 20,
+              ),
+            ),
+            if (hasUnread)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4757),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF0F1221)
+                          : const Color(0xFFF0F3FF),
+                      width: 1.5,
                     ),
-                    child: const Icon(Icons.settings_rounded, color: Color(0xFF4361EE), size: 20),
                   ),
                 ),
               ),
+          ],
+        ),
+      );
+    },
+  ),
+),
             ],
           ),
         ],

@@ -17,14 +17,12 @@ class FoodItem {
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
     return FoodItem(
-      food: json['food'],
-      calories: (json['calories'] as num).toDouble(),
-      protein: (json['protein'] as num).toDouble(),
-      fat: (json['fat'] as num).toDouble(),
-      carbohydrates: (json['carbohydrates'] as num).toDouble(),
-      similarity: json['similarity'] != null
-          ? (json['similarity'] as num).toDouble()
-          : null,
+      food: json['food']?.toString() ?? '',
+      calories: (json['calories'] as num?)?.toDouble() ?? 0.0,
+      protein: (json['protein'] as num?)?.toDouble() ?? 0.0,
+      fat: (json['fat'] as num?)?.toDouble() ?? 0.0,
+      carbohydrates: (json['carbohydrates'] as num?)?.toDouble() ?? 0.0,
+      similarity: (json['similarity'] as num?)?.toDouble(),
     );
   }
 }
@@ -48,12 +46,12 @@ class MealSuggestion {
 
   factory MealSuggestion.fromJson(Map<String, dynamic> json) {
     return MealSuggestion(
-      food: json['food'],
-      weightG: (json['weight_g'] as num).toDouble(),
-      calories: (json['calories'] as num).toDouble(),
-      protein: (json['protein'] as num).toDouble(),
-      fat: (json['fat'] as num).toDouble(),
-      carbohydrates: (json['carbohydrates'] as num).toDouble(),
+      food: json['food']?.toString() ?? '',
+      weightG: (json['weight_g'] as num?)?.toDouble() ?? 0.0,
+      calories: (json['calories'] as num?)?.toDouble() ?? 0.0,
+      protein: (json['protein'] as num?)?.toDouble() ?? 0.0,
+      fat: (json['fat'] as num?)?.toDouble() ?? 0.0,
+      carbohydrates: (json['carbohydrates'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

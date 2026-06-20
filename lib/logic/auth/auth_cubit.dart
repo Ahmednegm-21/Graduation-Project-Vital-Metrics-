@@ -1,3 +1,5 @@
+// lib/logic/auth/auth_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vital_metrics/data/repositories/auth_repository.dart';
@@ -70,7 +72,6 @@ class AuthCubit extends Cubit<AuthState> {
           email: email, password: password);
 
       if (isVerified) {
-        // لو اليوزر اتغير، امسح الداتا القديمة
         if (_lastSignedInEmail != null && _lastSignedInEmail != email) {
           await LocalDataClearService.clearAll();
         }
@@ -78,7 +79,6 @@ class AuthCubit extends Cubit<AuthState> {
 
         final user = await _authRepository.getUserProfile();
 
-        // ── Admin check ──────────────────────────────────────────────────
         if (user.isAdmin) {
           emit(AuthAdminSuccess(user));
         } else {
@@ -133,7 +133,6 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
 
     try {
-      // امسح الداتا القديمة عند تسجيل يوزر جديد
       await LocalDataClearService.clearAll();
 
       final resultEmail = await _authRepository.signUp(
@@ -178,7 +177,6 @@ class AuthCubit extends Cubit<AuthState> {
         final user = await _authRepository.getUserProfile();
         _isSignInFlow = false;
 
-        // ── Admin check ──────────────────────────────────────────────────
         if (user.isAdmin) {
           emit(AuthAdminSuccess(user));
         } else {
@@ -221,7 +219,13 @@ class AuthCubit extends Cubit<AuthState> {
       if (isLoggedIn) {
         final user = await _authRepository.getUserProfile();
         await _saveLastEmail(user.email);
-        emit(AuthSuccess(user));
+
+        // ── Admin check (كان ناقص هنا) ──────────────────────────────────
+        if (user.isAdmin) {
+          emit(AuthAdminSuccess(user));
+        } else {
+          emit(AuthSuccess(user));
+        }
       } else {
         emit(AuthInitial());
       }

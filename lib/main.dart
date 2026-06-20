@@ -18,11 +18,13 @@ import 'package:vital_metrics/logic/home/sleep_cubit.dart';
 
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
+import 'package:vital_metrics/logic/tips/tips_cubit.dart';
+
 import 'package:vital_metrics/data/models/activity_level.dart';
 import 'package:vital_metrics/data/models/user_goal.dart';
 
 import 'package:vital_metrics/services/steps_sync_service.dart';
-
 import 'package:vital_metrics/router/app_router.dart';
 
 void main() async {
@@ -55,19 +57,23 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late final AuthCubit _authCubit;
-  late final OnboardingGoalCubit _onboardingGoalCubit;
-  late final OnboardingCubitAllData _onboardingDataCubit;
-  late final HomeCubit _homeCubit;
-  late final WaterCubit _waterCubit;
-  late final CalorieCubit _calorieCubit;
-  late final ThemeCubit _themeCubit;
-  late final SleepCubit _sleepCubit;
-  late final PersonalInfoCubit _personalInfoCubit;
-  late final ProgressCubit _progressCubit;
-  late final FitnessSnapshotCubit _fitnessSnapshotCubit;
-  late final ActivityCubit _activityCubit;
-  late final StepsSyncService _stepsSyncService;
+  late final AuthCubit               _authCubit;
+  late final OnboardingGoalCubit     _onboardingGoalCubit;
+  late final OnboardingCubitAllData  _onboardingDataCubit;
+  late final HomeCubit               _homeCubit;
+  late final WaterCubit              _waterCubit;
+  late final CalorieCubit            _calorieCubit;
+  late final ThemeCubit              _themeCubit;
+  late final SleepCubit              _sleepCubit;
+  late final PersonalInfoCubit       _personalInfoCubit;
+  late final ProgressCubit           _progressCubit;
+  late final FitnessSnapshotCubit    _fitnessSnapshotCubit;
+  late final ActivityCubit           _activityCubit;
+  late final NotificationsCubit      _notificationsCubit;
+  late final TipsCubit               _tipsCubit;
+  late final StepsSyncService        _stepsSyncService;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   String _goalString() {
     final goal = _onboardingDataCubit.currentData.goal;
@@ -75,9 +81,6 @@ class _MyAppState extends State<MyApp> {
     return goal.type.toGoalString();
   }
 
-  // Pushes the latest personal info into onboardingDataCubit so that
-  // ActivityCubit._rebuildLoaded always reads the same weight/height/age/gender
-  // as CalorieCubit and WaterCubit
   void _pushProfileToOnboarding() {
     final info = _personalInfoCubit.state;
     _onboardingDataCubit.setWeight(info.weight);
@@ -88,29 +91,26 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // Recalculates calorie budget and water goal from current personal info
-  // and activity level
   void _syncProfileToHome() {
     _pushProfileToOnboarding();
 
-    final info = _personalInfoCubit.state;
+    final info          = _personalInfoCubit.state;
     final activityLevel =
         _onboardingDataCubit.currentData.activityLevel ?? ActivityLevel.moderate;
-
     final activityLevelStr =
         activityLevel == ActivityLevel.moderate ? 'medium' : activityLevel.name;
 
     _calorieCubit.calculateAndSetBudget(
-      weight: info.weight,
-      height: info.height,
-      age: info.age.toDouble(),
-      gender: info.gender,
-      goal: _goalString(),
+      weight:        info.weight,
+      height:        info.height,
+      age:           info.age.toDouble(),
+      gender:        info.gender,
+      goal:          _goalString(),
       activityLevel: activityLevelStr,
     );
 
     _waterCubit.setGoalFromProfile(
-      weight: info.weight,
+      weight:        info.weight,
       activityLevel: activityLevel,
     );
 
@@ -118,65 +118,83 @@ class _MyAppState extends State<MyApp> {
         'weight=${info.weight} goal=${_goalString()}');
   }
 
-  // Called when only the activity level changes
   void _syncActivityLevel(ActivityLevel level) {
     _pushProfileToOnboarding();
 
-    final info = _personalInfoCubit.state;
+    final info             = _personalInfoCubit.state;
     final activityLevelStr =
         level == ActivityLevel.moderate ? 'medium' : level.name;
 
     _calorieCubit.calculateAndSetBudget(
-      weight: info.weight,
-      height: info.height,
-      age: info.age.toDouble(),
-      gender: info.gender,
-      goal: _goalString(),
+      weight:        info.weight,
+      height:        info.height,
+      age:           info.age.toDouble(),
+      gender:        info.gender,
+      goal:          _goalString(),
       activityLevel: activityLevelStr,
     );
 
     _waterCubit.setGoalFromProfile(
-      weight: info.weight,
+      weight:        info.weight,
       activityLevel: level,
     );
 
     print('[main] syncActivityLevel => level=$level');
   }
 
+  // ── initState ─────────────────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
 
-    _authCubit = AuthCubit();
-
+    _authCubit           = AuthCubit();
     _onboardingGoalCubit = OnboardingGoalCubit();
     _onboardingDataCubit = OnboardingCubitAllData();
+    _homeCubit           = HomeCubit();
+    _waterCubit          = WaterCubit()..refresh();
+    _calorieCubit        = CalorieCubit();
+    _themeCubit          = ThemeCubit();
+    _personalInfoCubit   = PersonalInfoCubit();
 
-    _homeCubit = HomeCubit();
-    _waterCubit = WaterCubit()..refresh();
-    _calorieCubit = CalorieCubit();
-    _themeCubit = ThemeCubit();
-    _personalInfoCubit = PersonalInfoCubit();
-
-    // ProgressCubit no longer takes a fitService parameter
-    // All HC data flows through ActivityCubit via updateLocalBurned
-    // and updateLocalSteps to avoid stale data after HC toggle
     _progressCubit = ProgressCubit(
       calorieCubit: _calorieCubit,
-      waterCubit: _waterCubit,
+      waterCubit:   _waterCubit,
     );
 
     _sleepCubit = SleepCubit()
       ..setProgressCubit(_progressCubit)
       ..refresh();
 
-    bool _activityLevelSyncedOnStart = false;
+    _notificationsCubit = NotificationsCubit()..loadNotifications();
+
+    _fitnessSnapshotCubit = FitnessSnapshotCubit();
+
+    _activityCubit = ActivityCubit(
+      onboardingCubit: _onboardingDataCubit,
+    );
+    _activityCubit.setProgressCubit(_progressCubit);
+
+    // TipsCubit — يعتمد على باقي الـ cubits
+    _tipsCubit = TipsCubit(
+      calorieCubit:  _calorieCubit,
+      waterCubit:    _waterCubit,
+      sleepCubit:    _sleepCubit,
+      activityCubit: _activityCubit,
+    );
+
+    _stepsSyncService = StepsSyncService(progressCubit: _progressCubit)
+      ..start();
+
+    // ── Listeners ────────────────────────────────────────────────────────────
+
+    bool activityLevelSyncedOnStart = false;
 
     _personalInfoCubit.stream.listen((_) {
       _syncProfileToHome();
 
-      if (!_activityLevelSyncedOnStart) {
-        _activityLevelSyncedOnStart = true;
+      if (!activityLevelSyncedOnStart) {
+        activityLevelSyncedOnStart = true;
         final savedLevel = _onboardingDataCubit.currentData.activityLevel;
         if (savedLevel != null) {
           _syncActivityLevel(savedLevel);
@@ -185,46 +203,29 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    // Progress refreshes when water or calorie data changes
-    _waterCubit.stream.listen((_) {
-      _progressCubit.loadWeeklyMetrics(silent: true);
-    });
+    _waterCubit.stream.listen((_) =>
+        _progressCubit.loadWeeklyMetrics(silent: true));
 
-    _calorieCubit.stream.listen((_) {
-      _progressCubit.loadWeeklyMetrics(silent: true);
-    });
+    _calorieCubit.stream.listen((_) =>
+        _progressCubit.loadWeeklyMetrics(silent: true));
 
-    _fitnessSnapshotCubit = FitnessSnapshotCubit();
-
-    _activityCubit = ActivityCubit(
-      onboardingCubit: _onboardingDataCubit,
-    );
-
-    _activityCubit.setProgressCubit(_progressCubit);
-
-    // When activity level changes from the activity screen sync everything
-    ActivityLevel? _lastSyncedLevel;
-    bool _firstLoad = true;
+    ActivityLevel? lastSyncedLevel;
+    bool firstLoad = true;
 
     _activityCubit.stream.listen((activityState) {
       if (activityState is TodayLoaded) {
         final currentLevel = _onboardingDataCubit.currentData.activityLevel;
-
         if (currentLevel != null &&
-            (_firstLoad || currentLevel != _lastSyncedLevel)) {
-          _firstLoad = false;
-          _lastSyncedLevel = currentLevel;
+            (firstLoad || currentLevel != lastSyncedLevel)) {
+          firstLoad        = false;
+          lastSyncedLevel  = currentLevel;
           _syncActivityLevel(currentLevel);
         }
       }
     });
-
-    _stepsSyncService = StepsSyncService(
-      progressCubit: _progressCubit,
-    );
-
-    _stepsSyncService.start();
   }
+
+  // ── dispose ───────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -240,9 +241,13 @@ class _MyAppState extends State<MyApp> {
     _progressCubit.close();
     _fitnessSnapshotCubit.close();
     _activityCubit.close();
+    _notificationsCubit.close();
+    _tipsCubit.close();
     _stepsSyncService.dispose();
     super.dispose();
   }
+
+  // ── build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +265,8 @@ class _MyAppState extends State<MyApp> {
         BlocProvider.value(value: _progressCubit),
         BlocProvider.value(value: _fitnessSnapshotCubit),
         BlocProvider.value(value: _activityCubit),
+        BlocProvider.value(value: _notificationsCubit),
+        BlocProvider.value(value: _tipsCubit),
       ],
       child: BlocBuilder<ThemeCubit, bool>(
         bloc: _themeCubit,
@@ -270,9 +277,9 @@ class _MyAppState extends State<MyApp> {
             splitScreenMode: true,
             builder: (_, child) {
               return MaterialApp.router(
-                routerConfig: AppRouter.router,
-                locale: DevicePreview.locale(context),
-                builder: DevicePreview.appBuilder,
+                routerConfig:              AppRouter.router,
+                locale:                    DevicePreview.locale(context),
+                builder:                   DevicePreview.appBuilder,
                 debugShowCheckedModeBanner: false,
                 themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
                 theme: ThemeData.light().copyWith(

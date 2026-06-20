@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math' as math;
 
 import 'package:vital_metrics/data/models/admin_meal_model.dart';
-import 'package:vital_metrics/data/models/admin_overview_model.dart';
 import 'package:vital_metrics/data/models/admin_user_model.dart';
-import 'package:vital_metrics/services/admin_api_service.dart';
+import 'package:vital_metrics/logic/admin/admin_cubit.dart';
+import 'package:vital_metrics/logic/admin/admin_state.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
 
 class AdminPanelScreen extends StatefulWidget {
@@ -18,56 +18,31 @@ class AdminPanelScreen extends StatefulWidget {
 
 class _AdminPanelScreenState extends State<AdminPanelScreen>
     with TickerProviderStateMixin {
-  final AdminApiService _service = AdminApiService();
-
   int _selectedIndex = 0;
-  bool _loading = false;
-  String? _error;
-
-  AdminOverviewModel? _overview;
-  List<AdminUserModel> _users = [];
-  List<AdminMealModel> _meals = [];
 
   final TextEditingController _userSearchController = TextEditingController();
   final TextEditingController _mealSearchController = TextEditingController();
 
-  String _selectedGender = 'all';
+  String _selectedGender      = 'all';
   String _selectedAdminFilter = 'all';
 
   late final AnimationController _particleCtrl;
   late final AnimationController _pulseCtrl;
-  late final Animation<double> _pulseAnim;
+  late final Animation<double>   _pulseAnim;
 
-  // Brand accent — always the same regardless of theme
   static const _primaryColor = Color(0xFF4361EE);
 
-  // ── Theme helpers ────────────────────────────────────────────────────────────
-  /// Main scaffold / page background
-  Color get _bgColor => Theme.of(context).scaffoldBackgroundColor;
-
-  /// Card / surface background
+  Color get _bgColor   => Theme.of(context).scaffoldBackgroundColor;
   Color get _cardColor => Theme.of(context).colorScheme.surface;
-
-  /// Primary on-surface text color
-  Color get _textPrimary => Theme.of(context).colorScheme.onSurface;
-
-  /// Muted / secondary text color
-  Color get _textSecondary =>
-      Theme.of(context).colorScheme.onSurface.withOpacity(0.55);
-
-  /// Subtle border / divider color
-  Color get _borderColor =>
-      Theme.of(context).colorScheme.onSurface.withOpacity(0.08);
-
-  /// Strong border that's still muted
-  Color get _borderMedium =>
-      Theme.of(context).colorScheme.onSurface.withOpacity(0.14);
-  // ────────────────────────────────────────────────────────────────────────────
+  Color get _textPrimary   => Theme.of(context).colorScheme.onSurface;
+  Color get _textSecondary => Theme.of(context).colorScheme.onSurface.withOpacity(0.55);
+  Color get _borderColor   => Theme.of(context).colorScheme.onSurface.withOpacity(0.08);
+  Color get _borderMedium  => Theme.of(context).colorScheme.onSurface.withOpacity(0.14);
 
   @override
   void initState() {
     super.initState();
-    _loadAll();
+    context.read<AdminCubit>().loadAll();
 
     _particleCtrl = AnimationController(
       vsync: this,
@@ -93,64 +68,37 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     super.dispose();
   }
 
-  Future<void> _loadAll() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final overview = await _service.getOverview();
-      final users = await _service.getUsers();
-      List<AdminMealModel> meals = [];
-      try {
-        meals = await _service.getMeals();
-      } catch (_) {
-        meals = [];
-      }
-      setState(() {
-        _overview = overview;
-        _users = users;
-        _meals = meals;
-      });
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  List<AdminUserModel> get _filteredUsers {
+  // ── Filtered lists ────────────────────────────────────────────────────────
+  List<AdminUserModel> _filteredUsers(List<AdminUserModel> users) {
     final query = _userSearchController.text.trim().toLowerCase();
-    return _users.where((user) {
-      final matchesSearch = user.name.toLowerCase().contains(query) ||
+    return users.where((user) {
+      final matchesSearch  = user.name.toLowerCase().contains(query) ||
           user.email.toLowerCase().contains(query);
-      final matchesGender = _selectedGender == 'all' ||
+      final matchesGender  = _selectedGender == 'all' ||
           user.gender.toLowerCase() == _selectedGender;
-      final matchesAdmin = _selectedAdminFilter == 'all' ||
+      final matchesAdmin   = _selectedAdminFilter == 'all' ||
           (_selectedAdminFilter == 'admin' && user.isAdmin) ||
-          (_selectedAdminFilter == 'user' && !user.isAdmin);
+          (_selectedAdminFilter == 'user'  && !user.isAdmin);
       return matchesSearch && matchesGender && matchesAdmin;
     }).toList();
   }
 
-  List<AdminMealModel> get _filteredMeals {
+  List<AdminMealModel> _filteredMeals(List<AdminMealModel> meals) {
     final query = _mealSearchController.text.trim().toLowerCase();
-    return _meals.where((meal) {
-      return meal.name.toLowerCase().contains(query) ||
-          meal.description.toLowerCase().contains(query);
-    }).toList();
+    return meals.where((m) =>
+        m.name.toLowerCase().contains(query) ||
+        m.description.toLowerCase().contains(query)).toList();
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   Future<void> _deleteUser(AdminUserModel user) async {
     final confirm = await _confirmDialog(
-      title: 'Delete User',
+      title:   'Delete User',
       content: 'Are you sure you want to delete ${user.name}?',
     );
     if (!confirm) return;
     try {
-      await _service.deleteUser(user.userId);
-      setState(() => _users.removeWhere((e) => e.userId == user.userId));
+      await context.read<AdminCubit>().deleteUser(user);
       _showSnack('User deleted successfully');
     } catch (e) {
       _showSnack('Failed to delete user: $e', isError: true);
@@ -159,31 +107,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
   Future<void> _deleteMeal(AdminMealModel meal) async {
     final confirm = await _confirmDialog(
-      title: 'Delete Meal',
+      title:   'Delete Meal',
       content: 'Are you sure you want to delete ${meal.name}?',
     );
     if (!confirm) return;
     try {
-      await _service.deleteMeal(meal.mealId);
-      setState(() => _meals.removeWhere((e) => e.mealId == meal.mealId));
+      await context.read<AdminCubit>().deleteMeal(meal);
       _showSnack('Meal deleted successfully');
     } catch (e) {
       _showSnack('Failed to delete meal: $e', isError: true);
     }
   }
 
-  Future<bool> _confirmDialog({
-    required String title,
-    required String content,
-  }) async {
+  Future<bool> _confirmDialog({required String title, required String content}) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: _cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title,
-            style: TextStyle(
-                color: _textPrimary, fontWeight: FontWeight.bold)),
+        title:   Text(title,   style: TextStyle(color: _textPrimary,   fontWeight: FontWeight.bold)),
         content: Text(content, style: TextStyle(color: _textSecondary)),
         actions: [
           TextButton(
@@ -193,8 +135,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFFF6B6B),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
@@ -206,32 +147,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   void _showSnack(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? const Color(0xFFFF6B6B) : const Color(0xFF2ECC9A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content:         Text(message),
+      backgroundColor: isError ? const Color(0xFFFF6B6B) : const Color(0xFF2ECC9A),
+      behavior:        SnackBarBehavior.floating,
+      shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin:          const EdgeInsets.all(16),
+    ));
   }
 
   Future<void> _openMealDialog({AdminMealModel? meal}) async {
-    final isEdit = meal != null;
-    final nameController = TextEditingController(text: meal?.name ?? '');
-    final descriptionController =
-        TextEditingController(text: meal?.description ?? '');
-    final caloriesController =
-        TextEditingController(text: meal?.calories.toString() ?? '');
-    final proteinController =
-        TextEditingController(text: meal?.protein.toString() ?? '');
-    final carbsController =
-        TextEditingController(text: meal?.carbs.toString() ?? '');
-    final fatController =
-        TextEditingController(text: meal?.fat.toString() ?? '');
-    final formKey = GlobalKey<FormState>();
+    final isEdit              = meal != null;
+    final nameCtrl            = TextEditingController(text: meal?.name ?? '');
+    final descCtrl            = TextEditingController(text: meal?.description ?? '');
+    final caloriesCtrl        = TextEditingController(text: meal?.calories.toString() ?? '');
+    final proteinCtrl         = TextEditingController(text: meal?.protein.toString() ?? '');
+    final carbsCtrl           = TextEditingController(text: meal?.carbs.toString() ?? '');
+    final fatCtrl             = TextEditingController(text: meal?.fat.toString() ?? '');
+    final formKey             = GlobalKey<FormState>();
 
     final result = await showDialog<bool>(
       context: context,
@@ -240,53 +173,26 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           isEdit ? 'Edit Meal' : 'Add Meal',
-          style: TextStyle(
-              color: _textPrimary, fontWeight: FontWeight.bold),
+          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold),
         ),
         content: SizedBox(
           width: 400,
           child: Form(
             key: formKey,
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _styledInput(
-                      controller: nameController,
-                      label: 'Name',
-                      icon: Icons.restaurant_menu),
-                  const SizedBox(height: 12),
-                  _styledInput(
-                      controller: descriptionController,
-                      label: 'Description',
-                      icon: Icons.description,
-                      maxLines: 3),
-                  const SizedBox(height: 12),
-                  _styledInput(
-                      controller: caloriesController,
-                      label: 'Calories',
-                      icon: Icons.local_fire_department,
-                      keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  _styledInput(
-                      controller: proteinController,
-                      label: 'Protein (g)',
-                      icon: Icons.fitness_center,
-                      keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  _styledInput(
-                      controller: carbsController,
-                      label: 'Carbs (g)',
-                      icon: Icons.grain,
-                      keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  _styledInput(
-                      controller: fatController,
-                      label: 'Fat (g)',
-                      icon: Icons.opacity,
-                      keyboardType: TextInputType.number),
-                ],
-              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _styledInput(controller: nameCtrl,     label: 'Name',        icon: Icons.restaurant_menu),
+                const SizedBox(height: 12),
+                _styledInput(controller: descCtrl,     label: 'Description', icon: Icons.description, maxLines: 3),
+                const SizedBox(height: 12),
+                _styledInput(controller: caloriesCtrl, label: 'Calories',    icon: Icons.local_fire_department, keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                _styledInput(controller: proteinCtrl,  label: 'Protein (g)', icon: Icons.fitness_center,        keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                _styledInput(controller: carbsCtrl,    label: 'Carbs (g)',   icon: Icons.grain,                 keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                _styledInput(controller: fatCtrl,      label: 'Fat (g)',     icon: Icons.opacity,               keyboardType: TextInputType.number),
+              ]),
             ),
           ),
         ),
@@ -298,8 +204,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: _primaryColor,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
               if (!formKey.currentState!.validate()) return;
@@ -314,38 +219,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     if (result != true) return;
 
     try {
-      final name = nameController.text.trim();
-      final description = descriptionController.text.trim();
-      final calories = int.tryParse(caloriesController.text.trim()) ?? 0;
-      final protein = double.tryParse(proteinController.text.trim()) ?? 0;
-      final carbs = double.tryParse(carbsController.text.trim()) ?? 0;
-      final fat = double.tryParse(fatController.text.trim()) ?? 0;
+      final name     = nameCtrl.text.trim();
+      final desc     = descCtrl.text.trim();
+      final calories = int.tryParse(caloriesCtrl.text.trim()) ?? 0;
+      final protein  = double.tryParse(proteinCtrl.text.trim()) ?? 0;
+      final carbs    = double.tryParse(carbsCtrl.text.trim()) ?? 0;
+      final fat      = double.tryParse(fatCtrl.text.trim()) ?? 0;
 
       if (isEdit) {
-        final updated = await _service.updateMeal(
-          id: meal.mealId,
-          name: name,
-          description: description,
-          calories: calories,
-          protein: protein,
-          carbs: carbs,
-          fat: fat,
+        await context.read<AdminCubit>().updateMeal(
+          id: meal.mealId, name: name, description: desc,
+          calories: calories, protein: protein, carbs: carbs, fat: fat,
         );
-        setState(() {
-          final index = _meals.indexWhere((e) => e.mealId == meal.mealId);
-          if (index != -1) _meals[index] = updated;
-        });
         _showSnack('Meal updated successfully');
       } else {
-        final created = await _service.createMeal(
-          name: name,
-          description: description,
-          calories: calories,
-          protein: protein,
-          carbs: carbs,
-          fat: fat,
+        await context.read<AdminCubit>().createMeal(
+          name: name, description: desc,
+          calories: calories, protein: protein, carbs: carbs, fat: fat,
         );
-        setState(() => _meals.insert(0, created));
         _showSnack('Meal created successfully');
       }
     } catch (e) {
@@ -355,59 +246,54 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
   Widget _styledInput({
     required TextEditingController controller,
-    required String label,
+    required String  label,
     required IconData icon,
-    TextInputType? keyboardType,
-    int maxLines = 1,
+    TextInputType?   keyboardType,
+    int              maxLines = 1,
   }) {
     return TextFormField(
-      controller: controller,
+      controller:   controller,
       keyboardType: keyboardType,
-      maxLines: maxLines,
-      style: TextStyle(color: _textPrimary),
-      validator: (value) =>
-          (value == null || value.trim().isEmpty) ? '$label is required' : null,
+      maxLines:     maxLines,
+      style:        TextStyle(color: _textPrimary),
+      validator:    (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null,
       decoration: InputDecoration(
-        labelText: label,
+        labelText:  label,
         labelStyle: TextStyle(color: _textSecondary),
         prefixIcon: Icon(icon, color: _primaryColor, size: 20),
-        filled: true,
-        fillColor: _textPrimary.withOpacity(0.04),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _primaryColor),
-        ),
+        filled:     true,
+        fillColor:  _textPrimary.withOpacity(0.04),
+        border:         OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _borderColor)),
+        enabledBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _borderColor)),
+        focusedBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _primaryColor)),
       ),
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildNavBar(),
-            Expanded(
-              child: _loading
-                  ? _buildLoading()
-                  : _error != null
-                      ? _buildError()
-                      : _buildPage(),
+    return BlocBuilder<AdminCubit, AdminState>(
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: _bgColor,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildNavBar(),
+                Expanded(
+                  child: state.loading
+                      ? _buildLoading()
+                      : state.error != null
+                          ? _buildError(state.error!)
+                          : _buildPage(state),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -422,41 +308,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 44, height: 44,
                     decoration: BoxDecoration(
                       color: _primaryColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: _primaryColor.withOpacity(0.3)),
+                      border: Border.all(color: _primaryColor.withOpacity(0.3)),
                     ),
-                    child: const Icon(Icons.shield_rounded,
-                        color: _primaryColor, size: 22),
+                    child: const Icon(Icons.shield_rounded, color: _primaryColor, size: 22),
                   ),
                   ..._miniParticles(),
                 ],
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Admin Panel',
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  Text(
-                    'Vital Metrics Control',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Admin Panel',
+                    style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 20)),
+                Text('Vital Metrics Control',
+                    style: TextStyle(color: _textSecondary, fontSize: 12)),
+              ]),
               const Spacer(),
 
               // Dark-mode toggle
@@ -465,74 +334,44 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
-                  width: 56,
-                  height: 30,
+                  width: 56, height: 30,
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? _primaryColor.withOpacity(0.3)
-                        : _textPrimary.withOpacity(0.08),
+                    color: isDark ? _primaryColor.withOpacity(0.3) : _textPrimary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isDark
-                          ? _primaryColor.withOpacity(0.6)
-                          : _borderMedium,
+                      color: isDark ? _primaryColor.withOpacity(0.6) : _borderMedium,
                       width: 1,
                     ),
-                    boxShadow: isDark
-                        ? [
-                            BoxShadow(
-                              color: _primaryColor.withOpacity(0.25),
-                              blurRadius: 8,
-                            ),
-                          ]
-                        : [],
+                    boxShadow: isDark ? [BoxShadow(color: _primaryColor.withOpacity(0.25), blurRadius: 8)] : [],
                   ),
-                  child: Stack(
-                    children: [
-                      AnimatedAlign(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic,
-                        alignment: isDark
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? _primaryColor
-                                : _textPrimary.withOpacity(0.35),
-                            shape: BoxShape.circle,
-                            boxShadow: isDark
-                                ? [
-                                    BoxShadow(
-                                      color: _primaryColor.withOpacity(0.5),
-                                      blurRadius: 6,
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          child: Icon(
-                            isDark
-                                ? CupertinoIcons.moon_fill
-                                : CupertinoIcons.sun_max_fill,
-                            size: 12,
-                            color: isDark
-                                ? Colors.white
-                                : _bgColor,
-                          ),
+                  child: Stack(children: [
+                    AnimatedAlign(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      alignment: isDark ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        width: 22, height: 22,
+                        decoration: BoxDecoration(
+                          color: isDark ? _primaryColor : _textPrimary.withOpacity(0.35),
+                          shape: BoxShape.circle,
+                          boxShadow: isDark ? [BoxShadow(color: _primaryColor.withOpacity(0.5), blurRadius: 6)] : [],
+                        ),
+                        child: Icon(
+                          isDark ? CupertinoIcons.moon_fill : CupertinoIcons.sun_max_fill,
+                          size: 12,
+                          color: isDark ? Colors.white : _bgColor,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ]),
                 ),
               ),
 
               const SizedBox(width: 8),
 
               GestureDetector(
-                onTap: _loadAll,
+                onTap: () => context.read<AdminCubit>().loadAll(),
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -542,12 +381,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                   ),
                   child: AnimatedBuilder(
                     animation: _pulseAnim,
-                    builder: (_, child) => Transform.scale(
-                      scale: _pulseAnim.value,
-                      child: child,
-                    ),
-                    child: const Icon(CupertinoIcons.refresh,
-                        color: _primaryColor, size: 20),
+                    builder: (_, child) => Transform.scale(scale: _pulseAnim.value, child: child),
+                    child: const Icon(CupertinoIcons.refresh, color: _primaryColor, size: 20),
                   ),
                 ),
               ),
@@ -561,32 +396,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   List<Widget> _miniParticles() {
     final particles = [
       (top: -6.0, right: -4.0, size: 5.0, color: 0xFF4361EE),
-      (top: 8.0, right: -8.0, size: 4.0, color: 0xFF4CC9F0),
+      (top:  8.0, right: -8.0, size: 4.0, color: 0xFF4CC9F0),
     ];
     return particles.map((p) {
       return AnimatedBuilder(
         animation: _particleCtrl,
         builder: (_, __) {
-          final t = _particleCtrl.value;
+          final t  = _particleCtrl.value;
           final dy = math.sin(t * 2 * math.pi) * 3.0;
           final op = (0.3 + math.sin(t * 2 * math.pi) * 0.3).clamp(0.0, 1.0);
           return Positioned(
-            top: p.top + dy,
-            right: p.right,
+            top: p.top + dy, right: p.right,
             child: Opacity(
               opacity: op,
               child: Container(
-                width: p.size,
-                height: p.size,
+                width: p.size, height: p.size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(p.color),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(p.color).withOpacity(0.6),
-                      blurRadius: p.size * 2,
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: Color(p.color).withOpacity(0.6), blurRadius: p.size * 2)],
                 ),
               ),
             ),
@@ -599,12 +427,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   Widget _buildNavBar() {
     final tabs = [
       (icon: CupertinoIcons.chart_bar_fill, label: 'Dashboard'),
-      (icon: CupertinoIcons.person_2_fill, label: 'Users'),
-      (icon: CupertinoIcons.flame_fill, label: 'Meals'),
+      (icon: CupertinoIcons.person_2_fill,  label: 'Users'),
+      (icon: CupertinoIcons.flame_fill,     label: 'Meals'),
     ];
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin:  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: _cardColor,
@@ -625,35 +452,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                   color: selected ? _primaryColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(13),
                   boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: _primaryColor.withOpacity(0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
+                      ? [BoxShadow(color: _primaryColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))]
                       : [],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      e.value.icon,
-                      color: selected ? Colors.white : _textSecondary,
-                      size: 18,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      e.value.label,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(e.value.icon,
+                      color: selected ? Colors.white : _textSecondary, size: 18),
+                  const SizedBox(height: 4),
+                  Text(e.value.label,
                       style: TextStyle(
                         color: selected ? Colors.white : _textSecondary,
                         fontSize: 11,
-                        fontWeight:
-                            selected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                      )),
+                ]),
               ),
             ),
           );
@@ -662,51 +474,38 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     );
   }
 
-  Widget _buildPage() {
+  Widget _buildPage(AdminState state) {
     switch (_selectedIndex) {
-      case 0:
-        return _buildDashboard();
-      case 1:
-        return _buildUsers();
-      case 2:
-        return _buildMeals();
-      default:
-        return const SizedBox();
+      case 0:  return _buildDashboard(state);
+      case 1:  return _buildUsers(state);
+      case 2:  return _buildMeals(state);
+      default: return const SizedBox();
     }
   }
 
   Widget _buildLoading() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedBuilder(
-            animation: _pulseAnim,
-            builder: (_, child) => Transform.scale(
-              scale: _pulseAnim.value,
-              child: child,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedBuilder(
+          animation: _pulseAnim,
+          builder: (_, child) => Transform.scale(scale: _pulseAnim.value, child: child),
+          child: Container(
+            width: 64, height: 64,
+            decoration: BoxDecoration(
+              color: _primaryColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: _primaryColor.withOpacity(0.3)),
             ),
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: _primaryColor.withOpacity(0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: _primaryColor.withOpacity(0.3)),
-              ),
-              child: const Icon(Icons.shield_rounded,
-                  color: _primaryColor, size: 28),
-            ),
+            child: const Icon(Icons.shield_rounded, color: _primaryColor, size: 28),
           ),
-          const SizedBox(height: 16),
-          Text('Loading...',
-              style: TextStyle(color: _textSecondary, fontSize: 14)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        Text('Loading...', style: TextStyle(color: _textSecondary, fontSize: 14)),
+      ]),
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(String error) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -715,114 +514,69 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           decoration: BoxDecoration(
             color: _cardColor,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-                color: const Color(0xFFFF6B6B).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFFFF6B6B).withOpacity(0.3)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF6B6B).withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.error_outline,
-                    color: Color(0xFFFF6B6B), size: 28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B).withOpacity(0.15),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 16),
-              Text(
-                _error ?? 'Something went wrong',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: _textSecondary, fontSize: 14),
+              child: const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 28),
+            ),
+            const SizedBox(height: 16),
+            Text(error, textAlign: TextAlign.center,
+                style: TextStyle(color: _textSecondary, fontSize: 14)),
+            const SizedBox(height: 20),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
               ),
-              const SizedBox(height: 20),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                ),
-                onPressed: _loadAll,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+              onPressed: () => context.read<AdminCubit>().loadAll(),
+              child: const Text('Retry'),
+            ),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _buildDashboard() {
-    final overview = _overview;
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  Widget _buildDashboard(AdminState state) {
+    final overview = state.overview;
     if (overview == null) {
-      return Center(
-          child: Text('No data', style: TextStyle(color: _textSecondary)));
+      return Center(child: Text('No data', style: TextStyle(color: _textSecondary)));
     }
 
     final stats = [
-      (
-        title: 'Total Users',
-        value: overview.totalUsers.toString(),
-        icon: CupertinoIcons.person_2_fill,
-        color: _primaryColor,
-        sub: 'Registered accounts',
-      ),
-      (
-        title: 'Total Goals',
-        value: overview.totalGoals.toString(),
-        icon: CupertinoIcons.flag_fill,
-        color: const Color(0xFF7B5EA7),
-        sub: 'Active goals',
-      ),
-      (
-        title: 'Total Meals',
-        value: overview.totalMeals.toString(),
-        icon: CupertinoIcons.flame_fill,
-        color: const Color(0xFFFF9A3C),
-        sub: 'Meal entries',
-      ),
-      (
-        title: 'Daily Metrics',
-        value: overview.totalDailyMetrics.toString(),
-        icon: CupertinoIcons.chart_bar_fill,
-        color: const Color(0xFF2ECC9A),
-        sub: 'Tracked days',
-      ),
+      (title: 'Total Users',   value: overview.totalUsers.toString(),        icon: CupertinoIcons.person_2_fill,  color: _primaryColor),
+      (title: 'Total Goals',   value: overview.totalGoals.toString(),        icon: CupertinoIcons.flag_fill,      color: const Color(0xFF7B5EA7)),
+      (title: 'Total Meals',   value: overview.totalMeals.toString(),        icon: CupertinoIcons.flame_fill,     color: const Color(0xFFFF9A3C)),
+      (title: 'Daily Metrics', value: overview.totalDailyMetrics.toString(), icon: CupertinoIcons.chart_bar_fill, color: const Color(0xFF2ECC9A)),
     ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Overview',
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
-            children: stats.map((s) => _statCard(s)).toList(),
-          ),
-          const SizedBox(height: 20),
-          _buildQuickActions(),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Overview',
+            style: TextStyle(color: _textSecondary, fontSize: 12,
+                fontWeight: FontWeight.w600, letterSpacing: 1.2)),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12, mainAxisSpacing: 12,
+          childAspectRatio: 1.4,
+          children: stats.map((s) => _statCard(s)).toList(),
+        ),
+        const SizedBox(height: 20),
+        _buildQuickActions(),
+      ]),
     );
   }
 
@@ -833,128 +587,65 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: (s.color as Color).withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: (s.color as Color).withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: (s.color as Color).withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: (s.color as Color).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: (s.color as Color).withOpacity(0.3)),
-                ),
-                child: Icon(s.icon as IconData,
-                    color: s.color as Color, size: 18),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (s.color as Color).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '↑',
-                  style: TextStyle(
-                      color: s.color as Color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: (s.color as Color).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: (s.color as Color).withOpacity(0.3)),
+            ),
+            child: Icon(s.icon as IconData, color: s.color as Color, size: 18),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                s.value as String,
-                style: TextStyle(
-                  color: _textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                s.title as String,
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: (s.color as Color).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('↑', style: TextStyle(color: s.color as Color, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
-        ],
-      ),
+        ]),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(s.value as String,
+              style: TextStyle(color: _textPrimary, fontSize: 28, fontWeight: FontWeight.bold, height: 1)),
+          const SizedBox(height: 2),
+          Text(s.title as String,
+              style: TextStyle(color: _textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+        ]),
+      ]),
     );
   }
 
   Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: TextStyle(
-            color: _textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _actionBtn(
-                label: 'Manage Users',
-                icon: CupertinoIcons.person_2_fill,
-                color: _primaryColor,
-                onTap: () => setState(() => _selectedIndex = 1),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _actionBtn(
-                label: 'Add Meal',
-                icon: CupertinoIcons.add_circled_solid,
-                color: const Color(0xFFFF9A3C),
-                onTap: () {
-                  setState(() => _selectedIndex = 2);
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    _openMealDialog();
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Quick Actions',
+          style: TextStyle(color: _textSecondary, fontSize: 12,
+              fontWeight: FontWeight.w600, letterSpacing: 1.2)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _actionBtn(
+          label: 'Manage Users', icon: CupertinoIcons.person_2_fill,
+          color: _primaryColor,
+          onTap: () => setState(() => _selectedIndex = 1),
+        )),
+        const SizedBox(width: 12),
+        Expanded(child: _actionBtn(
+          label: 'Add Meal', icon: CupertinoIcons.add_circled_solid,
+          color: const Color(0xFFFF9A3C),
+          onTap: () {
+            setState(() => _selectedIndex = 2);
+            Future.delayed(const Duration(milliseconds: 100), _openMealDialog);
+          },
+        )),
+      ]),
+    ]);
   }
 
-  Widget _actionBtn({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  Widget _actionBtn({required String label, required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -964,108 +655,72 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(0.25)),
         ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Flexible(child: Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600))),
+        ]),
       ),
     );
   }
 
-  Widget _buildUsers() {
-    final users = _filteredUsers;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: _cardColor,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _borderColor),
-                ),
-                child: TextField(
-                  controller: _userSearchController,
-                  onChanged: (_) => setState(() {}),
-                  style: TextStyle(color: _textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or email...',
-                    hintStyle: TextStyle(color: _textSecondary),
-                    prefixIcon: Icon(CupertinoIcons.search,
-                        color: _textSecondary, size: 18),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                  ),
-                ),
+  // ── Users ─────────────────────────────────────────────────────────────────
+  Widget _buildUsers(AdminState state) {
+    final users = _filteredUsers(state.users);
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(children: [
+          Container(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _borderColor),
+            ),
+            child: TextField(
+              controller: _userSearchController,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(color: _textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Search by name or email...',
+                hintStyle: TextStyle(color: _textSecondary),
+                prefixIcon: Icon(CupertinoIcons.search, color: _textSecondary, size: 18),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _filterDropdown(
-                      value: _selectedGender,
-                      items: const {
-                        'all': 'All Gender',
-                        'male': 'Male',
-                        'female': 'Female',
-                      },
-                      onChanged: (v) =>
-                          setState(() => _selectedGender = v ?? 'all'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _filterDropdown(
-                      value: _selectedAdminFilter,
-                      items: const {
-                        'all': 'All Roles',
-                        'admin': 'Admins',
-                        'user': 'Users',
-                      },
-                      onChanged: (v) =>
-                          setState(() => _selectedAdminFilter = v ?? 'all'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
-        Expanded(
-          child: users.isEmpty
-              ? _buildEmpty('No users found', CupertinoIcons.person_2)
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: users.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _userCard(users[i]),
-                ),
-        ),
-      ],
-    );
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _filterDropdown(
+              value: _selectedGender,
+              items: const {'all': 'All Gender', 'male': 'Male', 'female': 'Female'},
+              onChanged: (v) => setState(() => _selectedGender = v ?? 'all'),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _filterDropdown(
+              value: _selectedAdminFilter,
+              items: const {'all': 'All Roles', 'admin': 'Admins', 'user': 'Users'},
+              onChanged: (v) => setState(() => _selectedAdminFilter = v ?? 'all'),
+            )),
+          ]),
+        ]),
+      ),
+      Expanded(
+        child: users.isEmpty
+            ? _buildEmpty('No users found', CupertinoIcons.person_2)
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: users.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => _userCard(users[i]),
+              ),
+      ),
+    ]);
   }
 
-  Widget _filterDropdown({
-    required String value,
-    required Map<String, String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
+  Widget _filterDropdown({required String value, required Map<String, String> items, required ValueChanged<String?> onChanged}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
@@ -1078,14 +733,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           value: value,
           dropdownColor: _cardColor,
           style: TextStyle(color: _textPrimary, fontSize: 13),
-          icon: Icon(CupertinoIcons.chevron_down,
-              color: _textSecondary, size: 14),
+          icon: Icon(CupertinoIcons.chevron_down, color: _textSecondary, size: 14),
           isExpanded: true,
           items: items.entries
-              .map((e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text(e.value),
-                  ))
+              .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
               .toList(),
           onChanged: onChanged,
         ),
@@ -1103,112 +754,63 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isAdmin
-              ? roleActiveColor.withOpacity(0.2)
-              : _borderColor,
+        border: Border.all(color: isAdmin ? roleActiveColor.withOpacity(0.2) : _borderColor),
+      ),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: _primaryColor.withOpacity(0.15),
+            shape: BoxShape.circle,
+            border: Border.all(color: _primaryColor.withOpacity(0.3)),
+          ),
+          child: Center(child: Text(
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+            style: const TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 18),
+          )),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _primaryColor.withOpacity(0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: _primaryColor.withOpacity(0.3)),
-            ),
-            child: Center(
-              child: Text(
-                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: _primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        user.name,
-                        style: TextStyle(
-                          color: _textPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: roleColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: roleColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        isAdmin ? 'Admin' : 'User',
-                        style: TextStyle(
-                          color: roleColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  user.email,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    _miniChip(
-                        '${user.gender[0].toUpperCase()}${user.gender.substring(1)}',
-                        CupertinoIcons.person),
-                    const SizedBox(width: 6),
-                    _miniChip('${user.height}cm', CupertinoIcons.arrow_up),
-                    const SizedBox(width: 6),
-                    _miniChip('${user.weight}kg', CupertinoIcons.circle),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _deleteUser(user),
-            child: Container(
-              width: 36,
-              height: 36,
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Flexible(child: Text(user.name,
+                style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: const Color(0xFFFF6B6B).withOpacity(0.2)),
+                color: roleColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: roleColor.withOpacity(0.3)),
               ),
-              child: const Icon(CupertinoIcons.trash,
-                  color: Color(0xFFFF6B6B), size: 16),
+              child: Text(isAdmin ? 'Admin' : 'User',
+                  style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
+          ]),
+          const SizedBox(height: 3),
+          Text(user.email, style: TextStyle(color: _textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
+          Row(children: [
+            _miniChip('${user.gender[0].toUpperCase()}${user.gender.substring(1)}', CupertinoIcons.person),
+            const SizedBox(width: 6),
+            _miniChip('${user.height}cm', CupertinoIcons.arrow_up),
+            const SizedBox(width: 6),
+            _miniChip('${user.weight}kg', CupertinoIcons.circle),
+          ]),
+        ])),
+        GestureDetector(
+          onTap: () => _deleteUser(user),
+          child: Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF6B6B).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFF6B6B).withOpacity(0.2)),
+            ),
+            child: const Icon(CupertinoIcons.trash, color: Color(0xFFFF6B6B), size: 16),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 
@@ -1219,121 +821,80 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         color: _textPrimary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: _textSecondary),
-          const SizedBox(width: 3),
-          Text(label,
-              style: TextStyle(color: _textSecondary, fontSize: 10)),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 10, color: _textSecondary),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(color: _textSecondary, fontSize: 10)),
+      ]),
     );
   }
 
-  Widget _buildMeals() {
-    final meals = _filteredMeals;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _borderColor),
-                  ),
-                  child: TextField(
-                    controller: _mealSearchController,
-                    onChanged: (_) => setState(() {}),
-                    style: TextStyle(color: _textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Search meals...',
-                      hintStyle: TextStyle(color: _textSecondary),
-                      prefixIcon: Icon(CupertinoIcons.search,
-                          color: _textSecondary, size: 18),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                ),
+  // ── Meals ─────────────────────────────────────────────────────────────────
+  Widget _buildMeals(AdminState state) {
+    final meals = _filteredMeals(state.meals);
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Row(children: [
+          Expanded(child: Container(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _borderColor),
+            ),
+            child: TextField(
+              controller: _mealSearchController,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(color: _textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Search meals...',
+                hintStyle: TextStyle(color: _textSecondary),
+                prefixIcon: Icon(CupertinoIcons.search, color: _textSecondary, size: 18),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: () => _openMealDialog(),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                  decoration: BoxDecoration(
-                    color: _primaryColor,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _primaryColor.withOpacity(0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(CupertinoIcons.add, color: Colors.white, size: 16),
-                      SizedBox(width: 4),
-                      Text('Add',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)),
-                    ],
-                  ),
-                ),
+            ),
+          )),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () => _openMealDialog(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: _primaryColor,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: _primaryColor.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))],
               ),
-            ],
+              child: const Row(children: [
+                Icon(CupertinoIcons.add, color: Colors.white, size: 16),
+                SizedBox(width: 4),
+                Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              ]),
+            ),
           ),
-        ),
-        Expanded(
-          child: meals.isEmpty
-              ? _buildEmpty('No meals found', CupertinoIcons.flame)
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: meals.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _mealCard(meals[i]),
-                ),
-        ),
-      ],
-    );
+        ]),
+      ),
+      Expanded(
+        child: meals.isEmpty
+            ? _buildEmpty('No meals found', CupertinoIcons.flame)
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                physics: const BouncingScrollPhysics(),
+                itemCount: meals.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => _mealCard(meals[i]),
+              ),
+      ),
+    ]);
   }
 
   Widget _mealCard(AdminMealModel meal) {
     final macros = [
-      (
-        label: 'Cal',
-        value: meal.calories.toString(),
-        color: const Color(0xFFFF6B6B)
-      ),
-      (
-        label: 'Pro',
-        value: '${meal.protein.toStringAsFixed(0)}g',
-        color: const Color(0xFFFF9A3C)
-      ),
-      (
-        label: 'Carb',
-        value: '${meal.carbs.toStringAsFixed(0)}g',
-        color: const Color(0xFF2ECC9A)
-      ),
-      (
-        label: 'Fat',
-        value: '${meal.fat.toStringAsFixed(0)}g',
-        color: const Color(0xFF4CC9F0)
-      ),
+      (label: 'Cal',  value: meal.calories.toString(),               color: const Color(0xFFFF6B6B)),
+      (label: 'Pro',  value: '${meal.protein.toStringAsFixed(0)}g',  color: const Color(0xFFFF9A3C)),
+      (label: 'Carb', value: '${meal.carbs.toStringAsFixed(0)}g',    color: const Color(0xFF2ECC9A)),
+      (label: 'Fat',  value: '${meal.fat.toStringAsFixed(0)}g',      color: const Color(0xFF4CC9F0)),
     ];
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1341,148 +902,86 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _borderColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9A3C).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFF9A3C).withOpacity(0.25)),
+            ),
+            child: const Center(child: Text('🍽️', style: TextStyle(fontSize: 18))),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(meal.name,
+                style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis),
+            if (meal.description.isNotEmpty)
+              Text(meal.description,
+                  style: TextStyle(color: _textSecondary, fontSize: 11),
+                  overflow: TextOverflow.ellipsis, maxLines: 1),
+          ])),
+          Row(children: [
+            GestureDetector(
+              onTap: () => _openMealDialog(meal: meal),
+              child: Container(
+                width: 34, height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF9A3C).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: const Color(0xFFFF9A3C).withOpacity(0.25)),
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _primaryColor.withOpacity(0.2)),
                 ),
-                child: const Center(
-                  child: Text('🍽️', style: TextStyle(fontSize: 18)),
+                child: const Icon(CupertinoIcons.pencil, color: _primaryColor, size: 15),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _deleteMeal(meal),
+              child: Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B6B).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFF6B6B).withOpacity(0.2)),
                 ),
+                child: const Icon(CupertinoIcons.trash, color: Color(0xFFFF6B6B), size: 15),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meal.name,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (meal.description.isNotEmpty)
-                      Text(
-                        meal.description,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 11,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                  ],
-                ),
+            ),
+          ]),
+        ]),
+        const SizedBox(height: 12),
+        Row(
+          children: macros.map((m) => Expanded(
+            child: Container(
+              margin: EdgeInsets.only(right: macros.last == m ? 0 : 6),
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: m.color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: m.color.withOpacity(0.2)),
               ),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _openMealDialog(meal: meal),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: _primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border:
-                            Border.all(color: _primaryColor.withOpacity(0.2)),
-                      ),
-                      child: const Icon(CupertinoIcons.pencil,
-                          color: _primaryColor, size: 15),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _deleteMeal(meal),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B6B).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: const Color(0xFFFF6B6B).withOpacity(0.2)),
-                      ),
-                      child: const Icon(CupertinoIcons.trash,
-                          color: Color(0xFFFF6B6B), size: 15),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: macros
-                .map((m) => Expanded(
-                      child: Container(
-                        margin:
-                            EdgeInsets.only(right: macros.last == m ? 0 : 6),
-                        padding: const EdgeInsets.symmetric(vertical: 7),
-                        decoration: BoxDecoration(
-                          color: m.color.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: m.color.withOpacity(0.2)),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              m.value,
-                              style: TextStyle(
-                                color: m.color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              m.label,
-                              style: TextStyle(
-                                color: m.color.withOpacity(0.6),
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
-      ),
+              child: Column(children: [
+                Text(m.value, style: TextStyle(color: m.color, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(m.label, style: TextStyle(color: m.color.withOpacity(0.6), fontSize: 10)),
+              ]),
+            ),
+          )).toList(),
+        ),
+      ]),
     );
   }
 
   Widget _buildEmpty(String message, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: _textPrimary.withOpacity(0.05),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: _textSecondary, size: 28),
-          ),
-          const SizedBox(height: 12),
-          Text(message,
-              style: TextStyle(color: _textSecondary, fontSize: 14)),
-        ],
+    return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 64, height: 64,
+        decoration: BoxDecoration(color: _textPrimary.withOpacity(0.05), shape: BoxShape.circle),
+        child: Icon(icon, color: _textSecondary, size: 28),
       ),
-    );
+      const SizedBox(height: 12),
+      Text(message, style: TextStyle(color: _textSecondary, fontSize: 14)),
+    ]));
   }
 }

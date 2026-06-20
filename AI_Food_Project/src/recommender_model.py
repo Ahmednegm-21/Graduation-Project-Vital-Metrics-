@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 
-# مسار models مرن بغض النظر عن مكان تشغيل الكود
 _THIS = os.path.dirname(os.path.abspath(__file__))
 
 for _candidate in [
@@ -36,9 +35,14 @@ class FoodRecommender:
                     f"شغّل train_similarity_model.py الأول."
                 )
 
-        self.df         = pd.read_pickle(foods_path)
-        self.scaler     = joblib.load(scaler_path)
-        self.nn         = joblib.load(nn_path)
+        self.df     = pd.read_pickle(foods_path)
+        self.scaler = joblib.load(scaler_path)
+        self.nn     = joblib.load(nn_path)
+
+        # ── DEBUG: print real column names from pickle ──────────────────────
+        print("=== PKL COLUMNS ===", self.df.columns.tolist())
+        print("=== PKL FIRST ROW ===", self.df.iloc[0].to_dict())
+        # ────────────────────────────────────────────────────────────────────
 
         with open(text_model_path, "r") as f:
             model_name = f.read().strip()
@@ -57,12 +61,10 @@ class FoodRecommender:
         top_n: int = 5,
     ) -> pd.DataFrame:
 
-        # Text embedding
         emb = self.text_model.encode(
             [query_text], normalize_embeddings=True
         )
 
-        # Numeric features
         nums = np.array([[
             calories or 0.0,
             protein  or 0.0,
@@ -73,7 +75,6 @@ class FoodRecommender:
         nums_scaled = self.scaler.transform(nums) * 0.3
         X_query     = np.hstack([emb, nums_scaled])
 
-        # KNN search
         k = min(top_n + 10, len(self.df))
         distances, indices = self.nn.kneighbors(X_query, n_neighbors=k)
 

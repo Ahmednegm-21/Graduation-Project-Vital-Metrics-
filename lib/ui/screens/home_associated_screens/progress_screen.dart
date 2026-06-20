@@ -9,6 +9,8 @@ import 'package:vital_metrics/logic/fitness/fitness_snapshot_cubit.dart';
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
+import 'package:vital_metrics/logic/notifications/notifications_state.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
 import 'package:vital_metrics/services/google_fit_service.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
@@ -2070,63 +2072,61 @@ class _ModernActivityTile extends StatelessWidget {
 class _BellButton extends StatelessWidget {
   final bool isDark;
   const _BellButton({required this.isDark});
-  static const int _unread = 3;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: () => context.push('/notifications'),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.colors.card,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: context.colors.shadow, blurRadius: 8),
-                ],
+  Widget build(BuildContext context) {
+    return BlocBuilder<NotificationsCubit, NotificationsState>(
+      builder: (context, state) {
+        final hasUnread = state is NotificationsLoaded
+            ? state.unreadCount > 0
+            : false;
+
+        return GestureDetector(
+          onTap: () => context.push('/notifications'),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: context.colors.shadow, blurRadius: 8),
+                  ],
+                ),
+                child: Icon(
+                  CupertinoIcons.bell_fill,
+                  color: isDark ? _orange : _blue,
+                  size: 20,
+                ),
               ),
-              child: Icon(
-                CupertinoIcons.bell_fill,
-                color: isDark ? _orange : _blue,
-                size: 20,
-              ),
-            ),
-            if (_unread > 0)
-              Positioned(
-                top: -4,
-                right: -4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4757),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark
-                          ? const Color(0xFF0F1221)
-                          : const Color(0xFFF0F3FF),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Text(
-                    '$_unread',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+              if (hasUnread)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF4757),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF0F1221)
+                            : const Color(0xFFF0F3FF),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-      );
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
-
 class _SectionTitle extends StatelessWidget {
   final String title;
   const _SectionTitle({required this.title});
