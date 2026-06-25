@@ -12,7 +12,20 @@
           "package_name": "com.example.vital_metrics"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "614319872852-06rnr1kivh5oemtdh7hjhi5itasutbg4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vital_metrics",
+            "certificate_hash": "c8331b836e8fe637e57082f0e0c518eb2433ba85"
+          }
+        },
+        {
+          "client_id": "614319872852-k759defs9ov24eujehe39c5i4fshq0j1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAH6tmR3P5Fs3RSuz5TrEVahwXLvZXDFoc"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "614319872852-k759defs9ov24eujehe39c5i4fshq0j1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

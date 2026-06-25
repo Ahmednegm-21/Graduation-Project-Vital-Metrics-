@@ -1,3 +1,5 @@
+// lib/ui/screens/.../food_swapping_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,15 +13,16 @@ import 'package:vital_metrics/data/models/user_goal.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_cubit.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_state.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
 import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/category_explorer.dart';
+import 'package:vital_metrics/ui/widgets/home_widgets/voice_search_button.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/search_category_bar.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/swap_card.dart';
 
 class FoodSwappingScreen extends StatelessWidget {
   const FoodSwappingScreen({super.key});
 
-  // Map onboarding goal → cubit goal string
   String _mapGoal(UserGoal? goal) {
     if (goal == null) return 'maintain';
     switch (goal.type) {
@@ -48,26 +51,22 @@ class _FoodSwappingView extends StatefulWidget {
 
 class _FoodSwappingViewState extends State<_FoodSwappingView>
     with TickerProviderStateMixin {
-  final _searchCtrl     = TextEditingController();
+  final _searchCtrl      = TextEditingController();
   final _searchFocusNode = FocusNode();
-  bool  _searchFocused  = false;
+  bool  _searchFocused   = false;
 
-  // Header fade-in animation
   late AnimationController _headerCtrl;
   late Animation<double>   _headerFade;
 
   @override
   void initState() {
     super.initState();
-
-    // Fade the header in when the screen opens
     _headerCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: AppConstants.animationSlow),
     )..forward();
     _headerFade = CurvedAnimation(parent: _headerCtrl, curve: Curves.easeOut);
 
-    // Track focus so the category bar appears/disappears
     _searchFocusNode.addListener(
       () => setState(() => _searchFocused = _searchFocusNode.hasFocus),
     );
@@ -83,11 +82,12 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = context.watch<LocaleCubit>().state;
+
     return Scaffold(
       backgroundColor: context.colors.bg,
       body: Column(
         children: [
-          // Header fades in on screen open
           FadeTransition(
             opacity: _headerFade,
             child: _Header(onBack: () => context.pop()),
@@ -107,19 +107,19 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
             ),
           ),
 
-          // Category filter bar — slides in when search is focused
+          // Category filter bar
           BlocBuilder<FoodSwapCubit, FoodSwapState>(
             builder: (ctx, state) {
-              // Read from cubit directly
-              final cat     = ctx.read<FoodSwapCubit>().searchCategory;
-              final visible = _searchFocused || cat != null;
+              final cubit   = ctx.read<FoodSwapCubit>();
+              final catId   = cubit.searchCategory;
+              final visible = _searchFocused || catId != null;
               return SearchCategoryBar(
                 visible:           visible,
-                activeCategory:    cat,
-                onCategoryChanged: (c) {
-                  ctx.read<FoodSwapCubit>().setSearchCategory(c);
+                activeId:          catId,
+                onCategoryChanged: (id) {
+                  cubit.setSearchCategory(id);
                   if (_searchCtrl.text.isNotEmpty) {
-                    ctx.read<FoodSwapCubit>().search(_searchCtrl.text);
+                    cubit.search(_searchCtrl.text);
                   }
                 },
               );
@@ -128,14 +128,13 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
 
           SizedBox(height: AppConstants.spaceL),
 
-          // Main content area switches based on state
           Expanded(
             child: BlocBuilder<FoodSwapCubit, FoodSwapState>(
               builder: (ctx, state) {
                 if (state is FoodSwapInitial) {
                   return CategoryExplorer(
                     onSelect: (f) {
-                      _searchCtrl.text = f.name;
+                      _searchCtrl.text = f.displayName(isArabic: isArabic);
                       _searchFocusNode.unfocus();
                       ctx.read<FoodSwapCubit>().selectFood(f);
                     },
@@ -145,8 +144,9 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
                   return _SearchResults(
                     results:  state.results,
                     query:    state.query,
+                    isArabic: isArabic,
                     onSelect: (f) {
-                      _searchCtrl.text = f.name;
+                      _searchCtrl.text = f.displayName(isArabic: isArabic);
                       _searchFocusNode.unfocus();
                       ctx.read<FoodSwapCubit>().selectFood(f);
                     },
@@ -154,7 +154,8 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
                 }
                 if (state is FoodSwapLoaded) {
                   return _SwapResults(
-                    state:   state,
+                    state:    state,
+                    isArabic: isArabic,
                     onReset: () {
                       _searchCtrl.clear();
                       ctx.read<FoodSwapCubit>().reset();
@@ -171,7 +172,7 @@ class _FoodSwappingViewState extends State<_FoodSwappingView>
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// Header
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
   const _Header({required this.onBack});
@@ -186,7 +187,6 @@ class _Header extends StatelessWidget {
         AppConstants.paddingXL,
       ),
       child: Row(children: [
-        // Back button
         GestureDetector(
           onTap: onBack,
           child: Container(
@@ -202,14 +202,13 @@ class _Header extends StatelessWidget {
             ),
             child: Icon(
               Icons.arrow_back_ios_new_rounded,
-              size: AppConstants.iconXS,
+              size:  AppConstants.iconXS,
               color: context.colors.text,
             ),
           ),
         ),
         SizedBox(width: AppConstants.paddingM),
 
-        // Title + subtitle
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,24 +216,20 @@ class _Header extends StatelessWidget {
               Text(
                 'Food Swapping',
                 style: TextStyle(
-                  fontSize: 22.sp,
+                  fontSize:   22.sp,
                   fontWeight: FontWeight.w900,
-                  color: context.colors.text,
+                  color:      context.colors.text,
                   letterSpacing: -0.5,
                 ),
               ),
               Text(
                 'Find smarter alternatives instantly',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: context.colors.subText,
-                ),
+                style: TextStyle(fontSize: 12.sp, color: context.colors.subText),
               ),
             ],
           ),
         ),
 
-        // Favorites shortcut button
         GestureDetector(
           onTap: () => context.push('/favorites'),
           child: Container(
@@ -253,7 +248,7 @@ class _Header extends StatelessWidget {
             child: Icon(
               Icons.bookmark_rounded,
               color: AppColors.white,
-              size: AppConstants.iconS,
+              size:  AppConstants.iconS,
             ),
           ),
         ),
@@ -262,12 +257,12 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Search bar ────────────────────────────────────────────────────────────────
+// Search bar
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
+  final FocusNode             focusNode;
+  final ValueChanged<String>  onChanged;
+  final VoidCallback          onClear;
 
   const _SearchBar({
     required this.controller,
@@ -306,13 +301,11 @@ class _SearchBar extends StatelessWidget {
             fontSize: 14.sp,
             color:    context.colors.subText.withOpacity(0.45),
           ),
-          // Green search icon
           prefixIcon: Icon(
             Icons.search_rounded,
             color: AppColors.swapGreen,
             size:  22.sp,
           ),
-          // Clear button appears when text exists
           suffixIcon: ValueListenableBuilder(
             valueListenable: controller,
             builder: (_, val, __) => val.text.isNotEmpty
@@ -324,7 +317,17 @@ class _SearchBar extends StatelessWidget {
                       size:  18.sp,
                     ),
                   )
-                : const SizedBox.shrink(),
+                : VoiceSearchButton(
+                    onResult: (text) {
+                      final cleaned = text.trim().replaceAll(RegExp(r'[،,.]'), '');
+                      controller.value = controller.value.copyWith(
+                        text: cleaned,
+                        selection: TextSelection.collapsed(offset: cleaned.length),
+                      );
+                      onChanged(cleaned);
+                    },
+                    idleColor: context.colors.subText,
+                  ),
           ),
           border:         InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
@@ -337,21 +340,22 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-// ── Search results list ───────────────────────────────────────────────────────
+// Search results
 class _SearchResults extends StatelessWidget {
-  final List<FoodItem> results;
-  final String query;
+  final List<FoodItem>      results;
+  final String              query;
+  final bool                isArabic;
   final ValueChanged<FoodItem> onSelect;
 
   const _SearchResults({
     required this.results,
     required this.query,
+    required this.isArabic,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Empty state
     if (results.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -359,10 +363,7 @@ class _SearchResults extends StatelessWidget {
           SizedBox(height: AppConstants.spaceM),
           Text(
             'No results for "$query"',
-            style: TextStyle(
-              fontSize: 14.sp,
-              color:    context.colors.subText,
-            ),
+            style: TextStyle(fontSize: 14.sp, color: context.colors.subText),
           ),
         ]),
       );
@@ -375,10 +376,7 @@ class _SearchResults extends StatelessWidget {
       itemBuilder: (_, i) {
         final f = results[i];
         return GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onSelect(f);
-          },
+          onTap: () { HapticFeedback.selectionClick(); onSelect(f); },
           child: Container(
             padding: EdgeInsets.symmetric(
               horizontal: AppConstants.paddingL,
@@ -394,7 +392,6 @@ class _SearchResults extends StatelessWidget {
               ),
             ),
             child: Row(children: [
-              // Emoji avatar
               Container(
                 width:  44.w,
                 height: 44.h,
@@ -402,19 +399,15 @@ class _SearchResults extends StatelessWidget {
                   color:        AppColors.swapGreen.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(AppConstants.radiusM),
                 ),
-                child: Center(
-                  child: Text(f.emoji, style: TextStyle(fontSize: 22.sp)),
-                ),
+                child: Center(child: Text(f.emoji, style: TextStyle(fontSize: 22.sp))),
               ),
               SizedBox(width: AppConstants.paddingM),
-
-              // Name + macro chips
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      f.name,
+                      f.displayName(isArabic: isArabic),
                       style: TextStyle(
                         fontSize:   14.sp,
                         fontWeight: FontWeight.w700,
@@ -432,7 +425,6 @@ class _SearchResults extends StatelessWidget {
                   ],
                 ),
               ),
-
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size:  13.sp,
@@ -446,7 +438,6 @@ class _SearchResults extends StatelessWidget {
   }
 }
 
-/// Small colored label pill used in search results.
 class _Chip extends StatelessWidget {
   final String label;
   final Color  color;
@@ -472,11 +463,12 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── Swap results (after a food is selected) ───────────────────────────────────
+// Swap results
 class _SwapResults extends StatefulWidget {
   final FoodSwapLoaded state;
-  final VoidCallback   onReset;
-  const _SwapResults({required this.state, required this.onReset});
+  final bool isArabic;
+  final VoidCallback onReset;
+  const _SwapResults({required this.state, required this.isArabic, required this.onReset});
 
   @override
   State<_SwapResults> createState() => _SwapResultsState();
@@ -484,7 +476,6 @@ class _SwapResults extends StatefulWidget {
 
 class _SwapResultsState extends State<_SwapResults>
     with SingleTickerProviderStateMixin {
-  // Cards slide in from the right with stagger
   late AnimationController _ctrl;
 
   @override
@@ -497,31 +488,24 @@ class _SwapResultsState extends State<_SwapResults>
   }
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final s    = widget.state;
-    final orig = s.result.original;
-    final alts = s.result.alternatives;
+    final s        = widget.state;
+    final isArabic = widget.isArabic;
+    final orig     = s.result.original;
+    final alts     = s.result.alternatives;
 
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingXL),
       children: [
-        // Selected food card
-        _OriginalCard(food: orig, onReset: widget.onReset),
+        _OriginalCard(food: orig, isArabic: isArabic, onReset: widget.onReset),
         SizedBox(height: AppConstants.spaceL),
-
-        // Portion size slider
         _PortionSlider(grams: s.portionGrams, food: orig),
         SizedBox(height: AppConstants.spaceL),
 
-        // Section heading
         Row(children: [
-          // Green accent bar
           Container(
             width:  4.w,
             height: 18.h,
@@ -551,12 +535,10 @@ class _SwapResultsState extends State<_SwapResults>
         ]),
         SizedBox(height: AppConstants.spaceM),
 
-        // Alternatives list or empty state
         if (alts.isEmpty)
           _EmptyAlts()
         else
           ...List.generate(alts.length, (i) {
-            // Each card slides in from the right with increasing delay
             final delay = i * 0.14;
             final anim  = CurvedAnimation(
               parent: _ctrl,
@@ -569,8 +551,8 @@ class _SwapResultsState extends State<_SwapResults>
             return AnimatedBuilder(
               animation: anim,
               builder: (_, child) => FadeTransition(
-                opacity: anim,
-                child:   SlideTransition(
+                opacity:  anim,
+                child:    SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0.4, 0),
                     end:   Offset.zero,
@@ -579,16 +561,15 @@ class _SwapResultsState extends State<_SwapResults>
                 ),
               ),
               child: SwapCard(
-                alt:   alts[i],
-                // Pass original so compare sheet can diff them
+                alt:              alts[i],
                 original:         orig,
                 index:            i,
+                isArabic:         isArabic,
                 isFavorite:       s.favoriteIds.contains(alts[i].food.id),
                 onFavoriteToggle: () =>
                     context.read<FoodSwapCubit>().toggleFavorite(alts[i].food.id),
                 onAddToLog: () =>
-                    _showAddToLogSheet(context, alts[i], s.portionGrams),
-                // onCompare is omitted → SwapCard opens the sheet itself
+                    _showAddToLogSheet(context, alts[i], s.portionGrams, isArabic),
               ),
             );
           }),
@@ -598,20 +579,20 @@ class _SwapResultsState extends State<_SwapResults>
     );
   }
 
-  // ── Add-to-log bottom sheet ───────────────────────────────────────────────
   void _showAddToLogSheet(
     BuildContext context,
     SwapAlternative alt,
     double portionGrams,
+    bool isArabic,
   ) {
     String selectedMeal = 'lunch';
-    // Gradient matches the card index
-    final idx  = widget.state.result.alternatives.indexOf(alt);
-    final grad = AppColors.swapGradient(idx);
+    final idx     = widget.state.result.alternatives.indexOf(alt);
+    final grad    = AppColors.swapGradient(idx);
+    final altName = alt.food.displayName(isArabic: isArabic);
 
     showModalBottomSheet(
-      context:          context,
-      backgroundColor:  Colors.transparent,
+      context:         context,
+      backgroundColor: Colors.transparent,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setS) => Container(
           padding: EdgeInsets.all(AppConstants.paddingXL),
@@ -622,7 +603,6 @@ class _SwapResultsState extends State<_SwapResults>
             ),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Handle bar
             Container(
               width:  40.w,
               height: 4.h,
@@ -632,7 +612,6 @@ class _SwapResultsState extends State<_SwapResults>
               ),
             ),
             SizedBox(height: AppConstants.spaceXL),
-
             Text(
               'Add to Meal Log',
               style: TextStyle(
@@ -643,12 +622,11 @@ class _SwapResultsState extends State<_SwapResults>
             ),
             SizedBox(height: 6.h),
             Text(
-              '${alt.food.emoji} ${alt.food.name}  •  ${portionGrams.round()}g',
+              '${alt.food.emoji} $altName  •  ${portionGrams.round()}g',
               style: TextStyle(fontSize: 13.sp, color: context.colors.subText),
             ),
             SizedBox(height: AppConstants.spaceXL),
 
-            // Meal type selector (emoji icons)
             Row(
               children: ['breakfast', 'lunch', 'dinner', 'snacks'].map((m) {
                 final on = selectedMeal == m;
@@ -656,13 +634,12 @@ class _SwapResultsState extends State<_SwapResults>
                   child: GestureDetector(
                     onTap: () => setS(() => selectedMeal = m),
                     child: AnimatedContainer(
-                      duration: const Duration(
-                          milliseconds: AppConstants.animationFast),
+                      duration: const Duration(milliseconds: AppConstants.animationFast),
                       margin:  EdgeInsets.symmetric(horizontal: AppConstants.paddingXS),
                       padding: EdgeInsets.symmetric(vertical: AppConstants.spaceS),
                       decoration: BoxDecoration(
-                        gradient: on ? LinearGradient(colors: grad) : null,
-                        color:    on ? null : context.colors.bg,
+                        gradient:     on ? LinearGradient(colors: grad) : null,
+                        color:        on ? null : context.colors.bg,
                         borderRadius: BorderRadius.circular(AppConstants.radiusM),
                         border: Border.all(
                           color: on
@@ -682,7 +659,6 @@ class _SwapResultsState extends State<_SwapResults>
             ),
             SizedBox(height: AppConstants.spaceS),
 
-            // Meal labels below icons
             Row(
               children: ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
                   .map((m) => Expanded(
@@ -700,12 +676,11 @@ class _SwapResultsState extends State<_SwapResults>
             ),
             SizedBox(height: AppConstants.spaceXXL),
 
-            // Confirm button
             GestureDetector(
               onTap: () {
                 final scaled = alt.food.scaledTo(portionGrams);
                 context.read<CalorieCubit>().addMeal(MealEntry(
-                  name:     alt.food.name,
+                  name:     altName,
                   calories: scaled.calories.round(),
                   protein:  scaled.protein.round(),
                   carbs:    scaled.carbs.round(),
@@ -715,7 +690,7 @@ class _SwapResultsState extends State<_SwapResults>
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                    '${alt.food.emoji} ${alt.food.name} added to $selectedMeal!',
+                    '${alt.food.emoji} $altName added to $selectedMeal!',
                     style: const TextStyle(color: AppColors.white),
                   ),
                   backgroundColor: AppColors.swapGreen,
@@ -769,7 +744,7 @@ class _SwapResultsState extends State<_SwapResults>
   }
 }
 
-// ── Portion slider card ───────────────────────────────────────────────────────
+// Portion slider
 class _PortionSlider extends StatelessWidget {
   final double   grams;
   final FoodItem food;
@@ -777,9 +752,7 @@ class _PortionSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Scale macros to the current portion
     final scaled = food.scaledTo(grams);
-
     return Container(
       padding: EdgeInsets.all(AppConstants.paddingM),
       decoration: BoxDecoration(
@@ -794,10 +767,8 @@ class _PortionSlider extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label + gram badge
           Row(children: [
-            Icon(Icons.scale_rounded,
-                size: AppConstants.iconXS, color: AppColors.swapBlue),
+            Icon(Icons.scale_rounded, size: AppConstants.iconXS, color: AppColors.swapBlue),
             SizedBox(width: 6.w),
             Text(
               'Portion Size',
@@ -808,7 +779,6 @@ class _PortionSlider extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // Blue gradient badge showing current grams
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: AppConstants.spaceS,
@@ -830,8 +800,6 @@ class _PortionSlider extends StatelessWidget {
               ),
             ),
           ]),
-
-          // Slider styled to match swap blue
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor:   AppColors.swapBlue,
@@ -845,12 +813,9 @@ class _PortionSlider extends StatelessWidget {
               min:       AppConstants.portionMin,
               max:       AppConstants.portionMax,
               divisions: AppConstants.portionDivisions,
-              onChanged: (v) =>
-                  context.read<FoodSwapCubit>().updatePortion(v),
+              onChanged: (v) => context.read<FoodSwapCubit>().updatePortion(v),
             ),
           ),
-
-          // Scaled macro pills
           Row(children: [
             _MiniMacro('${scaled.calories.round()}', 'kcal', AppColors.protein),
             _MiniMacro('${scaled.protein.round()}g',  'P',   AppColors.swapBlue),
@@ -863,7 +828,6 @@ class _PortionSlider extends StatelessWidget {
   }
 }
 
-/// Small macro summary pill inside the portion slider.
 class _MiniMacro extends StatelessWidget {
   final String value;
   final String label;
@@ -889,22 +853,19 @@ class _MiniMacro extends StatelessWidget {
               color:      color,
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(fontSize: 9.sp, color: context.colors.subText),
-          ),
+          Text(label, style: TextStyle(fontSize: 9.sp, color: context.colors.subText)),
         ]),
       ),
     );
   }
 }
 
-// ── Original food card ────────────────────────────────────────────────────────
-/// Shows the food the user selected with a refresh button to go back.
+// Original card
 class _OriginalCard extends StatelessWidget {
-  final FoodItem food;
+  final FoodItem     food;
+  final bool         isArabic;
   final VoidCallback onReset;
-  const _OriginalCard({required this.food, required this.onReset});
+  const _OriginalCard({required this.food, required this.isArabic, required this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -921,7 +882,6 @@ class _OriginalCard extends StatelessWidget {
       child: Row(children: [
         Text(food.emoji, style: TextStyle(fontSize: 36.sp)),
         SizedBox(width: AppConstants.paddingM),
-
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,7 +895,7 @@ class _OriginalCard extends StatelessWidget {
                 ),
               ),
               Text(
-                food.name,
+                food.displayName(isArabic: isArabic),
                 style: TextStyle(
                   fontSize:   18.sp,
                   fontWeight: FontWeight.w900,
@@ -943,7 +903,6 @@ class _OriginalCard extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 4.h),
-              // Condensed macro summary
               Text(
                 '${food.calories.round()} kcal · P${food.protein.round()}g · C${food.carbs.round()}g · F${food.fats.round()}g',
                 style: TextStyle(fontSize: 11.sp, color: context.colors.subText),
@@ -951,8 +910,6 @@ class _OriginalCard extends StatelessWidget {
             ],
           ),
         ),
-
-        // Reset button
         GestureDetector(
           onTap: onReset,
           child: Container(
@@ -961,11 +918,7 @@ class _OriginalCard extends StatelessWidget {
               color:        AppColors.swapGreen.withOpacity(0.15),
               borderRadius: BorderRadius.circular(AppConstants.radiusS),
             ),
-            child: Icon(
-              Icons.refresh_rounded,
-              size:  18.sp,
-              color: AppColors.swapGreen,
-            ),
+            child: Icon(Icons.refresh_rounded, size: 18.sp, color: AppColors.swapGreen),
           ),
         ),
       ]),
@@ -973,7 +926,7 @@ class _OriginalCard extends StatelessWidget {
   }
 }
 
-// ── Empty alternatives ────────────────────────────────────────────────────────
+// Empty alternatives
 class _EmptyAlts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

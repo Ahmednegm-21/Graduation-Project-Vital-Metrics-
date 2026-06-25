@@ -47,7 +47,6 @@ class TipModel {
       );
 }
 
-// ── Local fallback tips (مبنية على بيانات اليوزر) ──────────────────────────
 
 List<TipModel> localTips({
   double waterGoalL    = 2.5,

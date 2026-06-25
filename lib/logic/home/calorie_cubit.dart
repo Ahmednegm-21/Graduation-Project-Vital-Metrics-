@@ -15,9 +15,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     _loadCache();
   }
 
-  // =====================================================
-  // LOAD CACHE
-  // =====================================================
 
   Future<void> _loadCache() async {
     try {
@@ -56,9 +53,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     }
   }
 
-  // =====================================================
-  // SAVE CACHE
-  // =====================================================
 
   Future<void> _saveCache() async {
     try {
@@ -90,9 +84,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     }
   }
 
-  // =====================================================
-  // CALCULATE DYNAMIC CALORIES
-  // =====================================================
 
   void calculateAndSetBudget({
     required double weight,
@@ -133,7 +124,6 @@ class CalorieCubit extends Cubit<CalorieState> {
       case 'gain_weight':
         targetCalories += 300;
         break;
-      // maintain or any other value: no adjustment
     }
 
     if (targetCalories < 1200) {
@@ -143,9 +133,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     updateBudget(targetCalories.round());
   }
 
-  // =====================================================
-  // ADD MEAL
-  // =====================================================
 
   void addMeal(MealEntry meal) {
     final updatedMeals = List<MealEntry>.from(state.meals)..add(meal);
@@ -154,9 +141,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     print('[CalorieCubit] Meal Added => ${meal.name}');
   }
 
-  // =====================================================
-  // QUICK ADD
-  // =====================================================
 
   void addMealByName({
     required String name,
@@ -177,9 +161,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     addMeal(meal);
   }
 
-  // =====================================================
-  // REMOVE MEAL
-  // =====================================================
 
   void removeMeal(MealEntry meal) {
     final updatedMeals = List<MealEntry>.from(state.meals)..remove(meal);
@@ -187,9 +168,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     _saveCache();
   }
 
-  // =====================================================
-  // RESET SPECIFIC MEAL TYPE
-  // =====================================================
 
   void resetMeal(String mealType) {
     final updatedMeals =
@@ -199,13 +177,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     print('[CalorieCubit] Reset Meal => $mealType');
   }
 
-  // =====================================================
-  // UPDATE BUDGET
-  // Guard prevents emitting when the value has not changed,
-  // which would otherwise cause a listener loop:
-  // calorieCubit.stream -> progressCubit.load ->
-  // onboardingCubit.stream -> syncProfile -> updateBudget -> loop
-  // =====================================================
 
   void updateBudget(int budget) {
     if (state.caloriesBudget == budget) return;
@@ -213,9 +184,6 @@ class CalorieCubit extends Cubit<CalorieState> {
     _saveCache();
   }
 
-  // =====================================================
-  // RESET ALL
-  // =====================================================
 
   Future<void> reset() async {
     emit(const CalorieState());

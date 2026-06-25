@@ -1,27 +1,33 @@
+// lib/ui/widgets/food_swapping/swap_card.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/core/themes/theme_context_extension.dart';
 import 'package:vital_metrics/data/models/food_item.dart';
+import 'package:vital_metrics/services/food_swap_service.dart';
 import 'package:vital_metrics/ui/widgets/food_swapping/compare_sheet.dart';
 
-/// Card that shows one swap alternative with actions (save, compare, add to log).
 class SwapCard extends StatefulWidget {
   final SwapAlternative alt;
-  final FoodItem original; // needed for compare sheet
+  final FoodItem original;
   final int index;
+  final bool isArabic;
 
+  final String userGoal;
   final bool? isFavorite;
   final VoidCallback? onFavoriteToggle;
   final VoidCallback? onAddToLog;
-  final VoidCallback? onCompare; // optional override; defaults to built-in sheet
+  final VoidCallback? onCompare;
 
   const SwapCard({
     super.key,
     required this.alt,
     required this.original,
     required this.index,
+    required this.isArabic,
+    this.userGoal = 'maintain',
     this.isFavorite,
     this.onFavoriteToggle,
     this.onAddToLog,
@@ -34,7 +40,6 @@ class SwapCard extends StatefulWidget {
 
 class _SwapCardState extends State<SwapCard>
     with SingleTickerProviderStateMixin {
-  // Press-down scale animation
   late AnimationController _pressCtrl;
   late Animation<double> _pressScale;
 
@@ -59,13 +64,13 @@ class _SwapCardState extends State<SwapCard>
   @override
   Widget build(BuildContext context) {
     final isDark   = context.isDark;
-    // Use AppColors central gradient palette
     final gradient = AppColors.swapGradient(widget.index);
-    final score    = widget.alt.matchScore.round();
+    final score    = calcImprovementScore(widget.original, widget.alt.food, goal: widget.userGoal).round();
+    final altName  = widget.alt.food.displayName(isArabic: widget.isArabic);
 
     return GestureDetector(
-      onTapDown:  (_) => _pressCtrl.forward(),
-      onTapUp:    (_) => _pressCtrl.reverse(),
+      onTapDown:   (_) => _pressCtrl.forward(),
+      onTapUp:     (_) => _pressCtrl.reverse(),
       onTapCancel: () => _pressCtrl.reverse(),
       child: AnimatedBuilder(
         animation: _pressCtrl,
@@ -74,7 +79,6 @@ class _SwapCardState extends State<SwapCard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Main card ──────────────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
                 color: context.colors.card,
@@ -93,7 +97,6 @@ class _SwapCardState extends State<SwapCard>
                 ],
               ),
               child: Column(children: [
-                // Top row: emoji + name + benefit badge + match score
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppConstants.paddingL,
@@ -102,7 +105,6 @@ class _SwapCardState extends State<SwapCard>
                     AppConstants.paddingM,
                   ),
                   child: Row(children: [
-                    // Emoji container
                     Container(
                       width: 52.w,
                       height: 52.h,
@@ -120,13 +122,12 @@ class _SwapCardState extends State<SwapCard>
                     ),
                     SizedBox(width: AppConstants.paddingM),
 
-                    // Name + benefit badge
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.alt.food.name,
+                            altName,
                             style: TextStyle(
                               fontSize: 15.sp,
                               fontWeight: FontWeight.w800,
@@ -134,7 +135,6 @@ class _SwapCardState extends State<SwapCard>
                             ),
                           ),
                           SizedBox(height: 3.h),
-                          // Benefit tag with gradient background
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: AppConstants.paddingS,
@@ -142,8 +142,7 @@ class _SwapCardState extends State<SwapCard>
                             ),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(colors: gradient),
-                              borderRadius: BorderRadius.circular(
-                                  AppConstants.radiusRound),
+                              borderRadius: BorderRadius.circular(AppConstants.radiusRound),
                             ),
                             child: Text(
                               '${widget.alt.benefit.emoji} ${widget.alt.benefit.label}',
@@ -158,12 +157,11 @@ class _SwapCardState extends State<SwapCard>
                       ),
                     ),
 
-                    // Match score circle
-                    _MatchScoreCircle(score: score, color: gradient[0]),
+                    // Arrow improvement badge
+                    _ImprovementBadge(score: score),
                   ]),
                 ),
 
-                // Divider
                 Divider(
                   height: 1,
                   color: isDark
@@ -171,7 +169,6 @@ class _SwapCardState extends State<SwapCard>
                       : Colors.black.withOpacity(0.05),
                 ),
 
-                // Macros row + swap reason
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppConstants.paddingL,
@@ -182,43 +179,20 @@ class _SwapCardState extends State<SwapCard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 4 macro pills
                       Row(children: [
-                        _MacroBar(
-                          label: 'Cal',
-                          value: widget.alt.food.calories.round(),
-                          unit: 'kcal',
-                          color: AppColors.protein, // orange — calories
-                        ),
+                        _MacroBar(label: 'Cal',  value: widget.alt.food.calories.round(), unit: 'kcal', color: AppColors.protein),
                         SizedBox(width: AppConstants.paddingS),
-                        _MacroBar(
-                          label: 'Prot',
-                          value: widget.alt.food.protein.round(),
-                          unit: 'g',
-                          color: AppColors.swapBlue,
-                        ),
+                        _MacroBar(label: 'Prot', value: widget.alt.food.protein.round(),  unit: 'g',    color: AppColors.swapBlue),
                         SizedBox(width: AppConstants.paddingS),
-                        _MacroBar(
-                          label: 'Carb',
-                          value: widget.alt.food.carbs.round(),
-                          unit: 'g',
-                          color: gradient[0], // matches card accent
-                        ),
+                        _MacroBar(label: 'Carb', value: widget.alt.food.carbs.round(),    unit: 'g',    color: gradient[0]),
                         SizedBox(width: AppConstants.paddingS),
-                        _MacroBar(
-                          label: 'Fat',
-                          value: widget.alt.food.fats.round(),
-                          unit: 'g',
-                          color: AppColors.swapPurple,
-                        ),
+                        _MacroBar(label: 'Fat',  value: widget.alt.food.fats.round(),     unit: 'g',    color: AppColors.swapPurple),
                       ]),
                       SizedBox(height: AppConstants.spaceS),
 
-                      // Swap reason text
                       Row(children: [
                         Icon(Icons.swap_horiz_rounded,
-                            size: AppConstants.iconXS,
-                            color: gradient[0]),
+                            size: AppConstants.iconXS, color: gradient[0]),
                         SizedBox(width: 5.w),
                         Expanded(
                           child: Text(
@@ -237,7 +211,6 @@ class _SwapCardState extends State<SwapCard>
               ]),
             ),
 
-            // ── Action row ─────────────────────────────────────────────────
             Padding(
               padding: EdgeInsets.fromLTRB(
                 AppConstants.paddingXS,
@@ -246,7 +219,6 @@ class _SwapCardState extends State<SwapCard>
                 AppConstants.spaceM,
               ),
               child: Row(children: [
-                // Save / Saved button
                 if (widget.onFavoriteToggle != null) ...[
                   _ActionBtn(
                     label:       widget.isFavorite == true ? 'Saved' : 'Save',
@@ -261,7 +233,7 @@ class _SwapCardState extends State<SwapCard>
                         : context.colors.card,
                     borderColor: widget.isFavorite == true
                         ? AppColors.favoriteOrange.withOpacity(0.4)
-                        : isDark
+                        : context.isDark
                             ? Colors.white.withOpacity(0.08)
                             : Colors.black.withOpacity(0.06),
                     onTap: widget.onFavoriteToggle!,
@@ -269,7 +241,6 @@ class _SwapCardState extends State<SwapCard>
                   SizedBox(width: AppConstants.spaceS),
                 ],
 
-                // Compare button — uses gradient accent color
                 _ActionBtn(
                   label:       'Compare',
                   icon:        Icons.compare_arrows_rounded,
@@ -282,10 +253,10 @@ class _SwapCardState extends State<SwapCard>
                             original:    widget.original,
                             alternative: widget.alt.food,
                             altGradient: gradient,
+                            isArabic:    widget.isArabic,
                           ),
                 ),
 
-                // Add to Log button (gradient filled)
                 if (widget.onAddToLog != null) ...[
                   SizedBox(width: AppConstants.spaceS),
                   _ActionBtn(
@@ -307,8 +278,62 @@ class _SwapCardState extends State<SwapCard>
   }
 }
 
-// ── Action button ─────────────────────────────────────────────────────────────
-/// Reusable pill button used in the action row below each swap card.
+// Improvement badge — arrow + percentage difference from original
+class _ImprovementBadge extends StatelessWidget {
+  final int score;
+  const _ImprovementBadge({required this.score});
+
+  // score 50 = same as original, convert to -100/+100 range
+  int get _diff => score - 50;
+
+  Color get _color {
+    if (_diff > 5)  return const Color(0xFF2ECC71); // green
+    if (_diff < -5) return const Color(0xFFE74C3C); // red
+    return const Color(0xFF8E8E93);                  // gray
+  }
+
+  IconData get _icon {
+    if (_diff > 5)  return Icons.arrow_upward_rounded;
+    if (_diff < -5) return Icons.arrow_downward_rounded;
+    return Icons.remove_rounded;
+  }
+
+  String get _label {
+    if (_diff > 5)  return '+${_diff * 2}% better';
+    if (_diff < -5) return '${_diff * 2}% worse';
+    return 'Similar';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _color;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        border: Border.all(color: c.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_icon, color: c, size: 16.sp),
+          SizedBox(height: 2.h),
+          Text(
+            _label,
+            style: TextStyle(
+              fontSize: 9.sp,
+              fontWeight: FontWeight.w800,
+              color: c,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Action button
 class _ActionBtn extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -342,7 +367,7 @@ class _ActionBtn extends StatelessWidget {
             gradient: isGradient && gradient != null
                 ? LinearGradient(colors: gradient!)
                 : null,
-            color:      isGradient ? null : bgColor,
+            color:        isGradient ? null : bgColor,
             borderRadius: BorderRadius.circular(AppConstants.radiusM),
             border: borderColor != null && !isGradient
                 ? Border.all(color: borderColor!)
@@ -376,48 +401,7 @@ class _ActionBtn extends StatelessWidget {
   }
 }
 
-// ── Match score circle ────────────────────────────────────────────────────────
-/// Circular progress indicator showing how well the alternative matches the goal.
-class _MatchScoreCircle extends StatelessWidget {
-  final int score;
-  final Color color;
-  const _MatchScoreCircle({required this.score, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48.w,
-      height: 48.h,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withOpacity(0.1),
-      ),
-      child: Stack(alignment: Alignment.center, children: [
-        SizedBox(
-          width: 44.w,
-          height: 44.h,
-          child: CircularProgressIndicator(
-            value:           score / 100,
-            strokeWidth:     3,
-            backgroundColor: color.withOpacity(0.15),
-            valueColor:      AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-        Text(
-          '$score%',
-          style: TextStyle(
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-// ── Macro bar ─────────────────────────────────────────────────────────────────
-/// Small pill showing one macro value (cal / protein / carbs / fat).
+// Macro pill
 class _MacroBar extends StatelessWidget {
   final String label;
   final int value;

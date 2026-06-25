@@ -1,4 +1,4 @@
-// lib/data/repositories/auth_repository.dart
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../config/api_config.dart';
 import '../models/api_response.dart';
@@ -10,6 +10,19 @@ import '../exceptions/api_exception.dart';
 class AuthRepository {
   final ApiService          _apiService;
   final TokenStorageService _tokenStorage;
+
+ 
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  bool _googleSignInInitialized = false;
+
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (_googleSignInInitialized) return;
+    await _googleSignIn.initialize(
+      serverClientId: ApiConfig.googleWebClientId,
+      // clientId: ApiConfig.googleIosClientId,
+    );
+    _googleSignInInitialized = true;
+  }
 
   AuthRepository({
     ApiService?          apiService,
@@ -39,6 +52,96 @@ class AuthRepository {
       rethrow;
     } catch (e) {
       throw ApiException(message: 'Sign in failed: $e');
+    }
+  }
+
+  Future<GoogleSignInResult> startGoogleSignIn() async {
+    try {
+      await _ensureGoogleSignInInitialized();
+
+      GoogleSignInAccount googleUser;
+      try {
+        googleUser = await _googleSignIn.authenticate(
+          scopeHint: ['email', 'profile'],
+        );
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          throw ApiException(message: 'Google sign-in cancelled');
+        }
+        throw ApiException(
+          message: 'Google sign-in failed: ${e.description ?? e.code.name}',
+        );
+      }
+
+      final googleAuth = googleUser.authentication; 
+      final idToken    = googleAuth.idToken;
+      if (idToken == null) {
+        throw ApiException(message: 'Failed to get Google ID token');
+      }
+
+      try {
+        final response = await _apiService.post(
+          ApiConfig.googleToken, 
+          body: {'id_token': idToken},
+        );
+
+        final saved = await _trySaveTokenFromResponse(response);
+        if (!saved) {
+          final data = response['data'];
+          if (data is Map<String, dynamic>) {
+            await _trySaveTokenFromResponse(data);
+          }
+        }
+
+        final user = await getUserProfile();
+        return GoogleSignInResult.success(user);
+
+      } on BadRequestException {
+        return GoogleSignInResult.needsProfile(
+          idToken:     idToken,
+          displayName: googleUser.displayName ?? '',
+          email:       googleUser.email,
+        );
+      }
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Google sign-in failed: $e');
+    }
+  }
+
+  Future<UserModel> completeGoogleSignIn({
+    required String idToken,
+    required String name,
+    required String gender,
+    required String dateOfBirth,
+    required double height,
+    required double weight,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        ApiConfig.googleToken,
+        body: {
+          'id_token':      idToken,
+          'name':          name,
+          'gender':        gender,
+          'date_of_birth': dateOfBirth,
+          'height':        height,
+          'weight':        weight,
+        },
+      );
+
+      final saved = await _trySaveTokenFromResponse(response);
+      if (!saved) {
+        final data = response['data'];
+        if (data is Map<String, dynamic>) await _trySaveTokenFromResponse(data);
+      }
+
+      return await getUserProfile();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Google sign-in failed: $e');
     }
   }
 
@@ -150,6 +253,9 @@ class AuthRepository {
           headers: ApiConfig.headers(token: token),
         );
       }
+      if (_googleSignInInitialized) {
+        await _googleSignIn.disconnect();
+      }
     } catch (_) {
     } finally {
       await _tokenStorage.clearTokens();
@@ -167,19 +273,12 @@ class AuthRepository {
         headers: ApiConfig.headers(token: token),
       );
 
-      // ✅ يدعم { data: {...} } أو الـ JSON مباشرةً
       final Map<String, dynamic> userData =
           response['data'] is Map<String, dynamic>
               ? response['data'] as Map<String, dynamic>
               : response;
 
-      final user = _toUserModelFromProfile(userData);
-
-      // DEBUG — احذف السطر ده بعد ما تتأكد إن الـ isAdmin شغال
-      // ignore: avoid_print
-      print('[AuthRepo] isAdmin=${user.isAdmin} | raw=${userData['is_admin']}');
-
-      return user;
+      return _toUserModelFromProfile(userData);
     } on UnauthorizedException {
       try {
         await refreshToken();
@@ -257,11 +356,9 @@ class AuthRepository {
     return val is String ? val : null;
   }
 
-  // ✅ الإصلاح الرئيسي — يقرأ is_admin بشكل صحيح حتى لو الـ value مش bool
   UserModel _toUserModelFromProfile(Map<String, dynamic> json) {
-    // is_admin ممكن يجي كـ bool أو int (1/0) أو String ("true")
     final rawAdmin = json['is_admin'] ?? json['isAdmin'];
-    final isAdmin = rawAdmin == true ||
+    final isAdmin  = rawAdmin == true ||
         rawAdmin == 1 ||
         rawAdmin?.toString().toLowerCase() == 'true';
 
@@ -280,9 +377,41 @@ class AuthRepository {
       onboardingComplete: json['onboardingComplete'] as bool?
           ?? json['is_verified'] as bool?
           ?? false,
-      isAdmin: isAdmin,  // ✅
+      isAdmin: isAdmin,
     );
   }
 
   void dispose() => _apiService.dispose();
+}
+
+// ── Result class ──────────────────────────────────────────────────────────────
+class GoogleSignInResult {
+  final UserModel? user;
+  final String?    idToken;
+  final String?    displayName;
+  final String?    email;
+  final bool       needsProfile;
+
+  const GoogleSignInResult._({
+    this.user,
+    this.idToken,
+    this.displayName,
+    this.email,
+    required this.needsProfile,
+  });
+
+  factory GoogleSignInResult.success(UserModel user) =>
+      GoogleSignInResult._(user: user, needsProfile: false);
+
+  factory GoogleSignInResult.needsProfile({
+    required String idToken,
+    required String displayName,
+    required String email,
+  }) =>
+      GoogleSignInResult._(
+        idToken:      idToken,
+        displayName:  displayName,
+        email:        email,
+        needsProfile: true,
+      );
 }

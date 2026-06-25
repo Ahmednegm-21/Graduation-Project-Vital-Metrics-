@@ -13,10 +13,8 @@ class SleepState extends Equatable {
     this.isSaving   = false,
   });
 
-  // Duration in minutes for backend
   int get durationMinutes => (sleepHours * 60).round();
 
-  // Quality string derived from hours
   String get quality {
     if (sleepHours < 6)  return 'poor';
     if (sleepHours < 7)  return 'fair';

@@ -5,9 +5,6 @@ import 'home_state.dart';
 class HomeCubit extends Cubit<HomeState> {
   HomeCubit() : super(HomeState());
 
-  // =====================================================
-  // WATER
-  // =====================================================
 
   void addWaterCup() {
     state.nutritionData.addWaterCup();
@@ -29,9 +26,6 @@ class HomeCubit extends Cubit<HomeState> {
     );
   }
 
-  // =====================================================
-  // RESET
-  // =====================================================
 
   void resetDailyData() {
     emit(

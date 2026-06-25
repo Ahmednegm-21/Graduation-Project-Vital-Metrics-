@@ -12,7 +12,7 @@ const _kLastSignedInEmail = 'auth_last_signed_in_email';
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepository;
 
-  bool _isSignInFlow = false;
+  bool    _isSignInFlow      = false;
   String? _lastSignedInEmail;
 
   AuthCubit({AuthRepository? authRepository})
@@ -57,7 +57,8 @@ class AuthCubit extends Cubit<AuthState> {
     final passwordError = password.isEmpty
         ? 'Password is required'
         : !_isValidPassword(password)
-            ? 'Password must be at least 8 characters' : null;
+            ? 'Password must be at least 8 characters'
+            : null;
 
     if (emailError != null || passwordError != null) {
       emit(AuthValidationError(
@@ -76,9 +77,7 @@ class AuthCubit extends Cubit<AuthState> {
           await LocalDataClearService.clearAll();
         }
         await _saveLastEmail(email);
-
         final user = await _authRepository.getUserProfile();
-
         if (user.isAdmin) {
           emit(AuthAdminSuccess(user));
         } else {
@@ -101,6 +100,79 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  // ── Google Sign In ─────────────────────────────────────────────────────────
+  Future<void> signInWithGoogle() async {
+    emit(AuthLoading());
+    try {
+      final result = await _authRepository.startGoogleSignIn();
+
+      if (result.needsProfile) {
+        emit(AuthGoogleNeedsProfile(
+          idToken:     result.idToken!,
+          displayName: result.displayName!,
+          email:       result.email!,
+        ));
+        return;
+      }
+
+      final user = result.user!;
+      if (_lastSignedInEmail != null && _lastSignedInEmail != user.email) {
+        await LocalDataClearService.clearAll();
+      }
+      await _saveLastEmail(user.email);
+
+      if (user.isAdmin) {
+        emit(AuthAdminSuccess(user));
+      } else {
+        emit(AuthSuccess(user));
+      }
+    } on ApiException catch (e) {
+      if (e.message == 'Google sign-in cancelled') {
+        emit(AuthInitial());
+        return;
+      }
+      emit(AuthError(e.message));
+    } catch (_) {
+      emit(AuthError('Google sign-in failed. Please try again.'));
+    }
+  }
+
+  Future<void> completeGoogleSignIn({
+    required String idToken,
+    required String name,
+    required String gender,
+    required String dateOfBirth,
+    required double height,
+    required double weight,
+  }) async {
+    emit(AuthLoading());
+    try {
+      final user = await _authRepository.completeGoogleSignIn(
+        idToken:     idToken,
+        name:        name,
+        gender:      gender,
+        dateOfBirth: dateOfBirth,
+        height:      height,
+        weight:      weight,
+      );
+
+      if (_lastSignedInEmail != null && _lastSignedInEmail != user.email) {
+        await LocalDataClearService.clearAll();
+      }
+      await _saveLastEmail(user.email);
+
+      if (user.isAdmin) {
+        emit(AuthAdminSuccess(user));
+      } else {
+        emit(AuthSuccess(user));
+      }
+    } on ApiException catch (e) {
+      emit(AuthError(e.message));
+    } catch (_) {
+      emit(AuthError('Google sign-in failed. Please try again.'));
+    }
+  }
+
   // ── Sign Up ───────────────────────────────────────────────────────────────
   Future<void> signUp({
     required String name,
@@ -120,7 +192,8 @@ class AuthCubit extends Cubit<AuthState> {
     final passwordError = password.isEmpty
         ? 'Password is required'
         : !_isValidPassword(password)
-            ? 'Password must be at least 8 characters' : null;
+            ? 'Password must be at least 8 characters'
+            : null;
 
     if (nameError != null || emailError != null || passwordError != null) {
       emit(AuthValidationError(
@@ -134,13 +207,11 @@ class AuthCubit extends Cubit<AuthState> {
 
     try {
       await LocalDataClearService.clearAll();
-
       final resultEmail = await _authRepository.signUp(
         name: name, email: email, password: password,
         gender: gender, dateOfBirth: dateOfBirth,
         height: height, weight: weight,
       );
-
       _isSignInFlow = false;
       await _saveLastEmail(email);
       emit(AuthRegistrationSuccess(email: resultEmail, tempToken: ''));
@@ -173,10 +244,8 @@ class AuthCubit extends Cubit<AuthState> {
           await LocalDataClearService.clearAll();
         }
         await _saveLastEmail(email);
-
         final user = await _authRepository.getUserProfile();
         _isSignInFlow = false;
-
         if (user.isAdmin) {
           emit(AuthAdminSuccess(user));
         } else {
@@ -232,12 +301,6 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (_) {
       emit(AuthInitial());
     }
-  }
-
-  Future<void> signInWithGoogle() async {
-    emit(AuthLoading());
-    await Future.delayed(const Duration(seconds: 1));
-    emit(AuthError('Google Sign-In is not implemented yet.'));
   }
 
   void reset() {

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/logic/auth/forget_password_cubit.dart';
 import 'package:vital_metrics/logic/food_swapping/food_swapping_cubit.dart';
 import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
-import 'package:vital_metrics/ui/screens/admin/admin_panel_screen.dart';
 import 'package:vital_metrics/ui/screens/admin/admin_shell.dart';
 import 'package:vital_metrics/ui/screens/auth_screens/forget_password_screen.dart';
 import 'package:vital_metrics/ui/screens/auth_screens/new_password_screen.dart';
@@ -350,7 +349,7 @@ class AppRouter {
         name: 'admin-panel',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const AdminShell(), // ← AdminShell بدل AdminPanelScreen
+          child: const AdminShell(),
           transitionsBuilder: (context, animation, _, child) =>
               FadeTransition(opacity: animation, child: child),
         ),

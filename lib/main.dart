@@ -14,6 +14,7 @@ import 'package:vital_metrics/logic/home/home_cubit.dart';
 import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 import 'package:vital_metrics/logic/home/theme_cubit.dart';
+import 'package:vital_metrics/logic/home/locale_cubit.dart';
 import 'package:vital_metrics/logic/home/sleep_cubit.dart';
 
 import 'package:vital_metrics/logic/home/settings/personal_info_cubit.dart';
@@ -64,6 +65,7 @@ class _MyAppState extends State<MyApp> {
   late final WaterCubit              _waterCubit;
   late final CalorieCubit            _calorieCubit;
   late final ThemeCubit              _themeCubit;
+  late final LocaleCubit _localeCubit;
   late final SleepCubit              _sleepCubit;
   late final PersonalInfoCubit       _personalInfoCubit;
   late final ProgressCubit           _progressCubit;
@@ -155,6 +157,7 @@ class _MyAppState extends State<MyApp> {
     _waterCubit          = WaterCubit()..refresh();
     _calorieCubit        = CalorieCubit();
     _themeCubit          = ThemeCubit();
+    _localeCubit = LocaleCubit();
     _personalInfoCubit   = PersonalInfoCubit();
 
     _progressCubit = ProgressCubit(
@@ -236,6 +239,7 @@ class _MyAppState extends State<MyApp> {
     _waterCubit.close();
     _calorieCubit.close();
     _themeCubit.close();
+    _localeCubit.close();
     _sleepCubit.close();
     _personalInfoCubit.close();
     _progressCubit.close();
@@ -260,6 +264,7 @@ class _MyAppState extends State<MyApp> {
         BlocProvider.value(value: _waterCubit),
         BlocProvider.value(value: _calorieCubit),
         BlocProvider.value(value: _themeCubit),
+        BlocProvider.value(value: _localeCubit),
         BlocProvider.value(value: _sleepCubit),
         BlocProvider.value(value: _personalInfoCubit),
         BlocProvider.value(value: _progressCubit),

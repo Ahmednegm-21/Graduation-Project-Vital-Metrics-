@@ -43,9 +43,9 @@ class ActivityModel {
 
       timestamp:
           json['timestamp'] != null
-              ? DateTime.tryParse(
-                    json['timestamp'].toString(),
-                  ) ??
+              ? (DateTime.tryParse(
+                        json['timestamp'].toString(),
+                      )?.toLocal()) ??
                   DateTime.now()
               : DateTime.now(),
     );
@@ -82,12 +82,13 @@ class ActivityModel {
               ?.toInt() ??
           0,
 
+      // Convert UTC timestamp from backend to local time
+      // to avoid date mismatch for users in UTC+ timezones
       timestamp:
           json['date'] != null
-              ? DateTime.tryParse(
-                    json['date']
-                        .toString(),
-                  ) ??
+              ? (DateTime.tryParse(
+                        json['date'].toString(),
+                      )?.toLocal()) ??
                   DateTime.now()
               : DateTime.now(),
     );

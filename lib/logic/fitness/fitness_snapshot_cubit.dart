@@ -11,9 +11,6 @@ class FitnessSnapshotCubit extends Cubit<FitnessSnapshotState> {
       : _fitService = fitService ?? GoogleFitService(),
         super(const FitnessSnapshotInitial());
 
-  // =====================================================
-  // LOAD
-  // =====================================================
 
   Future<void> load() async {
     emit(const FitnessSnapshotLoading());
@@ -25,17 +22,11 @@ class FitnessSnapshotCubit extends Cubit<FitnessSnapshotState> {
     }
   }
 
-  // =====================================================
-  // ENABLE — اليوزر فعّل Steps tracking
-  // =====================================================
 
   Future<void> enable() async {
     await load();
   }
 
-  // =====================================================
-  // DISABLE — اليوزر عطّل Steps tracking
-  // =====================================================
 
   Future<void> disable() async {
     emit(const FitnessSnapshotDisabled());

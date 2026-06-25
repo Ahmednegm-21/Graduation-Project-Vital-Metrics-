@@ -17,14 +17,11 @@ export class MailService {
     if (this.transporter) {
       return this.transporter;
     }
-
     const mailUser = this.configService.get<string>('EMAIL_USER');
     const mailPass = this.configService.get<string>('EMAIL_PASS');
-
     if (!mailUser || !mailPass) {
       throw new InternalServerErrorException('Email service not configured');
     }
-
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -32,17 +29,14 @@ export class MailService {
         pass: mailPass,
       },
     });
-
     return this.transporter;
   }
 
   private getMailFrom(): string {
     const mailFrom = this.configService.get<string>('EMAIL_FROM');
-
     if (!mailFrom) {
       throw new InternalServerErrorException('Email service not configured');
     }
-
     return mailFrom;
   }
 
@@ -54,7 +48,6 @@ export class MailService {
     const transporter = this.getTransporter();
     const mailFrom = this.getMailFrom();
     const appName = 'Vital Metrics';
-
     try {
       await transporter.sendMail({
         from: mailFrom,
@@ -73,7 +66,6 @@ export class MailService {
     const transporter = this.getTransporter();
     const mailFrom = this.getMailFrom();
     const appName = 'Vital Metrics';
-
     try {
       await transporter.sendMail({
         from: mailFrom,
@@ -84,9 +76,7 @@ export class MailService {
       });
     } catch (error) {
       this.logger.error('Failed to send verification email', error);
-      throw new InternalServerErrorException(
-        'Failed to send verification email',
-      );
+      // متعملش throw هنا — التسجيل لازم ينجح حتى لو فشل إرسال الإيميل
     }
   }
 }

@@ -69,7 +69,7 @@ class NotificationApiModel {
       if (diff.inDays    < 7)  return '${diff.inDays} days ago';
       return '${date.day}/${date.month}/${date.year}';
     } catch (_) {
-      return iso ?? '';
+      return iso;
     }
   }
 }

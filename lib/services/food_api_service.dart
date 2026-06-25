@@ -8,7 +8,7 @@ import 'package:vital_metrics/data/models/meal_model.dart';
 class FoodApiService {
   static const String baseUrl = 'http://10.0.2.2:8501'; // Android Emulator
   // static const String baseUrl = 'http://localhost:8501'; // iOS / Web
-  static const String apiKey = ''; // فضيه لو السيرفر مش بيطلب key
+  static const String apiKey = ''; 
 
   static Map<String, String> get _headers => {
     'Content-Type': 'application/json',
@@ -125,9 +125,7 @@ class FoodApiService {
     throw Exception(data['error']);
   }
 
-  // ── Helper: تحويل JSON من الـ AI API لـ FoodItem بتاع المشروع ─────────────
   // الـ AI API بيبعت: food, calories, protein, fat, carbohydrates
-  // الـ FoodItem بتاعك بيحتاج: id, name, emoji, category, calories, protein, carbs, fats
   static FoodItem _aiJsonToFoodItem(Map<String, dynamic> json) {
     final name = json['food'] as String;
     return FoodItem(
@@ -142,7 +140,6 @@ class FoodApiService {
     );
   }
 
-  // ── Helper: تخمين الـ category من الاسم ──────────────────────────────────
   static String _inferCategory(String name) {
     final n = name.toLowerCase();
     if (n.contains('chicken') || n.contains('beef')  || n.contains('fish')  ||
@@ -165,7 +162,6 @@ class FoodApiService {
 }
 
 // ── MealSuggestion Model ───────────────────────────────────────────────────
-// الـ model ده خاص بـ /suggest endpoint
 class MealSuggestion {
   final String name;
   final double weightG;
@@ -194,7 +190,6 @@ class MealSuggestion {
     );
   }
 
-  // تحويل لـ FoodItem لو محتاج تعرضه في الـ UI
   FoodItem toFoodItem() => FoodItem(
     id:       name.toLowerCase().replaceAll(' ', '_'),
     name:     name,

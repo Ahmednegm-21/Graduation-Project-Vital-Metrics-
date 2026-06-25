@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -12,13 +13,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.vital_metrics"
-
         minSdk = 26
         targetSdk = 36
-
         versionCode = 1
         versionName = "1.0"
-
         multiDexEnabled = true
     }
 

@@ -17,7 +17,6 @@ const _kConsumedMl = 'water_consumed_ml';
 const _kTodayIntakes = 'water_today_intakes';
 const _kLastSavedDate = 'water_last_saved_date';
 
-// ← مفتاح لمعرفة هل الـ goal اتحسب من البيانات الشخصية أم لا
 const _kGoalSetFromProfile = 'water_goal_set_from_profile';
 
 const _mlToOz = 0.033814;
@@ -35,9 +34,6 @@ class WaterCubit extends Cubit<WaterState> {
     Future.microtask(() => _init());
   }
 
-  // =====================================================
-  // INIT
-  // =====================================================
 
   Future<void> _init() async {
     emit(state.copyWith(isLoading: true));
@@ -48,10 +44,6 @@ class WaterCubit extends Cubit<WaterState> {
     });
   }
 
-  // =====================================================
-  // SET GOAL FROM PERSONAL INFO + ACTIVITY LEVEL
-  // يُستدعى من main.dart بعد ما PersonalInfoCubit يحمّل البيانات
-  // =====================================================
 
   Future<void> setGoalFromProfile({
     required double weight,
@@ -59,7 +51,6 @@ class WaterCubit extends Cubit<WaterState> {
   }) async {
     final calculatedMl = activityLevel.waterGoalMl(weight: weight);
 
-    // لو الـ goal اتغير، حدّثه واحفظه
     if (calculatedMl != state.goalMl) {
       emit(state.copyWith(goalMl: calculatedMl));
       await _saveLocalCache();
@@ -67,27 +58,21 @@ class WaterCubit extends Cubit<WaterState> {
           ' (weight=${weight}kg, level=${activityLevel.label})');
     }
 
-    // سجّل إن الـ goal اتحسب من البيانات الشخصية
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kGoalSetFromProfile, true);
   }
 
-  // =====================================================
-  // LOCAL CACHE
-  // =====================================================
 
   Future<void> _loadLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Default goal: 2500ml لو مفيش بيانات شخصية بعد
       final goalMl = prefs.getInt(_kGoalMl) ?? 2500;
       final drinkMl = prefs.getInt(_kDrinkMl) ?? 250;
       final unit = prefs.getString(_kUnit) ?? 'ml';
       final savedDate = prefs.getString(_kLastSavedDate);
       final today = DateTime.now().toIso8601String().split('T').first;
 
-      // يوم جديد — صفّر الـ consumed بس، خلي الـ goal زي ما هو
       if (savedDate != today) {
         await prefs.setInt(_kConsumedMl, 0);
         await prefs.setString(_kLastSavedDate, today);
@@ -152,9 +137,6 @@ class WaterCubit extends Cubit<WaterState> {
     }
   }
 
-  // =====================================================
-  // FETCH FROM BACKEND
-  // =====================================================
 
   Future<void> _fetchTodayIntakes() async {
     try {
@@ -188,9 +170,6 @@ class WaterCubit extends Cubit<WaterState> {
     }
   }
 
-  // =====================================================
-  // DRINK
-  // =====================================================
 
   bool _isDrinking = false;
 
@@ -210,7 +189,6 @@ class WaterCubit extends Cubit<WaterState> {
       emit(state.copyWith(todayIntakes: updated));
       await _saveLocalCache();
 
-      // ← تحقق من الـ preference قبل الكتابة في Health Connect
       final prefs = await SharedPreferences.getInstance();
       final waterHcEnabled = prefs.getBool('hc_water_enabled') ?? true;
       if (waterHcEnabled) {
@@ -226,9 +204,6 @@ class WaterCubit extends Cubit<WaterState> {
     }
   }
 
-  // =====================================================
-  // REMOVE
-  // =====================================================
 
   Future<void> removeDrink() async {
     if (state.consumedMl <= 0) return;
@@ -240,9 +215,6 @@ class WaterCubit extends Cubit<WaterState> {
     await _saveLocalCache();
   }
 
-  // =====================================================
-  // RESET
-  // =====================================================
 
   Future<void> reset() async {
     final oldIntakes = List<WaterModel>.from(state.todayIntakes);
@@ -262,9 +234,6 @@ class WaterCubit extends Cubit<WaterState> {
     }
   }
 
-  // =====================================================
-  // SETTINGS — يسمح للمستخدم يعدّل يدوياً من الـ settings
-  // =====================================================
 
   Future<void> updateDailyGoal(double valueInCurrentUnit) async {
     final ml = state.unit == 'oz'
@@ -287,9 +256,6 @@ class WaterCubit extends Cubit<WaterState> {
     await _saveLocalCache();
   }
 
-  // =====================================================
-  // REFRESH
-  // =====================================================
 
   Future<void> refresh() async {
     await _fetchTodayIntakes();

@@ -1,5 +1,3 @@
-// lib/data/config/api_config.dart
-
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
@@ -28,6 +26,10 @@ class ApiConfig {
   // ── Token ──────────────────────────────────────────────────────────────────
   static const String refreshToken = '/auth/refresh';
   static const String googleToken = '/auth/google/token';
+
+  // ── Google Sign-In ─────────────────────────────────────────────────────────
+  static const String googleWebClientId =
+      '870757701792-d7aqai0t414hddi2os2bn9adj68qd5h9.apps.googleusercontent.com';
 
   // ── User ───────────────────────────────────────────────────────────────────
   static const String getUserProfile = '/users/profile';

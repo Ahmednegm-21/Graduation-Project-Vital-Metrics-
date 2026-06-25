@@ -1,32 +1,26 @@
-import '../../data/models/nutrition_model.dart';
+  import '../../data/models/nutrition_model.dart';
 
-class HomeState {
-  final NutritionData nutritionData;
+  class HomeState {
+    final NutritionData nutritionData;
 
-  HomeState({
-    NutritionData? nutritionData,
-  }) : nutritionData = nutritionData ?? NutritionData();
+    HomeState({
+      NutritionData? nutritionData,
+    }) : nutritionData = nutritionData ?? NutritionData();
 
-  // =====================================================
-  // WATER ONLY
-  // =====================================================
 
-  int get waterIntake =>
-      nutritionData.waterIntake;
+    int get waterIntake =>
+        nutritionData.waterIntake;
 
-  int get waterGoal =>
-      nutritionData.waterGoal;
+    int get waterGoal =>
+        nutritionData.waterGoal;
 
-  // =====================================================
-  // COPY WITH
-  // =====================================================
 
-  HomeState copyWith({
-    NutritionData? nutritionData,
-  }) {
-    return HomeState(
-      nutritionData:
-          nutritionData ?? this.nutritionData,
-    );
+    HomeState copyWith({
+      NutritionData? nutritionData,
+    }) {
+      return HomeState(
+        nutritionData:
+            nutritionData ?? this.nutritionData,
+      );
+    }
   }
-}

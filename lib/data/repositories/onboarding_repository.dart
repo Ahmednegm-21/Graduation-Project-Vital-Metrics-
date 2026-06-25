@@ -52,7 +52,6 @@ class OnboardingRepository {
   }
 
   // ── PATCH /goals ───────────────────────────────────────────────────────────
-  // عايز: type, target_weight, weekly_rate فقط
 
   Future<void> updateGoal({
     required UserGoal goal,
@@ -106,7 +105,6 @@ class OnboardingRepository {
   }
 
   // ── Complete onboarding ────────────────────────────────────────────────────
-  // مفيش endpoint → الـ goal اتحفظ في saveGoal كفاية
 
   Future<void> completeOnboarding() async => Future.value();
 

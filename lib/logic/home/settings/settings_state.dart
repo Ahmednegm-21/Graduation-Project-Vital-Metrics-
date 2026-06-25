@@ -1,5 +1,3 @@
-import 'settings_cubit.dart';
-
 class SettingsState {
   final bool darkMode;
   final bool notifications;

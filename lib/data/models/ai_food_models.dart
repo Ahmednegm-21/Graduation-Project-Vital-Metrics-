@@ -38,13 +38,11 @@ class AiFoodItem {
     );
   }
 
-  // ── تحويل لـ FoodItem الموجود عندك في المشروع ─────────────────────────────
-  // بيستخدم emoji من MealModel._emojiForMeal
   FoodItem toFoodItem() {
     return FoodItem(
       id:       name.toLowerCase().replaceAll(' ', '_'),
       name:     name,
-      emoji:    MealModel.getEmoji(name), // ← شوف ملاحظة أسفل
+      emoji:    MealModel.getEmoji(name), 
       category: _inferCategory(),
       calories: calories,
       protein:  protein,
@@ -53,7 +51,6 @@ class AiFoodItem {
     );
   }
 
-  // ── تخمين الـ category من الاسم ───────────────────────────────────────────
   String _inferCategory() {
     final n = name.toLowerCase();
     if (n.contains('chicken') || n.contains('beef') || n.contains('fish') ||
@@ -75,9 +72,6 @@ class AiFoodItem {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2) AiMealSuggestion — بيجي من /suggest
-// ─────────────────────────────────────────────────────────────────────────────
 class AiMealSuggestion {
   final String name;
   final double weightG;
@@ -106,7 +100,6 @@ class AiMealSuggestion {
     );
   }
 
-  // ── تحويل لـ FoodItem الموجود عندك ────────────────────────────────────────
   FoodItem toFoodItem() {
     return FoodItem(
       id:       name.toLowerCase().replaceAll(' ', '_'),
@@ -121,9 +114,6 @@ class AiMealSuggestion {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3) Typed responses (بيسهل التعامل مع نتيجة الـ API)
-// ─────────────────────────────────────────────────────────────────────────────
 class AiFoodsResponse {
   final bool          success;
   final int           count;
@@ -173,7 +163,7 @@ class AiRecommendResponse {
 
 class AiSuggestResponse {
   final bool               success;
-  final AiMealSuggestion?  meal;   // null لو مفيش وجبة في النطاق ده
+  final AiMealSuggestion?  meal;   
   final String?            message;
 
   const AiSuggestResponse({

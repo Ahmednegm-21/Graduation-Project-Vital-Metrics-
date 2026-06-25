@@ -10,6 +10,7 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
 
   Set<String> _favoriteIds   = {};
   String?     _searchCategory;
+  String      _lastQuery     = '';
 
   FoodSwapCubit({
     FoodSwapService? service,
@@ -23,55 +24,74 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
 
   void setSearchCategory(String? category) {
     _searchCategory = category;
-    final s = state;
-    if (s is FoodSwapSearching) {
-      search(s.query);
-    } else {
-      emit(FoodSwapInitial(searchCategory: category));
+
+    if (category == null) {
+      if (_lastQuery.isEmpty) {
+        emit(const FoodSwapInitial());
+      } else {
+        search(_lastQuery);
+      }
+      return;
     }
+
+    _searchWithCategory(_lastQuery);
   }
 
-  // ── Search → uses backend first, falls back to local ─────────────────────
+  // ── Search ────────────────────────────────────────────────────────────────
 
   void search(String query) {
-    if (query.trim().isEmpty) {
+    _lastQuery = query;
+
+    if (query.trim().isEmpty && _searchCategory == null) {
       emit(FoodSwapInitial(searchCategory: _searchCategory));
       return;
     }
 
-    // Emit searching immediately with local results for fast UI
-    final localResults = _service.search(query, category: _searchCategory);
+    _searchWithCategory(query);
+  }
+
+  Future<void> _searchWithCategory(String query) async {
+    await _service.ensureLoaded();
+
+    final localResults = _service.search(
+      query,
+      categoryId: _searchCategory,  
+    );
+
     emit(FoodSwapSearching(
       query:          query,
       results:        localResults,
       searchCategory: _searchCategory,
     ));
 
-    // Then fetch from backend and update if better results
-    _service.searchFromBackend(query).then((backendResults) {
-      if (backendResults.isNotEmpty && !isClosed) {
-        emit(FoodSwapSearching(
-          query:          query,
-          results:        backendResults,
-          searchCategory: _searchCategory,
-        ));
-      }
-    }).catchError((_) {
-      // Keep local results on error
-    });
+    if (query.trim().isNotEmpty) {
+      _service.searchFromBackend(query).then((backendResults) {
+        if (backendResults.isNotEmpty && !isClosed) {
+          final filtered = _searchCategory != null
+              ? backendResults
+                  .where((f) => _service.matchesCategoryId(f, _searchCategory!))
+                  .toList()
+              : backendResults;
+
+          emit(FoodSwapSearching(
+            query:          query,
+            results:        filtered,
+            searchCategory: _searchCategory,
+          ));
+        }
+      }).catchError((_) {});
+    }
   }
 
-  // ── Select food → get swap suggestions from backend ───────────────────────
+  // ── Select food ───────────────────────────────────────────────────────────
 
   void selectFood(FoodItem food) {
-    // Show local swaps immediately
     final localResult = _service.getSwaps(food, userGoal);
     emit(FoodSwapLoaded(
       result:      localResult,
       favoriteIds: _favoriteIds,
     ));
 
-    // Fetch backend swaps and update
     _service.getSwapsFromBackend(food, userGoal).then((backendResult) {
       if (!isClosed && backendResult.alternatives.isNotEmpty) {
         final current = state;
@@ -79,16 +99,22 @@ class FoodSwapCubit extends Cubit<FoodSwapState> {
           emit(current.copyWith(result: backendResult));
         }
       }
-    }).catchError((_) {
-      // Keep local swaps on error
-    });
+    }).catchError((_) {});
   }
 
-  void reset() => emit(FoodSwapInitial(searchCategory: _searchCategory));
+  void reset() {
+    _lastQuery      = '';
+    _searchCategory = null;
+    emit(const FoodSwapInitial());
+  }
 
   void clearCategory() {
     _searchCategory = null;
-    emit(const FoodSwapInitial());
+    if (_lastQuery.isEmpty) {
+      emit(const FoodSwapInitial());
+    } else {
+      search(_lastQuery);
+    }
   }
 
   // ── Portion ───────────────────────────────────────────────────────────────

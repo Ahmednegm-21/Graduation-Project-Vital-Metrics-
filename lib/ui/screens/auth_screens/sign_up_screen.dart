@@ -1,5 +1,3 @@
-// lib/ui/screens/auth_screens/sign_up_screen.dart
-
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -277,6 +275,21 @@ class _SignUpScreenState extends State<SignUpScreen>
     _shimmerCtrl.dispose();
     _floatCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  /// Go back to the previous screen if possible, otherwise navigate
+  /// explicitly to sign-in. This avoids the
+  /// "There is nothing to pop" GoRouter exception when `/signup` is
+  /// reached directly (e.g. via `context.go('/signup')`, a deep link,
+  /// or as the first route in the stack).
+  void _goToSignIn() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/signin');
+    }
   }
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -913,7 +926,12 @@ class _SignUpScreenState extends State<SignUpScreen>
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => context.pop(),
+                  // FIX: was `context.pop()` unconditionally, which threw
+                  // "There is nothing to pop" whenever /signup had no
+                  // previous route in the GoRouter stack. Now it pops
+                  // when possible and falls back to an explicit go() to
+                  // /signin otherwise.
+                  onTap: _goToSignIn,
                   child: ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [_secondary, _primary],

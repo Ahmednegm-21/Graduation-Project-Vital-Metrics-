@@ -59,7 +59,7 @@ class UserData {
   final String email;
   final String? profileImage;
   final bool?   onboardingComplete;
-  final bool    isAdmin;           // ← جديد
+  final bool    isAdmin;           
 
   UserData({
     required this.id,

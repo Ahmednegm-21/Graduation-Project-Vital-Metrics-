@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -28,6 +29,8 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly jwtService: JwtService,
@@ -76,6 +79,7 @@ export class AuthService {
         expiresAt,
       };
     } catch (error) {
+      this.logger.error('Registration failed', error);
       throw new InternalServerErrorException(AUTH_ERRORS.REGISTRATION_FAILED);
     }
   }

@@ -1,20 +1,15 @@
-// lib/ui/screens/auth_screens/sign_in_screen.dart
-
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vital_metrics/core/constants/app_constants.dart';
-import 'package:vital_metrics/core/styles/decorations.dart';
-import 'package:vital_metrics/core/styles/text_styles.dart';
 import 'package:vital_metrics/core/themes/app_colors.dart';
 import 'package:vital_metrics/logic/auth/auth_cubit.dart';
 import 'package:vital_metrics/logic/auth/auth_state.dart';
 import 'package:vital_metrics/services/device_token_manager.dart';
 import 'package:vital_metrics/ui/widgets/custom_auth/custom_text_field.dart';
 import 'package:vital_metrics/ui/widgets/custom_auth/social_auth_button.dart';
-import 'package:vital_metrics/ui/widgets/goal_selction/custom_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});

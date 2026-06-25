@@ -1,3 +1,5 @@
+// lib/ui/screens/.../meal_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,12 +10,14 @@ import 'package:vital_metrics/logic/home/calorie_cubit.dart';
 
 class MealDetailScreen extends StatefulWidget {
   final Recipe recipe;
+  final bool isArabic;
   final String? mealType;
   final bool initiallySelected;
 
   const MealDetailScreen({
     super.key,
     required this.recipe,
+    required this.isArabic,
     this.mealType,
     this.initiallySelected = false,
   });
@@ -24,23 +28,23 @@ class MealDetailScreen extends StatefulWidget {
 
 class _MealDetailScreenState extends State<MealDetailScreen>
     with TickerProviderStateMixin {
-  // ── Idle: emoji floating ──────────────────────────────────────────────────
+  // Idle: emoji floating
   late final AnimationController _floatCtrl;
   late final Animation<double> _floatAnim;
 
-  // ── Idle: pulse rings ─────────────────────────────────────────────────────
+  // Idle: pulse rings
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseAnim;
 
-  // ── Macro bars entrance ───────────────────────────────────────────────────
+  // Macro bars entrance
   late final AnimationController _barsCtrl;
 
-  // ── Serving size multiplier (1.0 = original) ─────────────────────────────
+  // Serving size multiplier (1.0 = original)
   double _servingMultiplier = 1.0;
 
-  // ── Added / selected states ───────────────────────────────────────────────
+  // Added / selected states
   bool _added = false;
-  late bool _selected; // deselect من الـ detail
+  late bool _selected; // deselect from the detail screen
 
   @override
   void initState() {
@@ -79,7 +83,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
     super.dispose();
   }
 
-  // ── Scaled values based on multiplier ────────────────────────────────────
+  // Scaled values based on multiplier
   int get _scaledCalories =>
       (widget.recipe.calories * _servingMultiplier).round();
   int get _scaledProtein =>
@@ -97,11 +101,12 @@ class _MealDetailScreenState extends State<MealDetailScreen>
     return '${mult.toStringAsFixed(1)}× ${widget.recipe.servingSize}';
   }
 
-  // ── Add to log ────────────────────────────────────────────────────────────
+  // Add to log
   void _addMeal() {
+    final displayName = widget.recipe.displayName(isArabic: widget.isArabic);
     context.read<CalorieCubit>().addMeal(
       MealEntry(
-        name: widget.recipe.name,
+        name: displayName,
         calories: _scaledCalories,
         protein: _scaledProtein,
         carbs: _scaledCarbs,
@@ -112,7 +117,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
     setState(() => _added = true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${widget.recipe.name} added! +$_scaledCalories kcal'),
+        content: Text('$displayName added! +$_scaledCalories kcal'),
         backgroundColor: const Color(0xFF4361EE),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -120,17 +125,17 @@ class _MealDetailScreenState extends State<MealDetailScreen>
     );
   }
 
-  // ── Toggle selection (deselect/select) ────────────────────────────────────
+  // Toggle selection (deselect/select)
   void _toggleSelected() {
     setState(() => _selected = !_selected);
-    // رجّع النتيجة للـ RecipesScreen عبر Navigator.pop
+    // return the result to RecipesScreen via Navigator.pop
     Navigator.of(context).pop({
       'action': _selected ? 'select' : 'deselect',
       'id': widget.recipe.id,
     });
   }
 
-  // ── Edit serving sheet ────────────────────────────────────────────────────
+  // Edit serving sheet
   void _showServingSheet() {
     showModalBottomSheet(
       context: context,
@@ -138,11 +143,12 @@ class _MealDetailScreenState extends State<MealDetailScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => _ServingSheet(
         recipe: widget.recipe,
+        isArabic: widget.isArabic,
         initialMultiplier: _servingMultiplier,
         onConfirm: (v) {
           setState(() {
             _servingMultiplier = v;
-            // reset add state لو غيّر الحصة
+            // reset add state if serving changed
             _added = false;
           });
         },
@@ -194,7 +200,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
           ),
         ),
         actions: [
-          // ── Category badge ───────────────────────────────────────────────
+          // Category badge
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FadeInDown(
@@ -228,11 +234,12 @@ class _MealDetailScreenState extends State<MealDetailScreen>
           children: [
             const SizedBox(height: 8),
 
-            // ── Hero card ─────────────────────────────────────────────────
+            // Hero card
             FadeInDown(
               duration: const Duration(milliseconds: 550),
               child: _HeroCard(
                 recipe: r,
+                isArabic: widget.isArabic,
                 floatAnim: _floatAnim,
                 pulseAnim: _pulseAnim,
                 serving: _servingLabel,
@@ -243,7 +250,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
 
             const SizedBox(height: 20),
 
-            // ── Select / Deselect pill ────────────────────────────────────
+            // Select / Deselect pill
             FadeInUp(
               delay: const Duration(milliseconds: 100),
               child: _SelectTogglePill(
@@ -254,7 +261,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
 
             const SizedBox(height: 20),
 
-            // ── Calories banner ───────────────────────────────────────────
+            // Calories banner
             FadeInUp(
               delay: const Duration(milliseconds: 160),
               child: _CalorieBanner(
@@ -266,7 +273,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
 
             const SizedBox(height: 20),
 
-            // ── Macros breakdown ──────────────────────────────────────────
+            // Macros breakdown
             FadeInUp(
               delay: const Duration(milliseconds: 220),
               child: _MacroBreakdownCard(
@@ -281,7 +288,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
 
             const SizedBox(height: 20),
 
-            // ── Nutrition table ───────────────────────────────────────────
+            // Nutrition table
             FadeInUp(
               delay: const Duration(milliseconds: 280),
               child: _NutritionTable(
@@ -297,7 +304,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
 
             const SizedBox(height: 28),
 
-            // ── Add button ────────────────────────────────────────────────
+            // Add button
             FadeInUp(
               delay: const Duration(milliseconds: 340),
               child: _AddButton(added: _added, onTap: _added ? null : _addMeal),
@@ -326,9 +333,7 @@ class _MealDetailScreenState extends State<MealDetailScreen>
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Select/Deselect Pill
-// ══════════════════════════════════════════════════════════════════════════════
 class _SelectTogglePill extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
@@ -400,16 +405,16 @@ class _SelectTogglePill extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Serving Edit Bottom Sheet
-// ══════════════════════════════════════════════════════════════════════════════
 class _ServingSheet extends StatefulWidget {
   final Recipe recipe;
+  final bool isArabic;
   final double initialMultiplier;
   final void Function(double) onConfirm;
 
   const _ServingSheet({
     required this.recipe,
+    required this.isArabic,
     required this.initialMultiplier,
     required this.onConfirm,
   });
@@ -527,7 +532,7 @@ class _ServingSheetState extends State<_ServingSheet> {
 
           const SizedBox(height: 24),
 
-          // ── Slider ──────────────────────────────────────────────────────
+          // Slider
           Row(
             children: [
               Text(
@@ -570,7 +575,7 @@ class _ServingSheetState extends State<_ServingSheet> {
             ],
           ),
 
-          // ── Preset chips ─────────────────────────────────────────────────
+          // Preset chips
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -615,7 +620,7 @@ class _ServingSheetState extends State<_ServingSheet> {
 
           const SizedBox(height: 20),
 
-          // ── Live macros preview ──────────────────────────────────────────
+          // Live macros preview
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -646,7 +651,7 @@ class _ServingSheetState extends State<_ServingSheet> {
 
           const SizedBox(height: 20),
 
-          // ── Confirm button ────────────────────────────────────────────────
+          // Confirm button
           GestureDetector(
             onTap: () {
               widget.onConfirm(_mult);
@@ -719,11 +724,10 @@ class _MiniMacro extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Hero Card
-// ══════════════════════════════════════════════════════════════════════════════
 class _HeroCard extends StatelessWidget {
   final Recipe recipe;
+  final bool isArabic;
   final Animation<double> floatAnim;
   final Animation<double> pulseAnim;
   final String serving;
@@ -732,6 +736,7 @@ class _HeroCard extends StatelessWidget {
 
   const _HeroCard({
     required this.recipe,
+    required this.isArabic,
     required this.floatAnim,
     required this.pulseAnim,
     required this.serving,
@@ -843,7 +848,7 @@ class _HeroCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              recipe.name,
+              recipe.displayName(isArabic: isArabic),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: isDark ? Colors.white : const Color(0xFF1A1A2E),
@@ -856,7 +861,7 @@ class _HeroCard extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // ── Serving pill — tappable ──────────────────────────────────────
+          // Serving pill — tappable
           GestureDetector(
             onTap: onEditServing,
             child: Container(
@@ -902,9 +907,7 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Calories Banner
-// ══════════════════════════════════════════════════════════════════════════════
 class _CalorieBanner extends StatelessWidget {
   final int calories;
   final double multiplier;
@@ -1005,9 +1008,7 @@ class _CalorieBanner extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Macro Breakdown Card
-// ══════════════════════════════════════════════════════════════════════════════
 class _MacroBreakdownCard extends StatelessWidget {
   final int protein, carbs, fat, total;
   final AnimationController barsCtrl;
@@ -1080,7 +1081,7 @@ class _MacroBreakdownCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // stacked bar — fixed: min flex = 1 عشان متظهرش حمرا
+          // stacked bar — min flex = 1 so a bar never disappears entirely
           _StackedBar(
             protein: protein,
             carbs: carbs,
@@ -1120,7 +1121,6 @@ class _MacroBreakdownCard extends StatelessWidget {
           const SizedBox(height: 18),
 
           ...macros.asMap().entries.map((e) {
-            final i = e.key;
             final m = e.value;
             final v = m['value'] as int;
             final c = m['color'] as Color;
@@ -1144,7 +1144,7 @@ class _MacroBreakdownCard extends StatelessWidget {
   }
 }
 
-// ── Stacked Bar — fixed ───────────────────────────────────────────────────────
+// Stacked Bar
 class _StackedBar extends StatelessWidget {
   final int protein, carbs, fat, total;
   final AnimationController barsCtrl;
@@ -1159,14 +1159,14 @@ class _StackedBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // لو total = 0 نرجع empty container
+    // if total = 0, return an empty container
     if (total <= 0) return const SizedBox(height: 14);
 
     return AnimatedBuilder(
       animation: barsCtrl,
       builder: (_, __) {
         final t = Curves.easeOutCubic.transform(barsCtrl.value);
-        // نستخدم Row مع Expanded بـ flex صحيح
+        // use Row with Expanded with a correct flex value
         final pFlex = ((protein / total) * 100 * t).round().clamp(1, 200);
         final cFlex = ((carbs / total) * 100 * t).round().clamp(1, 200);
         final fFlex = ((fat / total) * 100 * t).round().clamp(1, 200);
@@ -1197,7 +1197,7 @@ class _StackedBar extends StatelessWidget {
   }
 }
 
-// ── Macro Bar ─────────────────────────────────────────────────────────────────
+// Macro Bar
 class _MacroBar extends StatelessWidget {
   final String label, icon;
   final int value;
@@ -1295,9 +1295,7 @@ class _MacroBar extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Nutrition Table
-// ══════════════════════════════════════════════════════════════════════════════
 class _NutritionTable extends StatelessWidget {
   final Recipe recipe;
   final int calories, protein, carbs, fat;
@@ -1446,9 +1444,7 @@ class _NutritionTable extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // Add Button
-// ══════════════════════════════════════════════════════════════════════════════
 class _AddButton extends StatelessWidget {
   final bool added;
   final VoidCallback? onTap;

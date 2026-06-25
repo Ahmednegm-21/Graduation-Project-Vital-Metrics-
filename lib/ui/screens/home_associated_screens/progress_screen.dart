@@ -12,37 +12,27 @@ import 'package:vital_metrics/logic/home/water_cubit.dart';
 import 'package:vital_metrics/logic/notifications/notifications_cubit.dart';
 import 'package:vital_metrics/logic/notifications/notifications_state.dart';
 import 'package:vital_metrics/logic/progress/progress_cubit.dart';
-import 'package:vital_metrics/services/google_fit_service.dart';
-import 'package:vital_metrics/logic/onboarding_data/onboarding_data_cubit.dart';
 import 'package:vital_metrics/data/models/activity_level.dart';
 import 'package:vital_metrics/logic/activity/activity_cubit.dart';
 import 'package:vital_metrics/logic/activity/activity_state.dart';
 
-const _blue = Color(0xFF4361EE);
-const _green = Color(0xFF63E6BE);
-const _cyan = Color(0xFF4CC9F0);
+const _blue   = Color(0xFF4361EE);
+const _green  = Color(0xFF63E6BE);
+const _cyan   = Color(0xFF4CC9F0);
 const _orange = Color(0xFFFFA94D);
-const _red = Color(0xFFFF8787);
+const _red    = Color(0xFFFF8787);
 const _purple = Color(0xFF7B5EA7);
 
 int _todayIndex() {
   switch (DateTime.now().weekday) {
-    case 6:
-      return 0;
-    case 7:
-      return 1;
-    case 1:
-      return 2;
-    case 2:
-      return 3;
-    case 3:
-      return 4;
-    case 4:
-      return 5;
-    case 5:
-      return 6;
-    default:
-      return 0;
+    case 6: return 0;
+    case 7: return 1;
+    case 1: return 2;
+    case 2: return 3;
+    case 3: return 4;
+    case 4: return 5;
+    case 5: return 6;
+    default: return 0;
   }
 }
 
@@ -52,17 +42,27 @@ int _stepsGoalFor(ActivityLevel? activityLevel) =>
 int _burnedGoalFor(ActivityLevel? activityLevel) =>
     activityLevel?.caloriesGoal ?? 500;
 
-String _weekLabel(DateTime weekStart) {
-  final weekEnd = weekStart.add(const Duration(days: 6));
-  const months = [
-    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  if (weekStart.month == weekEnd.month) {
-    return '${months[weekStart.month]} ${weekStart.day} - ${weekEnd.day}';
+DateTime _calcWeekStart(int offset) {
+  final now     = DateTime.now();
+  final weekday = now.weekday;
+  final int daysSinceSaturday;
+  switch (weekday) {
+    case DateTime.saturday:  daysSinceSaturday = 0; break;
+    case DateTime.sunday:    daysSinceSaturday = 1; break;
+    case DateTime.monday:    daysSinceSaturday = 2; break;
+    case DateTime.tuesday:   daysSinceSaturday = 3; break;
+    case DateTime.wednesday: daysSinceSaturday = 4; break;
+    case DateTime.thursday:  daysSinceSaturday = 5; break;
+    default:                 daysSinceSaturday = 6;
   }
-  return '${months[weekStart.month]} ${weekStart.day} - ${months[weekEnd.month]} ${weekEnd.day}';
+  final current = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: daysSinceSaturday));
+  return current.add(Duration(days: offset * 7));
 }
+
+// ---------------------------------------------------------------------------
+// Progress Screen
+// ---------------------------------------------------------------------------
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -197,7 +197,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               activityLevel = activity.stats.activityLevel;
                             }
 
-                            // ← احسب burnedGoal من البيانات الشخصية
                             return BlocSelector<PersonalInfoCubit,
                                 PersonalInfoState, PersonalInfoState>(
                               selector: (s) => s,
@@ -221,7 +220,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     loaded: loaded,
                                     cal: cal,
                                     stepsGoal: _stepsGoalFor(activityLevel),
-                                    burnedGoal: burnedGoal, // ← محسوب
+                                    burnedGoal: burnedGoal,
                                     todayIndex: _todayIndex(),
                                     waterGoalL: waterGoalL,
                                   ),
@@ -257,8 +256,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             Expanded(
                               child: _StatCard(
                                 label: 'Weight',
-                                value:
-                                    '${info.weight.toStringAsFixed(1)} kg',
+                                value: '${info.weight.toStringAsFixed(1)} kg',
                                 icon: Icons.monitor_weight_outlined,
                                 color: _blue,
                               ),
@@ -267,8 +265,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             Expanded(
                               child: _StatCard(
                                 label: 'Height',
-                                value:
-                                    '${info.height.toStringAsFixed(0)} cm',
+                                value: '${info.height.toStringAsFixed(0)} cm',
                                 icon: Icons.height,
                                 color: _purple,
                               ),
@@ -354,10 +351,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Charts section
+// Charts section — StatefulWidget with SHARED weekOffset for all charts
 // ---------------------------------------------------------------------------
 
-class _ChartsSection extends StatelessWidget {
+class _ChartMeta {
+  final String title, emoji;
+  final Color color;
+  const _ChartMeta(this.title, this.emoji, this.color);
+}
+
+class _ChartsSection extends StatefulWidget {
   final PageController pageCtrl;
   final int chartPage;
   final ValueChanged<int> onPageChanged;
@@ -367,17 +370,7 @@ class _ChartsSection extends StatelessWidget {
   final int stepsGoal;
   final int burnedGoal;
   final int todayIndex;
-  final double waterGoalL; // ← جديد
-
-  static const _days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
-  static const _charts = [
-    _ChartMeta('Calories', '🔥', _blue),
-    _ChartMeta('Steps', '👟', _green),
-    _ChartMeta('Burned', '⚡', _red),
-    _ChartMeta('Water', '💧', _cyan),
-    _ChartMeta('Sleep', '🌙', _purple),
-  ];
+  final double waterGoalL;
 
   const _ChartsSection({
     required this.pageCtrl,
@@ -389,11 +382,76 @@ class _ChartsSection extends StatelessWidget {
     required this.stepsGoal,
     required this.burnedGoal,
     required this.todayIndex,
-    required this.waterGoalL, // ← جديد
+    required this.waterGoalL,
   });
 
   @override
+  State<_ChartsSection> createState() => _ChartsSectionState();
+}
+
+class _ChartsSectionState extends State<_ChartsSection> {
+  // Shared week offset — all charts move together
+  int _weekOffset = 0;
+  bool _isNavigating = false;
+
+  static const _days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+  static const _charts = [
+    _ChartMeta('Calories', '🔥', _blue),
+    _ChartMeta('Steps',    '👟', _green),
+    _ChartMeta('Burned',   '⚡', _red),
+    _ChartMeta('Water',    '💧', _cyan),
+    _ChartMeta('Sleep',    '🌙', _purple),
+  ];
+
+  Future<void> _navigate(int newOffset) async {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+      _weekOffset   = newOffset;
+    });
+    await context.read<ProgressCubit>().loadWeeklyMetrics(
+      weekOffset: newOffset,
+      silent: true,
+    );
+    if (mounted) setState(() => _isNavigating = false);
+  }
+
+  String get _weekLabel {
+    if (_weekOffset == 0) return 'This Week';
+    if (_weekOffset == -1) return 'Last Week';
+    return _weekLabelFor(_calcWeekStart(_weekOffset));
+  }
+
+  String _weekLabelFor(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    if (weekStart.month == weekEnd.month) {
+      return '${months[weekStart.month]} ${weekStart.day} - ${weekEnd.day}';
+    }
+    return '${months[weekStart.month]} ${weekStart.day} - '
+        '${months[weekEnd.month]} ${weekEnd.day}';
+  }
+
+  // Returns values only when the loaded weekOffset matches what we're showing
+  List<T> _safeValues<T>(List<T> Function(ProgressLoaded) getter, T zero) {
+    final loaded = widget.loaded;
+    if (loaded == null || loaded.weekOffset != _weekOffset) {
+      return List.filled(7, zero);
+    }
+    return getter(loaded);
+  }
+
+  Color get _activeColor => _charts[widget.chartPage].color;
+
+  @override
   Widget build(BuildContext context) {
+    final isChartLoading = widget.isLoading ||
+        (_isNavigating && (widget.loaded?.weekOffset ?? 0) != _weekOffset);
+
     return Column(
       children: [
         // Tab pills
@@ -404,9 +462,9 @@ class _ChartsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _charts.length,
             itemBuilder: (_, i) {
-              final active = i == chartPage;
+              final active = i == widget.chartPage;
               return GestureDetector(
-                onTap: () => pageCtrl.animateToPage(
+                onTap: () => widget.pageCtrl.animateToPage(
                   i,
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeInOut,
@@ -414,10 +472,7 @@ class _ChartsSection extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
                     color: active
                         ? _charts[i].color
@@ -438,13 +493,79 @@ class _ChartsSection extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
+        // Shared week navigation header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavArrowButton(
+                icon: Icons.chevron_left_rounded,
+                color: _activeColor,
+                onTap: () => _navigate(_weekOffset - 1),
+                enabled: !_isNavigating,
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Row(
+                  key: ValueKey(_weekOffset),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isNavigating) ...[
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: _activeColor,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      _weekLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _weekOffset == 0
+                            ? _activeColor
+                            : context.colors.subText,
+                      ),
+                    ),
+                    if (_weekOffset == 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _activeColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _NavArrowButton(
+                icon: Icons.chevron_right_rounded,
+                color: _activeColor,
+                onTap: _weekOffset < 0 ? () => _navigate(_weekOffset + 1) : null,
+                enabled: _weekOffset < 0 && !_isNavigating,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Chart pages — all use the SAME _weekOffset
         SizedBox(
-          height: 280,
+          height: 255,
           child: PageView.builder(
-            controller: pageCtrl,
-            onPageChanged: onPageChanged,
+            controller: widget.pageCtrl,
+            onPageChanged: widget.onPageChanged,
             itemCount: _charts.length,
             physics: const BouncingScrollPhysics(),
             itemBuilder: (_, index) {
@@ -452,23 +573,15 @@ class _ChartsSection extends StatelessWidget {
                 case 0:
                   return _pad(
                     RepaintBoundary(
-                      child: _ChartWithWeekNav(
-                        chartColor: _blue,
-                        isLoading: isLoading,
-                        weekStart: loaded?.weekStart,
-                        currentWeekOffset: loaded?.weekOffset ?? 0,
-                        builder: (weekOffset, weekStart, isChartLoading) =>
-                            _CaloriesBarChart(
-                          values: loaded?.weekOffset == weekOffset
-                              ? loaded!.calories
-                                  .map((e) => e.toDouble())
-                                  .toList()
-                              : List.filled(7, 0),
-                          goal: cal.caloriesBudget.toDouble(),
-                          days: _days,
-                          isLoading: isChartLoading,
-                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                      child: _CaloriesBarChart(
+                        values: _safeValues(
+                          (l) => l.calories.map((e) => e.toDouble()).toList(),
+                          0.0,
                         ),
+                        goal: widget.cal.caloriesBudget.toDouble(),
+                        days: _days,
+                        isLoading: isChartLoading,
+                        todayIndex: _weekOffset == 0 ? widget.todayIndex : -1,
                       ),
                     ),
                   );
@@ -476,23 +589,15 @@ class _ChartsSection extends StatelessWidget {
                 case 1:
                   return _pad(
                     RepaintBoundary(
-                      child: _ChartWithWeekNav(
-                        chartColor: _green,
-                        isLoading: isLoading,
-                        weekStart: loaded?.weekStart,
-                        currentWeekOffset: loaded?.weekOffset ?? 0,
-                        builder: (weekOffset, weekStart, isChartLoading) =>
-                            _StepsLineChart(
-                          values: loaded?.weekOffset == weekOffset
-                              ? loaded!.steps
-                                  .map((e) => e.toDouble())
-                                  .toList()
-                              : List.filled(7, 0),
-                          days: _days,
-                          isLoading: isChartLoading,
-                          stepsGoal: stepsGoal,
-                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                      child: _StepsLineChart(
+                        values: _safeValues(
+                          (l) => l.steps.map((e) => e.toDouble()).toList(),
+                          0.0,
                         ),
+                        days: _days,
+                        isLoading: isChartLoading,
+                        stepsGoal: widget.stepsGoal,
+                        todayIndex: _weekOffset == 0 ? widget.todayIndex : -1,
                       ),
                     ),
                   );
@@ -500,23 +605,15 @@ class _ChartsSection extends StatelessWidget {
                 case 2:
                   return _pad(
                     RepaintBoundary(
-                      child: _ChartWithWeekNav(
-                        chartColor: _red,
-                        isLoading: isLoading,
-                        weekStart: loaded?.weekStart,
-                        currentWeekOffset: loaded?.weekOffset ?? 0,
-                        builder: (weekOffset, weekStart, isChartLoading) =>
-                            _BurnedHorizontalChart(
-                          values: loaded?.weekOffset == weekOffset
-                              ? loaded!.burned
-                                  .map((e) => e.toDouble())
-                                  .toList()
-                              : List.filled(7, 0),
-                          days: _days,
-                          isLoading: isChartLoading,
-                          todayIndex: weekOffset == 0 ? todayIndex : -1,
-                          burnedGoal: burnedGoal,
+                      child: _BurnedHorizontalChart(
+                        values: _safeValues(
+                          (l) => l.burned.map((e) => e.toDouble()).toList(),
+                          0.0,
                         ),
+                        days: _days,
+                        isLoading: isChartLoading,
+                        todayIndex: _weekOffset == 0 ? widget.todayIndex : -1,
+                        burnedGoal: widget.burnedGoal,
                       ),
                     ),
                   );
@@ -524,23 +621,15 @@ class _ChartsSection extends StatelessWidget {
                 case 3:
                   return _pad(
                     RepaintBoundary(
-                      child: _ChartWithWeekNav(
-                        chartColor: _cyan,
-                        isLoading: isLoading,
-                        weekStart: loaded?.weekStart,
-                        currentWeekOffset: loaded?.weekOffset ?? 0,
-                        builder: (weekOffset, weekStart, isChartLoading) =>
-                            _WaterAreaChart(
-                          values: loaded?.weekOffset == weekOffset
-                              ? loaded!.waterMl
-                                  .map((e) => e / 1000.0)
-                                  .toList()
-                              : List.filled(7, 0),
-                          days: _days,
-                          isLoading: isChartLoading,
-                          todayIndex: weekOffset == 0 ? todayIndex : -1,
-                          waterGoalL: waterGoalL, // ← من WaterCubit
+                      child: _WaterAreaChart(
+                        values: _safeValues(
+                          (l) => l.waterMl.map((e) => e / 1000.0).toList(),
+                          0.0,
                         ),
+                        days: _days,
+                        isLoading: isChartLoading,
+                        todayIndex: _weekOffset == 0 ? widget.todayIndex : -1,
+                        waterGoalL: widget.waterGoalL,
                       ),
                     ),
                   );
@@ -548,20 +637,14 @@ class _ChartsSection extends StatelessWidget {
                 case 4:
                   return _pad(
                     RepaintBoundary(
-                      child: _ChartWithWeekNav(
-                        chartColor: _purple,
-                        isLoading: isLoading,
-                        weekStart: loaded?.weekStart,
-                        currentWeekOffset: loaded?.weekOffset ?? 0,
-                        builder: (weekOffset, weekStart, isChartLoading) =>
-                            _SleepBarChart(
-                          values: loaded?.weekOffset == weekOffset
-                              ? loaded!.sleepHrs
-                              : List.filled(7, 0),
-                          days: _days,
-                          isLoading: isChartLoading,
-                          todayIndex: weekOffset == 0 ? todayIndex : -1,
+                      child: _SleepBarChart(
+                        values: _safeValues(
+                          (l) => l.sleepHrs,
+                          0.0,
                         ),
+                        days: _days,
+                        isLoading: isChartLoading,
+                        todayIndex: _weekOffset == 0 ? widget.todayIndex : -1,
                       ),
                     ),
                   );
@@ -579,7 +662,7 @@ class _ChartsSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(_charts.length, (i) {
-            final active = i == chartPage;
+            final active = i == widget.chartPage;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -600,178 +683,6 @@ class _ChartsSection extends StatelessWidget {
 
   Widget _pad(Widget child) =>
       Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: child);
-}
-
-class _ChartMeta {
-  final String title, emoji;
-  final Color color;
-  const _ChartMeta(this.title, this.emoji, this.color);
-}
-
-// ---------------------------------------------------------------------------
-// Week navigation wrapper
-// ---------------------------------------------------------------------------
-
-typedef ChartBuilder = Widget Function(
-  int weekOffset,
-  DateTime? weekStart,
-  bool isLoading,
-);
-
-class _ChartWithWeekNav extends StatefulWidget {
-  final Color chartColor;
-  final bool isLoading;
-  final DateTime? weekStart;
-  final int currentWeekOffset;
-  final ChartBuilder builder;
-
-  const _ChartWithWeekNav({
-    required this.chartColor,
-    required this.isLoading,
-    required this.weekStart,
-    required this.currentWeekOffset,
-    required this.builder,
-  });
-
-  @override
-  State<_ChartWithWeekNav> createState() => _ChartWithWeekNavState();
-}
-
-class _ChartWithWeekNavState extends State<_ChartWithWeekNav> {
-  int _localWeekOffset = 0;
-  bool _isNavigating = false;
-
-  DateTime _calcWeekStart(int offset) {
-    final now = DateTime.now();
-    final weekday = now.weekday;
-    final int daysSinceSaturday;
-    switch (weekday) {
-      case DateTime.saturday:
-        daysSinceSaturday = 0;
-        break;
-      case DateTime.sunday:
-        daysSinceSaturday = 1;
-        break;
-      case DateTime.monday:
-        daysSinceSaturday = 2;
-        break;
-      case DateTime.tuesday:
-        daysSinceSaturday = 3;
-        break;
-      case DateTime.wednesday:
-        daysSinceSaturday = 4;
-        break;
-      case DateTime.thursday:
-        daysSinceSaturday = 5;
-        break;
-      default:
-        daysSinceSaturday = 6;
-    }
-    final current = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: daysSinceSaturday));
-    return current.add(Duration(days: offset * 7));
-  }
-
-  Future<void> _navigate(int newOffset) async {
-    if (_isNavigating) return;
-    setState(() {
-      _isNavigating = true;
-      _localWeekOffset = newOffset;
-    });
-    await context.read<ProgressCubit>().loadWeeklyMetrics(
-          weekOffset: newOffset,
-          silent: true,
-        );
-    if (mounted) setState(() => _isNavigating = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final weekStartForOffset = _calcWeekStart(_localWeekOffset);
-    final label = _localWeekOffset == 0
-        ? 'This Week'
-        : _localWeekOffset == -1
-            ? 'Last Week'
-            : _weekLabel(weekStartForOffset);
-
-    final isThisChartLoading = widget.isLoading ||
-        (_isNavigating && widget.currentWeekOffset != _localWeekOffset);
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _NavArrowButton(
-                icon: Icons.chevron_left_rounded,
-                color: widget.chartColor,
-                onTap: () => _navigate(_localWeekOffset - 1),
-                enabled: !_isNavigating,
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Row(
-                  key: ValueKey(_localWeekOffset),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isNavigating)
-                      SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: widget.chartColor,
-                        ),
-                      ),
-                    if (_isNavigating) const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: _localWeekOffset == 0
-                            ? widget.chartColor
-                            : context.colors.subText,
-                      ),
-                    ),
-                    if (_localWeekOffset == 0) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: widget.chartColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              _NavArrowButton(
-                icon: Icons.chevron_right_rounded,
-                color: widget.chartColor,
-                onTap: _localWeekOffset < 0
-                    ? () => _navigate(_localWeekOffset + 1)
-                    : null,
-                enabled: _localWeekOffset < 0 && !_isNavigating,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        Expanded(
-          child: widget.builder(
-            _localWeekOffset,
-            weekStartForOffset,
-            isThisChartLoading,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -865,10 +776,7 @@ class _ChartCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -938,7 +846,7 @@ class _CaloriesBarChart extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(7, (i) {
-          final v = normalizedValues[i];
+          final v   = normalizedValues[i];
           final pct = maxValue > 0 ? (v / maxValue).clamp(0.0, 1.0) : 0.0;
           final isToday = i == todayIndex;
           final color = v > goal * 1.2
@@ -985,12 +893,7 @@ class _CaloriesBarChart extends StatelessWidget {
                           color: color,
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: isToday
-                              ? [
-                                  BoxShadow(
-                                    color: _blue.withOpacity(0.35),
-                                    blurRadius: 6,
-                                  ),
-                                ]
+                              ? [BoxShadow(color: _blue.withOpacity(0.35), blurRadius: 6)]
                               : [],
                         ),
                       ),
@@ -1001,8 +904,7 @@ class _CaloriesBarChart extends StatelessWidget {
                     days[i],
                     style: TextStyle(
                       fontSize: 9,
-                      fontWeight:
-                          isToday ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                       color: isToday ? _blue : context.colors.subText,
                     ),
                   ),
@@ -1031,14 +933,13 @@ class _StepsLineChart extends StatelessWidget {
     required this.values,
     required this.days,
     required this.isLoading,
-    this.stepsGoal = 10000,
+    this.stepsGoal  = 10000,
     this.todayIndex = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final maxV =
-        values.isEmpty ? stepsGoal.toDouble() : values.reduce(math.max);
+    final maxV = values.isEmpty ? stepsGoal.toDouble() : values.reduce(math.max);
     final goalLabel = stepsGoal >= 1000
         ? '${(stepsGoal / 1000).toStringAsFixed(0)}k'
         : '$stepsGoal';
@@ -1067,8 +968,8 @@ class _StepsLineChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(7, (i) {
               final isToday = i == todayIndex;
-              final steps = values[i].toInt();
-              final label = steps >= 1000
+              final steps   = values[i].toInt();
+              final label   = steps >= 1000
                   ? '${(steps / 1000).toStringAsFixed(1)}k'
                   : steps > 0
                       ? '$steps'
@@ -1089,8 +990,7 @@ class _StepsLineChart extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       color: isToday ? _green : context.colors.subText,
-                      fontWeight:
-                          isToday ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -1138,12 +1038,12 @@ class _LinePainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final linePaint = Paint()
-      ..color = color
+      ..color       = color
       ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..style       = PaintingStyle.stroke
+      ..strokeCap   = StrokeCap.round;
 
-    final dotPaint = Paint();
+    final dotPaint      = Paint();
     final innerDotPaint = Paint()
       ..color = isDark ? const Color(0xFF1A1A2E) : Colors.white;
 
@@ -1159,9 +1059,7 @@ class _LinePainter extends CustomPainter {
         fill.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
       }
     }
-    fill
-      ..lineTo(pts.last.dx, size.height)
-      ..close();
+    fill..lineTo(pts.last.dx, size.height)..close();
     canvas.drawPath(fill, fillPaint);
 
     final line = Path()..moveTo(pts.first.dx, pts.first.dy);
@@ -1229,10 +1127,9 @@ class _BurnedHorizontalChart extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: List.generate(7, (i) {
-          final pct = maxV > 0 ? (values[i] / maxV).clamp(0.0, 1.0) : 0.0;
-          final goalPct =
-              maxV > 0 ? (burnedGoal / maxV).clamp(0.0, 1.0) : 1.0;
-          final isToday = i == todayIndex;
+          final pct      = maxV > 0 ? (values[i] / maxV).clamp(0.0, 1.0) : 0.0;
+          final goalPct  = maxV > 0 ? (burnedGoal / maxV).clamp(0.0, 1.0) : 1.0;
+          final isToday  = i == todayIndex;
           final reachedGoal = values[i] >= burnedGoal;
 
           return Row(
@@ -1284,12 +1181,7 @@ class _BurnedHorizontalChart extends StatelessWidget {
                               ),
                               borderRadius: BorderRadius.circular(6),
                               boxShadow: isToday
-                                  ? [
-                                      BoxShadow(
-                                        color: _red.withOpacity(0.4),
-                                        blurRadius: 4,
-                                      ),
-                                    ]
+                                  ? [BoxShadow(color: _red.withOpacity(0.4), blurRadius: 4)]
                                   : [],
                             ),
                           ),
@@ -1336,7 +1228,7 @@ class _BurnedHorizontalChart extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Water area chart — waterGoalL من WaterCubit مش hardcoded
+// Water area chart
 // ---------------------------------------------------------------------------
 
 class _WaterAreaChart extends StatelessWidget {
@@ -1344,20 +1236,20 @@ class _WaterAreaChart extends StatelessWidget {
   final List<String> days;
   final bool isLoading;
   final int todayIndex;
-  final double waterGoalL; // ← جديد
+  final double waterGoalL;
 
   const _WaterAreaChart({
     required this.values,
     required this.days,
     required this.isLoading,
     required this.todayIndex,
-    this.waterGoalL = 2.5, // ← default fallback
+    this.waterGoalL = 2.5,
   });
 
   @override
   Widget build(BuildContext context) => _ChartCard(
         title: 'Weekly Water',
-        subtitle: 'Goal: ${waterGoalL.toStringAsFixed(1)}L / day', // ← ديناميكي
+        subtitle: 'Goal: ${waterGoalL.toStringAsFixed(1)}L / day',
         color: _cyan,
         isLoading: isLoading,
         child: Column(
@@ -1366,8 +1258,8 @@ class _WaterAreaChart extends StatelessWidget {
               child: CustomPaint(
                 painter: _AreaPainter(
                   values: values,
-                  maxValue: math.max(3.5, waterGoalL + 0.5), // يتكيف مع الـ goal
-                  goalL: waterGoalL, // ← مرّره للـ painter
+                  maxValue: math.max(3.5, waterGoalL + 0.5),
+                  goalL: waterGoalL,
                   color: _cyan,
                   isDark: context.isDark,
                 ),
@@ -1395,8 +1287,7 @@ class _WaterAreaChart extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 9,
                         color: isToday ? _cyan : context.colors.subText,
-                        fontWeight:
-                            isToday ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -1411,14 +1302,14 @@ class _WaterAreaChart extends StatelessWidget {
 class _AreaPainter extends CustomPainter {
   final List<double> values;
   final double maxValue;
-  final double goalL; // ← جديد (بدل الـ hardcoded 2.5)
+  final double goalL;
   final Color color;
   final bool isDark;
 
   const _AreaPainter({
     required this.values,
     required this.maxValue,
-    required this.goalL, // ← جديد
+    required this.goalL,
     required this.color,
     required this.isDark,
   });
@@ -1443,15 +1334,15 @@ class _AreaPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final strokePaint = Paint()
-      ..color = color
+      ..color       = color
       ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..style       = PaintingStyle.stroke
+      ..strokeCap   = StrokeCap.round;
 
     final dashPaint = Paint()
-      ..color = color.withOpacity(0.45)
+      ..color       = color.withOpacity(0.45)
       ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
+      ..style       = PaintingStyle.stroke;
 
     final fill = Path()
       ..moveTo(0, size.height)
@@ -1463,9 +1354,7 @@ class _AreaPainter extends CustomPainter {
       );
       fill.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, cp.dx, cp.dy);
     }
-    fill
-      ..lineTo(size.width, size.height)
-      ..close();
+    fill..lineTo(size.width, size.height)..close();
     canvas.drawPath(fill, fillPaint);
 
     final stroke = Path()..moveTo(pts.first.dx, pts.first.dy);
@@ -1479,7 +1368,7 @@ class _AreaPainter extends CustomPainter {
     stroke.lineTo(pts.last.dx, pts.last.dy);
     canvas.drawPath(stroke, strokePaint);
 
-    // Dashed goal line — ديناميكي من goalL مش hardcoded 2.5
+    // Dashed goal line
     final goalY = size.height - (goalL / maxValue).clamp(0, 1) * size.height;
     double x = 0;
     while (x < size.width) {
@@ -1496,7 +1385,7 @@ class _AreaPainter extends CustomPainter {
   bool shouldRepaint(covariant _AreaPainter old) =>
       old.values != values ||
       old.maxValue != maxValue ||
-      old.goalL != goalL || // ← جديد
+      old.goalL != goalL ||
       old.color != color ||
       old.isDark != isDark;
 }
@@ -1520,14 +1409,10 @@ class _SleepBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const goal = 8.0;
+    const goal   = 8.0;
     final capped = values.map((v) => v.clamp(0.0, 12.0)).toList();
-    final total = capped.fold(0.0, (a, b) => a + b);
-    const scale = 12.0;
-
-    // ← debug: اطبع القيم الفعلية
-    print('[SleepChart] raw values=$values');
-    print('[SleepChart] capped=$capped scale=$scale');
+    final total  = capped.fold(0.0, (a, b) => a + b);
+    const scale  = 12.0;
 
     return _ChartCard(
       title: 'Weekly Sleep',
@@ -1541,11 +1426,9 @@ class _SleepBarChart extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(7, (i) {
-                // ← pct بيتحسب على أساس الـ scale مش الـ goal الثابت
-                final pct = (capped[i] / scale).clamp(0.0, 1.0);
-                // ← goalPct عشان نرسم خط الـ goal على الـ bar
-                final goalPct = (goal / scale).clamp(0.0, 1.0);
-                final isToday = i == todayIndex;
+                final pct      = (capped[i] / scale).clamp(0.0, 1.0);
+                final goalPct  = (goal / scale).clamp(0.0, 1.0);
+                final isToday  = i == todayIndex;
                 final overGoal = capped[i] > goal;
 
                 return Row(
@@ -1556,8 +1439,7 @@ class _SleepBarChart extends StatelessWidget {
                         days[i],
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight:
-                              isToday ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                           color: isToday ? _purple : context.colors.subText,
                         ),
                       ),
@@ -1569,7 +1451,6 @@ class _SleepBarChart extends StatelessWidget {
                           final goalX = constraints.maxWidth * goalPct;
                           return Stack(
                             children: [
-                              // Background track
                               Container(
                                 height: 10,
                                 decoration: BoxDecoration(
@@ -1579,7 +1460,6 @@ class _SleepBarChart extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(5),
                                 ),
                               ),
-                              // Fill bar
                               AnimatedFractionallySizedBox(
                                 duration: Duration(milliseconds: 500 + i * 80),
                                 curve: Curves.easeOut,
@@ -1590,7 +1470,6 @@ class _SleepBarChart extends StatelessWidget {
                                     gradient: LinearGradient(
                                       colors: overGoal
                                           ? [
-                                              // فوق الـ goal → لون مختلف
                                               const Color(0xFF4CC9F0).withOpacity(isToday ? 1.0 : 0.55),
                                               _purple.withOpacity(isToday ? 0.9 : 0.45),
                                             ]
@@ -1601,17 +1480,11 @@ class _SleepBarChart extends StatelessWidget {
                                     ),
                                     borderRadius: BorderRadius.circular(5),
                                     boxShadow: isToday
-                                        ? [
-                                            BoxShadow(
-                                              color: _purple.withOpacity(0.4),
-                                              blurRadius: 4,
-                                            ),
-                                          ]
+                                        ? [BoxShadow(color: _purple.withOpacity(0.4), blurRadius: 4)]
                                         : [],
                                   ),
                                 ),
                               ),
-                              // ← خط الـ goal (8h) على الـ bar
                               if (scale > goal)
                                 Positioned(
                                   left: goalX - 1,
@@ -1634,15 +1507,11 @@ class _SleepBarChart extends StatelessWidget {
                     SizedBox(
                       width: 34,
                       child: Text(
-                        capped[i] > 0
-                            ? '${capped[i].toStringAsFixed(1)}h'
-                            : '-',
+                        capped[i] > 0 ? '${capped[i].toStringAsFixed(1)}h' : '-',
                         textAlign: TextAlign.right,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight:
-                              isToday ? FontWeight.bold : FontWeight.normal,
-                          // ← لو فوق الـ goal → لون مختلف
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                           color: overGoal
                               ? _cyan
                               : isToday
@@ -1666,10 +1535,7 @@ class _SleepBarChart extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _purple.withOpacity(0.12),
-                  border: Border.all(
-                    color: _purple.withOpacity(0.35),
-                    width: 2,
-                  ),
+                  border: Border.all(color: _purple.withOpacity(0.35), width: 2),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1684,22 +1550,15 @@ class _SleepBarChart extends StatelessWidget {
                     ),
                     Text(
                       'total',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: _purple.withOpacity(0.6),
-                      ),
+                      style: TextStyle(fontSize: 9, color: _purple.withOpacity(0.6)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              // ← scale indicator
               Text(
                 '12h max',
-                style: TextStyle(
-                  fontSize: 8,
-                  color: _purple.withOpacity(0.5),
-                ),
+                style: TextStyle(fontSize: 8, color: _purple.withOpacity(0.5)),
               ),
               Text(
                 '8h goal',
@@ -1729,8 +1588,8 @@ class _ActivitySummaryCard extends StatelessWidget {
 
   const _ActivitySummaryCard({
     required this.activityState,
-    this.stepsGoal = 10000,
-    this.burnedGoal = 500,
+    this.stepsGoal   = 10000,
+    this.burnedGoal  = 500,
     this.activityLevel,
   });
 
@@ -1738,26 +1597,22 @@ class _ActivitySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLoading = activityState is TodayLoading;
 
-    int steps = 0;
-    int calories = 0;
+    int steps       = 0;
+    int calories    = 0;
     int workoutMins = 0;
 
     if (activityState is TodayLoaded) {
       final stats = (activityState as TodayLoaded).stats;
-      steps = stats.steps;
-      calories = stats.caloriesBurned;
+      steps       = stats.steps;
+      calories    = stats.caloriesBurned;
       workoutMins = stats.workoutMinutes;
     }
 
-    final stepPct = (steps / stepsGoal).clamp(0.0, 1.0);
-    final caloriesPct = (calories / burnedGoal).clamp(0.0, 1.0);
-
-    final stepsLabel =
-        steps >= 1000 ? '${(steps / 1000).toStringAsFixed(1)}k' : '$steps';
-    final stepsGoalLabel =
-        stepsGoal >= 1000 ? '${(stepsGoal / 1000).toStringAsFixed(0)}k' : '$stepsGoal';
-    final burnedGoalLabel = '$burnedGoal kcal';
-    final workoutGoal = activityLevel?.workoutGoal ?? 30;
+    final stepPct      = (steps / stepsGoal).clamp(0.0, 1.0);
+    final caloriesPct  = (calories / burnedGoal).clamp(0.0, 1.0);
+    final stepsLabel   = steps >= 1000 ? '${(steps / 1000).toStringAsFixed(1)}k' : '$steps';
+    final stepsGoalLabel  = stepsGoal >= 1000 ? '${(stepsGoal / 1000).toStringAsFixed(0)}k' : '$stepsGoal';
+    final workoutGoal  = activityLevel?.workoutGoal ?? 30;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -1785,10 +1640,7 @@ class _ActivitySummaryCard extends StatelessWidget {
           ? const SizedBox(
               height: 180,
               child: Center(
-                child: CircularProgressIndicator(
-                  color: _green,
-                  strokeWidth: 2.5,
-                ),
+                child: CircularProgressIndicator(color: _green, strokeWidth: 2.5),
               ),
             )
           : Column(
@@ -1802,11 +1654,7 @@ class _ActivitySummaryCard extends StatelessWidget {
                         color: _green.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
-                        Icons.directions_walk_rounded,
-                        color: _green,
-                        size: 24,
-                      ),
+                      child: const Icon(Icons.directions_walk_rounded, color: _green, size: 24),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -1826,19 +1674,13 @@ class _ActivitySummaryCard extends StatelessWidget {
                             activityLevel != null
                                 ? '${activityLevel!.label} activity level'
                                 : 'Live activity tracking',
-                            style: TextStyle(
-                              color: context.colors.subText,
-                              fontSize: 11,
-                            ),
+                            style: TextStyle(color: context.colors.subText, fontSize: 11),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
                         color: _green.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(20),
@@ -1849,19 +1691,12 @@ class _ActivitySummaryCard extends StatelessWidget {
                           Container(
                             width: 7,
                             height: 7,
-                            decoration: const BoxDecoration(
-                              color: _green,
-                              shape: BoxShape.circle,
-                            ),
+                            decoration: const BoxDecoration(color: _green, shape: BoxShape.circle),
                           ),
                           const SizedBox(width: 6),
                           const Text(
                             'LIVE',
-                            style: TextStyle(
-                              color: _green,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
+                            style: TextStyle(color: _green, fontWeight: FontWeight.bold, fontSize: 10),
                           ),
                         ],
                       ),
@@ -1901,10 +1736,7 @@ class _ActivitySummaryCard extends StatelessWidget {
                               const SizedBox(height: 2),
                               Text(
                                 'steps',
-                                style: TextStyle(
-                                  color: context.colors.subText,
-                                  fontSize: 11,
-                                ),
+                                style: TextStyle(color: context.colors.subText, fontSize: 11),
                               ),
                             ],
                           ),
@@ -1919,14 +1751,14 @@ class _ActivitySummaryCard extends StatelessWidget {
                             icon: Icons.local_fire_department_rounded,
                             color: caloriesPct >= 1.0 ? _green : _red,
                             title: 'Calories Burned',
-                            value: '$calories / $burnedGoalLabel',
+                            value: '$calories / $burnedGoal kcal',
                           ),
                           const SizedBox(height: 12),
                           _ModernActivityTile(
                             icon: Icons.timer_rounded,
                             color: workoutMins >= workoutGoal ? _green : _orange,
                             title: 'Workout',
-                            value: '$workoutMins / ${workoutGoal} min',
+                            value: '$workoutMins / $workoutGoal min',
                           ),
                         ],
                       ),
@@ -1939,18 +1771,11 @@ class _ActivitySummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       'Daily Step Goal',
-                      style: TextStyle(
-                        color: context.colors.subText,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: context.colors.subText, fontSize: 11),
                     ),
                     Text(
                       '$steps / $stepsGoalLabel',
-                      style: const TextStyle(
-                        color: _green,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: _green, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -1970,10 +1795,7 @@ class _ActivitySummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       'Daily Burn Goal',
-                      style: TextStyle(
-                        color: context.colors.subText,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: context.colors.subText, fontSize: 11),
                     ),
                     Text(
                       '$calories / $burnedGoal kcal',
@@ -1992,9 +1814,7 @@ class _ActivitySummaryCard extends StatelessWidget {
                     value: caloriesPct,
                     minHeight: 10,
                     backgroundColor: _red.withOpacity(0.08),
-                    valueColor: AlwaysStoppedAnimation(
-                      caloriesPct >= 1.0 ? _green : _red,
-                    ),
+                    valueColor: AlwaysStoppedAnimation(caloriesPct >= 1.0 ? _green : _red),
                   ),
                 ),
               ],
@@ -2040,13 +1860,7 @@ class _ModernActivityTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: context.colors.subText,
-                    fontSize: 11,
-                  ),
-                ),
+                Text(title, style: TextStyle(color: context.colors.subText, fontSize: 11)),
                 const SizedBox(height: 3),
                 Text(
                   value,
@@ -2075,58 +1889,51 @@ class _BellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<NotificationsCubit, NotificationsState>(
-      builder: (context, state) {
-        final hasUnread = state is NotificationsLoaded
-            ? state.unreadCount > 0
-            : false;
+    final notifState = context.watch<NotificationsCubit>().state;
+    final hasUnread =
+        notifState is NotificationsLoaded && notifState.unreadCount > 0;
 
-        return GestureDetector(
-          onTap: () => context.push('/notifications'),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
+    return GestureDetector(
+      onTap: () => context.push('/notifications'),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: context.colors.card,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: context.colors.shadow, blurRadius: 8)],
+            ),
+            child: Icon(
+              CupertinoIcons.bell_fill,
+              color: isDark ? _orange : _blue,
+              size: 20,
+            ),
+          ),
+          if (hasUnread)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: Container(
+                width: 8,
+                height: 8,
                 decoration: BoxDecoration(
-                  color: context.colors.card,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(color: context.colors.shadow, blurRadius: 8),
-                  ],
-                ),
-                child: Icon(
-                  CupertinoIcons.bell_fill,
-                  color: isDark ? _orange : _blue,
-                  size: 20,
-                ),
-              ),
-              if (hasUnread)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF4757),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isDark
-                            ? const Color(0xFF0F1221)
-                            : const Color(0xFFF0F3FF),
-                        width: 1.5,
-                      ),
-                    ),
+                  color: const Color(0xFFFF6B6B),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF0F1221) : const Color(0xFFF0F3FF),
+                    width: 1.5,
                   ),
                 ),
-            ],
-          ),
-        );
-      },
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
+
 class _SectionTitle extends StatelessWidget {
   final String title;
   const _SectionTitle({required this.title});
@@ -2167,11 +1974,7 @@ class _StatCard extends StatelessWidget {
           color: context.colors.card,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(
-              color: context.colors.shadow,
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: context.colors.shadow, blurRadius: 10, offset: const Offset(0, 4)),
           ],
         ),
         child: Row(
@@ -2188,20 +1991,10 @@ class _StatCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: context.colors.subText,
-                    fontSize: 11,
-                  ),
-                ),
+                Text(label, style: TextStyle(color: context.colors.subText, fontSize: 11)),
                 Text(
                   value,
-                  style: TextStyle(
-                    color: context.colors.text,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: context.colors.text, fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ],
             ),
@@ -2217,15 +2010,16 @@ class _BmiCard extends StatelessWidget {
   Color get _bmiColor {
     final b = info.bmi;
     if (b < 18.5) return _cyan;
-    if (b < 25) return _green;
-    if (b < 30) return _orange;
+    if (b < 25)   return _green;
+    if (b < 30)   return _orange;
     return _red;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bmi = info.bmi;
+    final bmi      = info.bmi;
     final progress = ((bmi - 10) / 30).clamp(0.0, 1.0);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2236,11 +2030,7 @@ class _BmiCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: _blue.withOpacity(0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
+          BoxShadow(color: _blue.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -2274,10 +2064,7 @@ class _BmiCard extends StatelessWidget {
                             fontSize: 22,
                           ),
                         ),
-                        const Text(
-                          'BMI',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
+                        const Text('BMI', style: TextStyle(color: Colors.white70, fontSize: 11)),
                       ],
                     ),
                   ],
@@ -2289,10 +2076,7 @@ class _BmiCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(
                         color: _bmiColor.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(20),
@@ -2307,10 +2091,7 @@ class _BmiCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'BMI Scale',
-                      style: TextStyle(color: Colors.white70, fontSize: 11),
-                    ),
+                    const Text('BMI Scale', style: TextStyle(color: Colors.white70, fontSize: 11)),
                     const SizedBox(height: 6),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
@@ -2330,14 +2111,10 @@ class _BmiCard extends StatelessWidget {
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('10',
-                            style: TextStyle(color: Colors.white54, fontSize: 9)),
-                        Text('18.5',
-                            style: TextStyle(color: Colors.white54, fontSize: 9)),
-                        Text('25',
-                            style: TextStyle(color: Colors.white54, fontSize: 9)),
-                        Text('30+',
-                            style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('10',   style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('18.5', style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('25',   style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        Text('30+',  style: TextStyle(color: Colors.white54, fontSize: 9)),
                       ],
                     ),
                   ],
@@ -2366,11 +2143,7 @@ class _BmiCard extends StatelessWidget {
                   onTap: () => context.push('/settings'),
                   child: const Text(
                     'Update',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ),
               ],
@@ -2388,19 +2161,14 @@ class _NutritionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        (cal.totalCaloriesConsumed / cal.caloriesBudget).clamp(0.0, 1.0);
+    final progress = (cal.totalCaloriesConsumed / cal.caloriesBudget).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.colors.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: context.colors.shadow,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: context.colors.shadow, blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -2410,11 +2178,7 @@ class _NutritionCard extends StatelessWidget {
             children: [
               Text(
                 'Calories',
-                style: TextStyle(
-                  color: context.colors.text,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.text, fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2424,11 +2188,7 @@ class _NutritionCard extends StatelessWidget {
                 ),
                 child: Text(
                   '${cal.totalCaloriesConsumed} / ${cal.caloriesBudget} kcal',
-                  style: const TextStyle(
-                    color: _blue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ],
@@ -2448,8 +2208,8 @@ class _NutritionCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _MacroChip(label: 'Protein', value: '${cal.totalProtein}g', color: _orange),
-              _MacroChip(label: 'Carbs', value: '${cal.totalCarbs}g', color: _green),
-              _MacroChip(label: 'Fat', value: '${cal.totalFat}g', color: _red),
+              _MacroChip(label: 'Carbs',   value: '${cal.totalCarbs}g',   color: _green),
+              _MacroChip(label: 'Fat',     value: '${cal.totalFat}g',     color: _red),
             ],
           ),
         ],
@@ -2462,11 +2222,7 @@ class _MacroChip extends StatelessWidget {
   final String label, value;
   final Color color;
 
-  const _MacroChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _MacroChip({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) => Column(
@@ -2479,11 +2235,7 @@ class _MacroChip extends StatelessWidget {
             ),
             child: Text(
               value,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
           const SizedBox(height: 4),
@@ -2505,11 +2257,7 @@ class _WaterProgressCard extends StatelessWidget {
         color: context.colors.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: context.colors.shadow,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: context.colors.shadow, blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -2519,11 +2267,7 @@ class _WaterProgressCard extends StatelessWidget {
             children: [
               Text(
                 'Water Intake',
-                style: TextStyle(
-                  color: context.colors.text,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.text, fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2533,11 +2277,7 @@ class _WaterProgressCard extends StatelessWidget {
                 ),
                 child: Text(
                   '${water.consumedInUnit.toStringAsFixed(0)} / ${water.goalInUnit.toStringAsFixed(0)} ${water.unit}',
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ],
@@ -2559,11 +2299,7 @@ class _WaterProgressCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 '${(progress * 100).toStringAsFixed(0)}%',
-                style: const TextStyle(
-                  color: _cyan,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: _cyan, fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ],
           ),
@@ -2581,8 +2317,8 @@ class _MacrosCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final macros = [
       {'label': 'Protein', 'consumed': cal.totalProtein, 'goal': cal.proteinGoal, 'color': _orange},
-      {'label': 'Carbs', 'consumed': cal.totalCarbs, 'goal': cal.carbsGoal, 'color': _green},
-      {'label': 'Fat', 'consumed': cal.totalFat, 'goal': cal.fatGoal, 'color': _red},
+      {'label': 'Carbs',   'consumed': cal.totalCarbs,   'goal': cal.carbsGoal,   'color': _green},
+      {'label': 'Fat',     'consumed': cal.totalFat,     'goal': cal.fatGoal,     'color': _red},
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2590,19 +2326,15 @@ class _MacrosCard extends StatelessWidget {
         color: context.colors.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: context.colors.shadow,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: context.colors.shadow, blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
         children: macros.map((m) {
           final consumed = m['consumed'] as int;
-          final goal = m['goal'] as int;
-          final color = m['color'] as Color;
-          final pct = goal > 0 ? (consumed / goal).clamp(0.0, 1.0) : 0.0;
+          final goal     = m['goal'] as int;
+          final color    = m['color'] as Color;
+          final pct      = goal > 0 ? (consumed / goal).clamp(0.0, 1.0) : 0.0;
           return Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Column(
@@ -2615,10 +2347,7 @@ class _MacrosCard extends StatelessWidget {
                         Container(
                           width: 10,
                           height: 10,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -2633,10 +2362,7 @@ class _MacrosCard extends StatelessWidget {
                     ),
                     Text(
                       '$consumed / ${goal}g',
-                      style: TextStyle(
-                        color: context.colors.subText,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: context.colors.subText, fontSize: 12),
                     ),
                   ],
                 ),
@@ -2659,12 +2385,7 @@ class _MacrosCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: color,
                           borderRadius: BorderRadius.circular(4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: color.withOpacity(0.4),
-                              blurRadius: 4,
-                            ),
-                          ],
+                          boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 4)],
                         ),
                       ),
                     ],

@@ -37,25 +37,16 @@ class CalorieState extends Equatable {
     this.meals = const [],
   });
 
-  // =====================================================
-  // DYNAMIC MACROS
-  // =====================================================
 
-  /// 30% Protein
   int get proteinGoal =>
       ((caloriesBudget * 0.30) / 4).round();
 
-  /// 40% Carbs
   int get carbsGoal =>
       ((caloriesBudget * 0.40) / 4).round();
 
-  /// 30% Fat
   int get fatGoal =>
       ((caloriesBudget * 0.30) / 9).round();
 
-  // =====================================================
-  // CONSUMED TOTALS
-  // =====================================================
 
   int get totalCaloriesConsumed =>
       meals.fold(0, (s, m) => s + m.calories);
@@ -69,23 +60,14 @@ class CalorieState extends Equatable {
   int get totalFat =>
       meals.fold(0, (s, m) => s + m.fat);
 
-  // =====================================================
-  // REMAINING
-  // =====================================================
 
   int get caloriesRemaining =>
       caloriesBudget - totalCaloriesConsumed;
 
-  // =====================================================
-  // MEALS FILTER
-  // =====================================================
 
   List<MealEntry> mealsFor(String type) =>
       meals.where((m) => m.mealType == type).toList();
 
-  // =====================================================
-  // COPY
-  // =====================================================
 
   CalorieState copyWith({
     int? caloriesBudget,

@@ -15,7 +15,6 @@ class AuthSuccess extends AuthState {
   @override List<Object?> get props => [user];
 }
 
-/// ← جديد: نفس AuthSuccess بس للـ admin عشان الـ router يميّز
 class AuthAdminSuccess extends AuthState {
   final UserModel user;
   const AuthAdminSuccess(this.user);
@@ -64,4 +63,16 @@ class AuthOTPResent extends AuthState {
   final DateTime timestamp;
   AuthOTPResent(this.email) : timestamp = DateTime.now();
   @override List<Object?> get props => [email, timestamp];
+}
+
+class AuthGoogleNeedsProfile extends AuthState {
+  final String idToken;
+  final String displayName;
+  final String email;
+  const AuthGoogleNeedsProfile({
+    required this.idToken,
+    required this.displayName,
+    required this.email,
+  });
+  @override List<Object?> get props => [idToken, displayName, email];
 }

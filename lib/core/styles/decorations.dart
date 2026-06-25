@@ -93,7 +93,6 @@ class AppDecorations {
       );
 
   // ───────────── INFO CARD DECORATIONS ─────────────
-  // ✅ دمجنا التعريفين — استخدام ألوان AppColors مع primary tint
   static BoxDecoration get infoCard => BoxDecoration(
         color: AppColors.primary.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12.r),
@@ -120,7 +119,6 @@ class AppDecorations {
       );
 
   // ───────────── BUTTON CONTAINER ─────────────
-  // ✅ دمجنا التعريفين — استخدام AppColors.lightCard مع shadow محسوب
   static BoxDecoration get buttonContainer => BoxDecoration(
         color: AppColors.lightCard,
         boxShadow: [

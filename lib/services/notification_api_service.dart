@@ -59,7 +59,7 @@ class NotificationApiService {
       );
       final data = _unwrap(response.data);
       return NotificationPreferencesModel.fromJson(data);
-    } on DioException catch (e) {
+    } on DioException {
       rethrow;
     }
   }

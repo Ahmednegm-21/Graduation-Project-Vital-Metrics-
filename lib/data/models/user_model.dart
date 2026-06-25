@@ -5,7 +5,7 @@ class UserModel {
   final String? profileImage;
   final DateTime? createdAt;
   final bool?   onboardingComplete;
-  final bool    isAdmin;          // ← جديد
+  final bool    isAdmin;          
 
   UserModel({
     this.id,
